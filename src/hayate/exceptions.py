@@ -7,12 +7,12 @@ a raised ``HTTPException`` or by the framework defaults (404/405/500).
 
 from __future__ import annotations
 
-import json as _json
 from collections.abc import Iterable, Mapping
 from http import HTTPStatus
 from typing import Any
 
 from .headers import Headers
+from .jsonutil import dumps_compact
 from .response import Response
 
 
@@ -47,7 +47,7 @@ def problem(
         payload.update(extensions)
     merged = Headers(headers)
     merged.set("content-type", "application/problem+json")
-    return Response(_json.dumps(payload), status, headers=merged)
+    return Response(dumps_compact(payload), status, headers=merged)
 
 
 class HTTPException(Exception):

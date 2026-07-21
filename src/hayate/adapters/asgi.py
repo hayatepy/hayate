@@ -8,18 +8,24 @@ out of the box.
 from __future__ import annotations
 
 import inspect
+import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 from ..abort import AbortSignal
+from ..context import Context
 from ..headers import Headers
-from ..request import Request
+from ..request import HayateRequest, Request
+from ..router import WEBSOCKET_METHOD
 from ..url import URL
+from ..websocket import WebSocket, WebSocketClosed
 
 if TYPE_CHECKING:
     from ..app import Hayate
     from ..response import Response
+
+_logger = logging.getLogger("hayate.asgi")
 
 type Receive = Callable[[], Awaitable[dict[str, Any]]]
 type Send = Callable[[dict[str, Any]], Awaitable[None]]
@@ -59,10 +65,12 @@ class ASGIAdapter:
         kind = scope["type"]
         if kind == "http":
             await self._http(scope, receive, send)
+        elif kind == "websocket":
+            await self._websocket(scope, receive, send)
         elif kind == "lifespan":
             await self._lifespan(receive, send)
         else:
-            raise RuntimeError(f"unsupported ASGI scope type: {kind!r} (websocket lands in v0.2)")
+            raise RuntimeError(f"unsupported ASGI scope type: {kind!r}")
 
     # -- http -----------------------------------------------------------------
 
@@ -100,6 +108,45 @@ class ASGIAdapter:
             background = response._background
             if background is not None:
                 await background._drain()
+
+    # -- websocket ---------------------------------------------------------------
+
+    async def _websocket(self, scope: dict[str, Any], receive: Receive, send: Send) -> None:
+        raw_path = scope.get("raw_path")
+        if raw_path:
+            path = raw_path.decode("latin-1")
+        else:
+            path = quote(scope.get("path", "/"), safe=_PATH_SAFE)
+        matched = self._app._router.match(WEBSOCKET_METHOD, path)
+        if matched is None:
+            await receive()  # websocket.connect
+            await send({"type": "websocket.close", "code": 4404, "reason": "not found"})
+            return
+        route, params = matched
+        raw_headers: list[tuple[bytes, bytes]] = scope.get("headers", [])
+        host: bytes | None = None
+        for name, value in raw_headers:
+            if name == b"host":
+                host = value
+                break
+        request = Request(
+            _build_url(scope, host),
+            headers=Headers._from_wire(raw_headers, guard="immutable"),
+        )
+        hayate_request = HayateRequest(request)
+        hayate_request._params = params
+        c = Context(hayate_request, self._app._env, None)
+        ws = WebSocket(receive, send)
+        await ws.accept()
+        try:
+            await route.handler(c, ws)
+        except WebSocketClosed:
+            pass
+        except Exception:
+            _logger.exception("websocket handler failed on %s", path)
+            await ws.close(1011, "internal error")
+            return
+        await ws.close()
 
     # -- lifespan ----------------------------------------------------------------
 

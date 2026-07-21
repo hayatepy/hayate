@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import asyncio
-import json as _json
 import logging
-from collections.abc import Awaitable, Callable, Iterable, Mapping
+from collections.abc import AsyncIterable, Awaitable, Callable, Iterable, Mapping
 from typing import Any
 
 from .body import BodyInit
+from .cookies import serialize_set_cookie
 from .exceptions import problem
 from .headers import Headers
+from .jsonutil import dumps_compact
 from .request import HayateRequest
 from .response import Response
+from .sse import SSEMessage, event_stream
 
 type Next = Callable[[], Awaitable[None]]
 type HeadersArg = Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None
@@ -113,11 +115,14 @@ class Context:
     # -- response helpers -------------------------------------------------------
 
     def json(self, data: Any, status: int = 200, headers: HeadersArg = None) -> Response:
-        merged = Headers(headers)
-        if not merged.has("content-type"):
+        if headers is None:
+            merged = Headers()
             merged._append_trusted("content-type", "application/json")
-        payload = _json.dumps(data, ensure_ascii=False, separators=(",", ":"))
-        return Response(payload, status, headers=merged)
+        else:
+            merged = Headers(headers)
+            if not merged.has("content-type"):
+                merged._append_trusted("content-type", "application/json")
+        return Response(dumps_compact(data), status, headers=merged)
 
     def text(self, text: str, status: int = 200, headers: HeadersArg = None) -> Response:
         return Response(text, status, headers=headers)
@@ -135,3 +140,20 @@ class Context:
 
     def not_found(self) -> Response:
         return problem(404)
+
+    def event_stream(
+        self,
+        source: AsyncIterable[SSEMessage],
+        status: int = 200,
+        headers: HeadersArg = None,
+    ) -> Response:
+        """Server-Sent Events response (WHATWG HTML Standard)."""
+        merged = Headers(headers)
+        merged.set("content-type", "text/event-stream")
+        if not merged.has("cache-control"):
+            merged._append_trusted("cache-control", "no-cache")
+        return Response(event_stream(source), status, headers=merged)
+
+    def set_cookie(self, name: str, value: str, **attributes: Any) -> None:
+        """Stage a ``Set-Cookie`` header (RFC 6265bis attributes as kwargs)."""
+        self.header("set-cookie", serialize_set_cookie(name, value, **attributes), append=True)

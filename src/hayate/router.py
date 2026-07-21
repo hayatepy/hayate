@@ -16,6 +16,10 @@ from .urlpattern import compile_pathname
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+# Routing key for WebSocket routes. Lowercase on purpose: incoming HTTP
+# methods are upper-cased, so this can never collide with one.
+WEBSOCKET_METHOD = "#websocket"
+
 
 class Route:
     __slots__ = ("handler", "method", "middleware", "pattern")
@@ -75,9 +79,9 @@ class Router:
         methods: set[str] = set()
         static = self._static.get(path)
         if static:
-            methods.update(static)
+            methods.update(m for m in static if m != WEBSOCKET_METHOD)
         for method, regex, _, _ in self._dynamic:
-            if method not in methods and regex.match(path):
+            if method != WEBSOCKET_METHOD and method not in methods and regex.match(path):
                 methods.add(method)
         if "GET" in methods:
             methods.add("HEAD")

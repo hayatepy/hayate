@@ -72,10 +72,25 @@ def build_hayate() -> dict[str, tuple[Any, str]]:
         async def handler(c):
             return c.text("ok")
 
+    mw_app = Hayate()
+
+    @mw_app.use
+    async def first(c, next_):
+        await next_()
+
+    @mw_app.use
+    async def second(c, next_):
+        await next_()
+
+    @mw_app.get("/")
+    async def mw_home(c):
+        return c.text("hello")
+
     return {
         "static-text": (app, "/"),
         "dynamic-json": (app, "/items/123"),
         "many-routes(64)": (many, "/route63/value"),
+        "middleware(2)": (mw_app, "/"),
     }
 
 
@@ -93,12 +108,26 @@ def build_starlette() -> dict[str, tuple[Any, str]]:
     async def ok(request):
         return PlainTextResponse("ok")
 
+    from starlette.middleware import Middleware as StarletteMiddleware
+    from starlette.middleware.base import BaseHTTPMiddleware
+
+    async def passthrough(request, call_next):
+        return await call_next(request)
+
     app = Starlette(routes=[Route("/", home), Route("/items/{id}", item)])
     many = Starlette(routes=[Route(f"/route{i}/{{key}}", ok) for i in range(64)])
+    mw_app = Starlette(
+        routes=[Route("/", home)],
+        middleware=[
+            StarletteMiddleware(BaseHTTPMiddleware, dispatch=passthrough),
+            StarletteMiddleware(BaseHTTPMiddleware, dispatch=passthrough),
+        ],
+    )
     return {
         "static-text": (app, "/"),
         "dynamic-json": (app, "/items/123"),
         "many-routes(64)": (many, "/route63/value"),
+        "middleware(2)": (mw_app, "/"),
     }
 
 

@@ -379,7 +379,7 @@ async def test_create_book():
 |---|---|---|
 | 0: 参照実装 | pure Python。意味論の正であり、全機能のフォールバック | 全環境(Pyodide 含む) |
 | 1: 内部最適化 | 遅延実体化・bytes 内部表現・事前合成(Tier 0 と同一コードベース) | 全環境 |
-| 2: native accelerator | Rust(maturin)による **opt-in** 拡張。加速対象は計測で選定(候補: URLPattern マッチ、URL パース、multipart、SFV)。v0.2 以降 | native CPython(abi3 wheel)。**Workers は PyEmscripten wheel をサポートするため、emscripten ターゲットもビルドできれば Pyodide でも有効** |
+| 2: native accelerator | Rust(maturin)による **opt-in** 拡張(`accel/` = `hayate-accel`)。初弾は compact JSON encoder(dynamic-json を 0.99x → 1.22x に改善)。次候補は計測で選定(multipart、SFV) | native CPython(abi3 wheel、pyo3 0.26)。**Workers は PyEmscripten wheel をサポートするため、emscripten ターゲットもビルドできれば Pyodide でも有効** |
 
 Tier 2 の受け入れ条件: ① pure Python フォールバックと挙動同一(同一テストスイートを両実装で実行)、② 意味論コードと加速コードの分離、③ Pyodide の 6 ヶ月ごとの ABI 追随コストを負えること。デメリット(ビルドチェーン複雑化・デバッグ困難化・供給網リスク)は①②で封じ込める。
 
@@ -451,7 +451,7 @@ v1 まで**やらない**と明示するもの:
 | 版 | 内容 | 受け入れ基準 |
 |---|---|---|
 | **v0.1 コア** | Headers → URL/URLSearchParams → URLPattern → Request/Response → Context/Router/App → ASGI アダプタ → testing → 初期ミドルウェア(logger, cors, etag, basic_auth, compress) | TODO API がテスト付きで書ける。wpt サブセット合格。Starlette 比ベンチ公開 |
-| **v0.2** | SSE / WebSocket / 静的ファイル(Range)/ cache / secure_headers / 署名 cookie / body_limit / timeout | リアルタイムチャットのサンプルが動く |
+| **v0.2** | SSE / WebSocket / secure_headers / 署名 cookie / body_limit / timeout(いずれも実装済み・チャットサンプル達成)。静的ファイル(Range)と cache(RFC 9111)は v0.2 継続分 | リアルタイムチャットのサンプルが動く ✅(examples/chat.py + tests/test_chat_example.py) |
 | **v0.3** | validator フック + msgspec/pydantic extra / Workers・Lambda アダプタ / ドキュメントサイト | 同一アプリが uvicorn と Workers で無変更動作 |
 | v1.0 | API 凍結、OpenAPI 等は証拠駆動で判断 | — |
 

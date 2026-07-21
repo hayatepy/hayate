@@ -15,6 +15,7 @@ from urllib.parse import unquote
 
 from .abort import AbortSignal
 from .body import Body, BodyInit
+from .cookies import parse_cookies
 from .formdata import FormData, parse_header_params, parse_multipart
 from .headers import Headers
 from .url import URL, parse_form_urlencoded
@@ -169,6 +170,11 @@ class HayateRequest:
             name: (None if value is None else unquote(value, errors="replace"))
             for name, value in self._params.items()
         }
+
+    @property
+    def cookies(self) -> dict[str, str]:
+        header = self.raw.headers.get("cookie")
+        return {} if header is None else parse_cookies(header)
 
     def query(self, name: str) -> str | None:
         return self.raw.url.search_params.get(name)

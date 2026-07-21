@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-import json as _json
 import logging
 import traceback
 from collections.abc import Awaitable, Callable
@@ -20,9 +19,10 @@ from typing import TYPE_CHECKING, Any
 from .context import Context, ErrorHandler, ExecutionContext, Handler, HeadersArg, Middleware
 from .exceptions import HTTPException, problem
 from .headers import Headers
+from .jsonutil import dumps_compact
 from .request import HayateRequest, Request
 from .response import Response
-from .router import Route, Router
+from .router import WEBSOCKET_METHOD, Route, Router
 from .urlpattern import URLPattern
 
 if TYPE_CHECKING:
@@ -60,6 +60,9 @@ class Hayate:
     def __init__(self, *, env: Any = None, debug: bool = False) -> None:
         self._router = Router()
         self._middleware: list[tuple[URLPattern | None, Middleware]] = []
+        # Stage 2 (DESIGN §14.1-2): while every middleware is unscoped, the
+        # per-request chain is this shared list — no per-request filtering.
+        self._plain_chain: list[Middleware] | None = []
         self._env = env
         self._debug = debug
         self._not_found_handler: Handler = _default_not_found
@@ -105,6 +108,17 @@ class Hayate:
     def head(self, path: str, *middleware: Middleware):
         return self.on("HEAD", path, *middleware)
 
+    def ws(self, path: str):
+        """Register a WebSocket route: ``async def handler(c, ws)``."""
+
+        def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+            if not inspect.iscoroutinefunction(fn):
+                raise TypeError("websocket handlers must be async")
+            self._router.add(Route(WEBSOCKET_METHOD, path, fn, ()))
+            return fn
+
+        return decorator
+
     # -- middleware ------------------------------------------------------------
 
     def use(self, arg: str | Middleware, middleware: Middleware | None = None):
@@ -114,21 +128,28 @@ class Hayate:
         and ``@app.use("/admin/*")``.
         """
         if callable(arg):
-            _check_middleware(arg)
-            self._middleware.append((None, arg))
+            self._register_middleware(None, arg)
             return arg
         pattern = URLPattern(arg)
         if middleware is not None:
-            _check_middleware(middleware)
-            self._middleware.append((pattern, middleware))
+            self._register_middleware(pattern, middleware)
             return middleware
 
         def decorator(fn: Middleware) -> Middleware:
-            _check_middleware(fn)
-            self._middleware.append((pattern, fn))
+            self._register_middleware(pattern, fn)
             return fn
 
         return decorator
+
+    def _register_middleware(self, pattern: URLPattern | None, fn: Middleware) -> None:
+        _check_middleware(fn)
+        self._middleware.append((pattern, fn))
+        if pattern is None:
+            if self._plain_chain is not None:
+                self._plain_chain.append(fn)
+        else:
+            # Scoped middleware defeats the precomputed chain.
+            self._plain_chain = None
 
     # -- hooks -------------------------------------------------------------------
 
@@ -183,12 +204,14 @@ class Hayate:
         if matched is None and method == "HEAD":
             matched = self._router.match("GET", path)
 
-        if self._middleware:
+        if not self._middleware:
+            scoped: list[Middleware] = []
+        elif self._plain_chain is not None:
+            scoped = self._plain_chain
+        else:
             scoped = [
                 mw for pattern, mw in self._middleware if pattern is None or pattern.test(path)
             ]
-        else:
-            scoped = []
         if matched is not None:
             route, params = matched
             c.req._params = params
@@ -278,7 +301,7 @@ class Hayate:
         if json is not None:
             if body is not None:
                 raise TypeError("pass either body or json, not both")
-            body = _json.dumps(json, ensure_ascii=False)
+            body = dumps_compact(json)
             if not merged.has("content-type"):
                 merged.set("content-type", "application/json")
         if "://" in path:

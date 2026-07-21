@@ -11,8 +11,9 @@ from .request import HayateRequest, Request
 from .response import Response
 from .url import URL, URLSearchParams
 from .urlpattern import URLPattern, URLPatternResult
+from .websocket import WebSocket, WebSocketClosed
 
-__version__ = "0.1.0.dev0"
+__version__ = "0.2.0.dev0"
 
 __all__ = [
     "URL",
@@ -36,6 +37,8 @@ __all__ = [
     "URLPattern",
     "URLPatternResult",
     "URLSearchParams",
+    "WebSocket",
+    "WebSocketClosed",
     "__version__",
     "problem",
 ]
