@@ -106,7 +106,7 @@ class Context:
     def json(self, data: Any, status: int = 200, headers: HeadersArg = None) -> Response:
         merged = Headers(headers)
         if not merged.has("content-type"):
-            merged.set("content-type", "application/json")
+            merged._append_trusted("content-type", "application/json")
         payload = _json.dumps(data, ensure_ascii=False, separators=(",", ":"))
         return Response(payload, status, headers=merged)
 

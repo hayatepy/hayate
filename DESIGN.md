@@ -365,7 +365,7 @@ async def test_create_book():
 
 ## 14. パフォーマンス方針
 
-- 目標: **pure Python で Starlette 同等以上**(TechEmpower 系 + 自前 pyperf ベンチを CI に組み込み、リグレッションを検出)。
+- 目標: **pure Python で Starlette 同等以上**(TechEmpower 系 + 自前 pyperf ベンチを CI に組み込み、リグレッションを検出)。v0.1 実測で達成 — 幾何平均 1.13x、64 ルート時 1.76x(docs/benchmarks.md)。
 - 手段: ルート事前コンパイル、ホットパス(Headers / URL パース)のアロケーション最小化、ミドルウェアチェーンの事前合成(リクエスト毎にクロージャを組み立てない)。
 - Rust 拡張(URL パーサ等)は**やらない**(v1 まで)。ゼロ依存・全環境動作(Pyodide 含む)の価値が上回る。プロファイルで証拠が出たら optional accelerator として検討(pure Python フォールバック必須)。
 

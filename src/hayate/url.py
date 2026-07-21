@@ -16,6 +16,7 @@ see DESIGN.md §13.2):
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Iterator, Mapping
 from urllib.parse import unquote
 
@@ -25,6 +26,55 @@ _SPECIAL_SCHEMES = frozenset(_DEFAULT_PORTS) | {"file"}
 
 # application/x-www-form-urlencoded byte serializer safe set (URL Standard).
 _FORM_SAFE = frozenset(b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789*-._")
+
+# C0 controls and space — trimmed from both ends per the URL Standard.
+_C0_AND_SPACE = "".join(chr(i) for i in range(0x21))
+
+# Component percent-encode sets (URL Standard). "%" is never re-encoded,
+# so existing percent-escapes pass through untouched.
+_FRAGMENT_ENCODE = frozenset(' "<>`')
+_QUERY_ENCODE = frozenset(' "#<>')
+_QUERY_ENCODE_SPECIAL = _QUERY_ENCODE | {"'"}
+_PATH_ENCODE = _QUERY_ENCODE | frozenset("?`{}")
+_USERINFO_ENCODE = _PATH_ENCODE | frozenset("/:;=@[\\]^|")
+_FORBIDDEN_HOST_CHARS = frozenset("\x00\t\n\r #/:<>?@[\\]^|")
+
+
+# Per-set "does this string need any encoding?" probes — the common case
+# (already-encoded ASCII) short-circuits without a Python-level loop.
+_NEEDS_ENCODE = {
+    encode_set: re.compile(
+        "[" + re.escape("".join(sorted(encode_set))) + "\\x00-\\x1f\\x7f]|[^\\x00-\\x7f]"
+    )
+    for encode_set in (
+        _FRAGMENT_ENCODE,
+        _QUERY_ENCODE,
+        _QUERY_ENCODE_SPECIAL,
+        _PATH_ENCODE,
+        _USERINFO_ENCODE,
+    )
+}
+
+_FORBIDDEN_HOST_RE = re.compile(r"[\x00-\x1f\x7f #/:<>?@\[\\\]^|]")
+
+
+def _encode_component(value: str, encode_set: frozenset[str]) -> str:
+    if not value or _NEEDS_ENCODE[encode_set].search(value) is None:
+        return value
+    out: list[str] = []
+    for ch in value:
+        code = ord(ch)
+        if 0x20 <= code <= 0x7E and ch not in encode_set:
+            out.append(ch)
+        else:
+            out.extend(f"%{byte:02X}" for byte in ch.encode("utf-8"))
+    return "".join(out)
+
+
+def _preprocess(url: str) -> str:
+    """URL Standard input preprocessing: trim C0/space, drop tab/newline."""
+    url = url.strip(_C0_AND_SPACE)
+    return url.replace("\t", "").replace("\n", "").replace("\r", "")
 
 
 def _split_scheme(url: str) -> tuple[str, str] | None:
@@ -167,6 +217,7 @@ class URL:
     )
 
     def __init__(self, url: str, base: str | URL | None = None) -> None:
+        url = _preprocess(url)
         if _split_scheme(url) is None:
             if base is None:
                 raise ValueError(f"invalid URL (no scheme and no base): {url!r}")
@@ -175,17 +226,58 @@ class URL:
         self._params: URLSearchParams | None = None
         self._parse(url)
 
+    @classmethod
+    def _from_server(cls, scheme: str, host: str, path: str, query: str) -> URL:
+        """Adapter fast path: trusted, already-encoded components.
+
+        Servers hand adapters pre-validated, wire-encoded values, so the
+        full parser (validation, percent-encoding) is skipped. Only
+        host:port splitting, default-port elision, and dot-segment
+        removal (when present) are performed.
+        """
+        url = cls.__new__(cls)
+        url._params = None
+        url._scheme = scheme
+        url._username = ""
+        url._password = ""
+        if host.startswith("["):
+            close = host.find("]")
+            url._hostname = host[: close + 1].lower() if close != -1 else host.lower()
+            rest = host[close + 1 :] if close != -1 else ""
+            port = rest[1:] if rest.startswith(":") else ""
+        else:
+            hostname, _, port = host.partition(":")
+            url._hostname = hostname.lower()
+        if port and _DEFAULT_PORTS.get(scheme) == port:
+            port = ""
+        url._port = port
+        if not path:
+            path = "/"
+        elif "/." in path:
+            path = _remove_dot_segments(path)
+        url._pathname = path
+        url._search = f"?{query}" if query else ""
+        url._hash = ""
+        return url
+
     def _parse(self, url: str) -> None:
         split = _split_scheme(url)
         if split is None:
             raise ValueError(f"invalid URL: {url!r}")
         scheme, rest = split
-        if not rest.startswith("//"):
+        is_special = scheme in _DEFAULT_PORTS
+        if is_special:
+            # Special schemes tolerate any number of "/" or "\" after the
+            # colon (URL Standard "special authority slashes" state).
+            rest = rest.lstrip("/\\")
+        elif rest.startswith("//"):
+            rest = rest[2:]
+        else:
             raise ValueError(f"unsupported URL (no authority): {url!r}")
-        rest = rest[2:]
 
+        terminators = "/?#\\" if is_special else "/?#"
         end = len(rest)
-        for ch in "/?#":
+        for ch in terminators:
             pos = rest.find(ch)
             if pos != -1:
                 end = min(end, pos)
@@ -194,7 +286,9 @@ class URL:
         username = password = ""
         if "@" in authority:
             userinfo, hostport = authority.rsplit("@", 1)
-            username, _, password = userinfo.partition(":")
+            raw_username, _, raw_password = userinfo.partition(":")
+            username = _encode_component(raw_username, _USERINFO_ENCODE)
+            password = _encode_component(raw_password, _USERINFO_ENCODE)
         else:
             hostport = authority
 
@@ -203,6 +297,8 @@ class URL:
             if close == -1:
                 raise ValueError(f"invalid IPv6 host in URL: {url!r}")
             hostname = hostport[: close + 1].lower()
+            if not all(ch in "0123456789abcdef:." for ch in hostname[1:-1]):
+                raise ValueError(f"invalid IPv6 host in URL: {url!r}")
             portpart = hostport[close + 1 :]
             if portpart and not portpart.startswith(":"):
                 raise ValueError(f"invalid host in URL: {url!r}")
@@ -210,6 +306,12 @@ class URL:
         else:
             hostname, _, port = hostport.partition(":")
             hostname = hostname.lower()
+            if not hostname.isascii():
+                # Silent mojibake would be worse than an explicit error:
+                # IDNA/punycode is not implemented in v0.1.
+                raise ValueError(f"non-ASCII host (IDNA not implemented): {url!r}")
+            if _FORBIDDEN_HOST_RE.search(hostname):
+                raise ValueError(f"forbidden host code point in URL: {url!r}")
         if not hostname:
             raise ValueError(f"empty host in URL: {url!r}")
         if port:
@@ -235,8 +337,18 @@ class URL:
             path = path[:pos]
         if search == "?":
             search = ""
+        elif search:
+            query_set = _QUERY_ENCODE_SPECIAL if is_special else _QUERY_ENCODE
+            search = "?" + _encode_component(search[1:], query_set)
+        if fragment and fragment != "#":
+            fragment = "#" + _encode_component(fragment[1:], _FRAGMENT_ENCODE)
+        if is_special:
+            path = path.replace("\\", "/")
+        path = _encode_component(path, _PATH_ENCODE)
         if not path:
             path = "/"
+        elif not path.startswith("/"):
+            path = "/" + path
 
         self._scheme = scheme
         self._username = username

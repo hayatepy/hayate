@@ -34,6 +34,20 @@ def test_dot_segments_removed():
     assert URL("http://a.com/a/b/..").pathname == "/a/"
 
 
+def test_path_percent_encoding_normalized():
+    assert URL("http://a.com/日本 語").pathname == "/%E6%97%A5%E6%9C%AC%20%E8%AA%9E"
+    # Existing escapes are preserved, never double-encoded.
+    assert URL("http://a.com/a%20b").pathname == "/a%20b"
+
+
+def test_whitespace_and_backslash_tolerance():
+    # URL Standard preprocessing: strip C0/space, drop tab/newline.
+    assert URL("  http://a.com/x\n").href == "http://a.com/x"
+    # Special schemes treat "\" as "/" and tolerate slash miscounts.
+    assert URL("http:\\\\a.com\\x").href == "http://a.com/x"
+    assert URL("http:a.com/x").hostname == "a.com"
+
+
 def test_search_params_decoding():
     u = URL("http://a.com/?a=1&a=2&b=%E3%81%82&c=x+y")
     p = u.search_params

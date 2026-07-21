@@ -165,8 +165,9 @@ class Hayate:
             c.res = await self._handle_error(exc, c)
         if c.res is None:
             c.res = problem(500, detail="no response was produced")
-        c._apply_header_ops()
-        if own_ctx:
+        if c._header_ops:
+            c._apply_header_ops()
+        if own_ctx and exec_ctx._tasks:
             await exec_ctx._drain()
         return c.res
 
@@ -177,11 +178,16 @@ class Hayate:
         if matched is None and method == "HEAD":
             matched = self._router.match("GET", path)
 
-        scoped = [mw for pattern, mw in self._middleware if pattern is None or pattern.test(path)]
+        if self._middleware:
+            scoped = [
+                mw for pattern, mw in self._middleware if pattern is None or pattern.test(path)
+            ]
+        else:
+            scoped = []
         if matched is not None:
             route, params = matched
             c.req._params = params
-            chain = scoped + list(route.middleware)
+            chain = scoped + list(route.middleware) if route.middleware else scoped
             handler = route.handler
         else:
             # No route: middleware still runs (CORS etc. apply to 404/405 too).
@@ -198,6 +204,19 @@ class Hayate:
         await self._compose(c, chain, handler)
 
     async def _compose(self, c: Context, chain: list[Middleware], handler: Handler) -> None:
+        if not chain:
+            # Hot path: no middleware, no dispatch closures.
+            result = await handler(c)
+            if result is not None:
+                if not isinstance(result, Response):
+                    raise TypeError(
+                        f"handler must return a Response or None, got {type(result).__name__}"
+                    )
+                c.res = result
+            elif c.res is None:
+                raise TypeError("handler returned None and no response was set on c.res")
+            return
+
         async def dispatch(index: int) -> None:
             if index == len(chain):
                 result = await handler(c)

@@ -14,6 +14,7 @@ from urllib.parse import quote
 
 from ..abort import AbortSignal
 from ..context import ExecutionContext
+from ..headers import Headers
 from ..request import Request
 from ..url import URL
 
@@ -71,10 +72,13 @@ class ASGIAdapter:
         request = Request(
             _build_url(scope),
             method=scope["method"],
-            headers=[
-                (name.decode("latin-1"), value.decode("latin-1"))
-                for name, value in scope.get("headers", [])
-            ],
+            headers=Headers._from_wire(
+                (
+                    (name.decode("latin-1"), value.decode("latin-1"))
+                    for name, value in scope.get("headers", [])
+                ),
+                guard="immutable",
+            ),
             body=_request_body(receive, signal),
             signal=signal,
         )
@@ -131,10 +135,7 @@ def _build_url(scope: dict[str, Any]) -> URL:
     else:
         path = quote(scope.get("path", "/"), safe=_PATH_SAFE)
     query = scope.get("query_string", b"").decode("latin-1")
-    target = f"{scheme}://{host}{path}"
-    if query:
-        target += f"?{query}"
-    return URL(target)
+    return URL._from_server(scheme, host, path, query)
 
 
 async def _send_response(scope: dict[str, Any], send: Send, response: Response) -> None:

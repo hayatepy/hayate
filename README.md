@@ -45,6 +45,14 @@ async def test_show_book():
     assert (await res.json())["id"] == "1"
 ```
 
+## Conformance and performance, measured
+
+- Standards conformance runs against vendored [web-platform-tests](https://github.com/web-platform-tests/wpt)
+  vectors on every `pytest` run, with ratcheted pass counts —
+  see [docs/conformance.md](docs/conformance.md).
+- Framework overhead is benchmarked against Starlette (parity overall,
+  1.76x at 64 routes) — see [docs/benchmarks.md](docs/benchmarks.md).
+
 ## Status
 
 Pre-alpha; v0.1 under active development (private). Design decisions are documented in

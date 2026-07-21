@@ -34,7 +34,7 @@ class Response(Body):
         self.headers = Headers(headers)
         # Per Fetch: a text body implies text/plain;charset=UTF-8 unless set.
         if isinstance(body, str) and not self.headers.has("content-type"):
-            self.headers.set("content-type", "text/plain;charset=utf-8")
+            self.headers._append_trusted("content-type", "text/plain;charset=utf-8")
         self._init_body(body)
 
     @property

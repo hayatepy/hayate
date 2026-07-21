@@ -40,6 +40,22 @@ class Headers:
                 self.append(name, value)
         self._guard = guard
 
+    @classmethod
+    def _from_wire(
+        cls,
+        pairs: Iterable[tuple[str, str]],
+        guard: Literal["none", "immutable"] = "none",
+    ) -> Headers:
+        """Adapter fast path: server-validated pairs, lowercased only."""
+        headers = cls.__new__(cls)
+        headers._pairs = [(name.lower(), value) for name, value in pairs]
+        headers._guard = guard
+        return headers
+
+    def _append_trusted(self, name: str, value: str) -> None:
+        """Framework-internal constants; skips validation on hot paths."""
+        self._pairs.append((name, value))
+
     # -- validation -------------------------------------------------------
 
     def _check_mutable(self) -> None:

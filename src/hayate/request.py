@@ -75,7 +75,11 @@ class Request(Body):
         self.url = url if isinstance(url, URL) else URL(url)
         self.method = method.upper()
         # Request headers are immutable, per the Fetch guard semantics.
-        self.headers = Headers(headers, guard="immutable")
+        # An already-immutable Headers can be shared instead of copied.
+        if isinstance(headers, Headers) and headers._guard == "immutable":
+            self.headers = headers
+        else:
+            self.headers = Headers(headers, guard="immutable")
         self.signal = signal if signal is not None else AbortSignal()
         self._init_body(body)
 
