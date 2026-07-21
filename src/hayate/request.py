@@ -61,7 +61,7 @@ class _TeeSource:
 
 
 class Request(Body):
-    __slots__ = ("headers", "method", "signal", "url")
+    __slots__ = ("_signal", "headers", "method", "url")
 
     def __init__(
         self,
@@ -80,8 +80,15 @@ class Request(Body):
             self.headers = headers
         else:
             self.headers = Headers(headers, guard="immutable")
-        self.signal = signal if signal is not None else AbortSignal()
+        self._signal = signal
         self._init_body(body)
+
+    @property
+    def signal(self) -> AbortSignal:
+        # Created lazily: most requests never observe their signal.
+        if self._signal is None:
+            self._signal = AbortSignal()
+        return self._signal
 
     def clone(self) -> Request:
         if self.body_used:

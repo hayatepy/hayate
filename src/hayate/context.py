@@ -52,13 +52,15 @@ class ExecutionContext:
 class Context:
     __slots__ = ("_exec", "_header_ops", "_res", "_vars", "env", "req")
 
-    def __init__(self, req: HayateRequest, env: Any, exec_ctx: ExecutionContext) -> None:
+    def __init__(self, req: HayateRequest, env: Any, exec_ctx: ExecutionContext | None) -> None:
         self.req = req
         self.env = env
         self._exec = exec_ctx
         self._res: Response | None = None
-        self._vars: dict[str, Any] = {}
-        self._header_ops: list[tuple[str, str, bool]] = []
+        # Lazily created — most requests never use per-request variables
+        # or staged headers, so they should not pay for the allocations.
+        self._vars: dict[str, Any] | None = None
+        self._header_ops: list[tuple[str, str, bool]] | None = None
 
     # -- response ----------------------------------------------------------
 
@@ -75,25 +77,32 @@ class Context:
     # -- per-request variables (Hono's c.var) --------------------------------
 
     def get(self, key: str, default: Any = None) -> Any:
-        return self._vars.get(key, default)
+        variables = self._vars
+        return default if variables is None else variables.get(key, default)
 
     def set(self, key: str, value: Any) -> None:
+        if self._vars is None:
+            self._vars = {}
         self._vars[key] = value
 
     # -- deferred work -------------------------------------------------------
 
     def wait_until(self, awaitable: Awaitable[Any]) -> None:
         """Run work after the response is sent (Workers ``ctx.waitUntil``)."""
+        if self._exec is None:
+            self._exec = ExecutionContext()
         self._exec.wait_until(awaitable)
 
     # -- response header staging ----------------------------------------------
 
     def header(self, name: str, value: str, *, append: bool = False) -> None:
         """Stage a header for the final response (merged after the chain runs)."""
+        if self._header_ops is None:
+            self._header_ops = []
         self._header_ops.append((name, value, append))
 
     def _apply_header_ops(self) -> None:
-        if self._res is None:
+        if self._res is None or self._header_ops is None:
             return
         for name, value, append in self._header_ops:
             if append:

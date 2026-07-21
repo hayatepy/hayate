@@ -155,10 +155,14 @@ class Hayate:
     async def fetch(
         self, request: Request, env: Any = None, ctx: ExecutionContext | None = None
     ) -> Response:
-        """Handle one request. The only entry point; everything else adapts to it."""
-        own_ctx = ctx is None
-        exec_ctx = ctx if ctx is not None else ExecutionContext()
-        c = Context(HayateRequest(request), env if env is not None else self._env, exec_ctx)
+        """Handle one request. The only entry point; everything else adapts to it.
+
+        Background work (``c.wait_until``): with an explicit ``ctx`` the
+        caller owns draining it (Workers-style). Without one, pending work
+        rides on the returned response and is drained by the adapter or
+        ``app.request()`` after the response is delivered.
+        """
+        c = Context(HayateRequest(request), env if env is not None else self._env, ctx)
         try:
             await self._dispatch(c)
         except Exception as exc:
@@ -167,9 +171,10 @@ class Hayate:
             c.res = problem(500, detail="no response was produced")
         if c._header_ops:
             c._apply_header_ops()
-        if own_ctx and exec_ctx._tasks:
-            await exec_ctx._drain()
-        return c.res
+        response = c.res
+        if ctx is None and c._exec is not None:
+            response._background = c._exec
+        return response
 
     async def _dispatch(self, c: Context) -> None:
         path = c.req.url.pathname
@@ -280,7 +285,12 @@ class Hayate:
             url = path
         else:
             url = f"http://localhost{path if path.startswith('/') else '/' + path}"
-        return await self.fetch(Request(url, method=method, headers=merged, body=body))
+        response = await self.fetch(Request(url, method=method, headers=merged, body=body))
+        background = response._background
+        if background is not None:
+            response._background = None
+            await background._drain()
+        return response
 
     # -- ASGI --------------------------------------------------------------------------
 

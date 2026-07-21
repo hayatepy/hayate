@@ -5,6 +5,12 @@ case-insensitive names, insertion order preserved, multiple values,
 combined ``get()``, special-cased ``set-cookie``, and an immutability
 guard. Names are stored lowercased (as they appear on the HTTP/2+ wire).
 
+Wire-native fast path: adapters hand over the server's raw ``bytes``
+pairs untouched (``_from_wire``); decoding to ``str`` happens lazily on
+first access, so requests that never touch their headers never pay for
+them. ASGI guarantees lowercase header names, so no re-normalization is
+needed on that path.
+
 Naming policy: semantics from the standard, spelling per PEP 8
 (``getSetCookie()`` -> ``set_cookie_list()``).
 """
@@ -20,7 +26,7 @@ _BAD_VALUE_CHARS = ("\x00", "\r", "\n")
 
 
 class Headers:
-    __slots__ = ("_guard", "_pairs")
+    __slots__ = ("_guard", "_pairs", "_raw")
 
     def __init__(
         self,
@@ -28,10 +34,11 @@ class Headers:
         *,
         guard: Literal["none", "immutable"] = "none",
     ) -> None:
+        self._raw: list[tuple[bytes, bytes]] | None = None
         self._pairs: list[tuple[str, str]] = []
         self._guard: Literal["none", "immutable"] = "none"
         if isinstance(init, Headers):
-            self._pairs.extend(init._pairs)
+            self._pairs.extend(init._decoded())
         elif isinstance(init, Mapping):
             for name, value in init.items():
                 self.append(name, value)
@@ -43,18 +50,26 @@ class Headers:
     @classmethod
     def _from_wire(
         cls,
-        pairs: Iterable[tuple[str, str]],
+        raw: list[tuple[bytes, bytes]],
         guard: Literal["none", "immutable"] = "none",
     ) -> Headers:
-        """Adapter fast path: server-validated pairs, lowercased only."""
+        """Adapter fast path: server-validated wire pairs, decoded lazily."""
         headers = cls.__new__(cls)
-        headers._pairs = [(name.lower(), value) for name, value in pairs]
+        headers._raw = raw
+        headers._pairs = []
         headers._guard = guard
         return headers
 
+    def _decoded(self) -> list[tuple[str, str]]:
+        raw = self._raw
+        if raw is not None:
+            self._pairs = [(name.decode("latin-1"), value.decode("latin-1")) for name, value in raw]
+            self._raw = None
+        return self._pairs
+
     def _append_trusted(self, name: str, value: str) -> None:
         """Framework-internal constants; skips validation on hot paths."""
-        self._pairs.append((name, value))
+        self._decoded().append((name, value))
 
     # -- validation -------------------------------------------------------
 
@@ -81,7 +96,7 @@ class Headers:
     def append(self, name: str, value: str) -> None:
         self._check_mutable()
         lname, value = self._validate(name, value)
-        self._pairs.append((lname, value))
+        self._decoded().append((lname, value))
 
     def set(self, name: str, value: str) -> None:
         """Replace the first occurrence, drop the rest (Fetch `set`)."""
@@ -89,7 +104,7 @@ class Headers:
         lname, value = self._validate(name, value)
         out: list[tuple[str, str]] = []
         replaced = False
-        for n, v in self._pairs:
+        for n, v in self._decoded():
             if n == lname:
                 if not replaced:
                     out.append((lname, value))
@@ -103,39 +118,40 @@ class Headers:
     def delete(self, name: str) -> None:
         self._check_mutable()
         lname = name.lower()
-        self._pairs = [(n, v) for n, v in self._pairs if n != lname]
+        self._pairs = [(n, v) for n, v in self._decoded() if n != lname]
 
     # -- access -----------------------------------------------------------
 
     def get(self, name: str) -> str | None:
         """Combined value per Fetch: multiple values joined with ", "."""
         lname = name.lower()
-        values = [v for n, v in self._pairs if n == lname]
+        values = [v for n, v in self._decoded() if n == lname]
         if not values:
             return None
         return ", ".join(values)
 
     def has(self, name: str) -> bool:
         lname = name.lower()
-        return any(n == lname for n, _ in self._pairs)
+        return any(n == lname for n, _ in self._decoded())
 
     def set_cookie_list(self) -> list[str]:
         """All ``set-cookie`` values, uncombined (Fetch ``getSetCookie()``)."""
-        return [v for n, v in self._pairs if n == "set-cookie"]
+        return [v for n, v in self._decoded() if n == "set-cookie"]
 
     def raw(self) -> list[tuple[str, str]]:
         """Underlying (name, value) pairs in insertion order, for adapters."""
-        return list(self._pairs)
+        return list(self._decoded())
 
     # -- iteration (Fetch iterator: sorted, combined, set-cookie apart) ----
 
     def items(self) -> Iterator[tuple[str, str]]:
-        for name in sorted({n for n, _ in self._pairs}):
+        pairs = self._decoded()
+        for name in sorted({n for n, _ in pairs}):
             if name == "set-cookie":
                 for value in self.set_cookie_list():
                     yield (name, value)
             else:
-                yield (name, ", ".join(v for n, v in self._pairs if n == name))
+                yield (name, ", ".join(v for n, v in pairs if n == name))
 
     def keys(self) -> Iterator[str]:
         for name, _ in self.items():
@@ -157,7 +173,7 @@ class Headers:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Headers):
             return NotImplemented
-        return sorted(self._pairs) == sorted(other._pairs)
+        return sorted(self._decoded()) == sorted(other._decoded())
 
     def __repr__(self) -> str:
-        return f"Headers({self._pairs!r})"
+        return f"Headers({self._decoded()!r})"

@@ -25,6 +25,10 @@ async def call_asgi(
     async def send(message: dict[str, Any]) -> None:
         messages.append(message)
 
+    header_list = [(k.encode(), v.encode()) for k, v in headers]
+    if body:
+        # Real servers always announce a request body (RFC 9112).
+        header_list.append((b"content-length", str(len(body)).encode()))
     scope = {
         "type": "http",
         "asgi": {"version": "3.0"},
@@ -34,7 +38,7 @@ async def call_asgi(
         "path": path,
         "raw_path": path.encode(),
         "query_string": query,
-        "headers": [(k.encode(), v.encode()) for k, v in headers],
+        "headers": header_list,
         "server": ("testserver", 80),
         "client": ("127.0.0.1", 1234),
     }

@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 from ..abort import AbortSignal
-from ..context import ExecutionContext
 from ..headers import Headers
 from ..request import Request
 from ..url import URL
@@ -68,26 +67,39 @@ class ASGIAdapter:
     # -- http -----------------------------------------------------------------
 
     async def _http(self, scope: dict[str, Any], receive: Receive, send: Send) -> None:
-        signal = AbortSignal()
+        raw_headers: list[tuple[bytes, bytes]] = scope.get("headers", [])
+        host: bytes | None = None
+        expects_body = False
+        for name, value in raw_headers:
+            if name == b"host":
+                if host is None:
+                    host = value
+            elif name == b"content-length":
+                expects_body = value not in (b"", b"0")
+            elif name == b"transfer-encoding":
+                expects_body = True
+        if expects_body:
+            signal: AbortSignal | None = AbortSignal()
+            body: Any = _request_body(receive, signal)
+        else:
+            # No content-length / transfer-encoding means no request body
+            # (RFC 9112) — a null body per Fetch; skip stream and signal.
+            signal = None
+            body = None
         request = Request(
-            _build_url(scope),
+            _build_url(scope, host),
             method=scope["method"],
-            headers=Headers._from_wire(
-                (
-                    (name.decode("latin-1"), value.decode("latin-1"))
-                    for name, value in scope.get("headers", [])
-                ),
-                guard="immutable",
-            ),
-            body=_request_body(receive, signal),
+            headers=Headers._from_wire(raw_headers, guard="immutable"),
+            body=body,
             signal=signal,
         )
-        ctx = ExecutionContext()
-        response = await self._app.fetch(request, ctx=ctx)
+        response = await self._app.fetch(request)
         try:
             await _send_response(scope, send, response)
         finally:
-            await ctx._drain()
+            background = response._background
+            if background is not None:
+                await background._drain()
 
     # -- lifespan ----------------------------------------------------------------
 
@@ -113,14 +125,11 @@ class ASGIAdapter:
                 return
 
 
-def _build_url(scope: dict[str, Any]) -> URL:
+def _build_url(scope: dict[str, Any], host_header: bytes | None) -> URL:
     scheme = scope.get("scheme", "http")
-    host: str | None = None
-    for name, value in scope.get("headers", []):
-        if name == b"host":
-            host = value.decode("latin-1")
-            break
-    if not host:
+    if host_header:
+        host = host_header.decode("latin-1")
+    else:
         server = scope.get("server")
         if server:
             host = server[0]

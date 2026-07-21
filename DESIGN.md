@@ -363,11 +363,31 @@ async def test_create_book():
 - **wpt(web-platform-tests)の URLPattern / URL / Headers テストベクタをベンダリング**して CI で実行。「準拠している」を主張ではなく数値(pass rate)で示す。これが「標準準拠」を名乗る資格の担保。
 - HTTP 意味論(405/Allow、HEAD、条件付きリクエスト等)は RFC の MUST 条項をテスト名に引用したテストスイートを作る。
 
-## 14. パフォーマンス方針
+## 14. パフォーマンス方針(2026-07-22 改訂: 理論限界を攻める)
 
-- 目標: **pure Python で Starlette 同等以上**(TechEmpower 系 + 自前 pyperf ベンチを CI に組み込み、リグレッションを検出)。v0.1 実測で達成 — 幾何平均 1.13x、64 ルート時 1.76x(docs/benchmarks.md)。
-- 手段: ルート事前コンパイル、ホットパス(Headers / URL パース)のアロケーション最小化、ミドルウェアチェーンの事前合成(リクエスト毎にクロージャを組み立てない)。
-- Rust 拡張(URL パーサ等)は**やらない**(v1 まで)。ゼロ依存・全環境動作(Pyodide 含む)の価値が上回る。プロファイルで証拠が出たら optional accelerator として検討(pure Python フォールバック必須)。
+目標を「Starlette 同等以上」から「**Fetch モデルを保った理論限界**」へ引き上げる。実測(docs/benchmarks.md): 素の ASGI 関数の床は 0.51µs/req、フレームワーク税は hayate/Starlette とも約 4.5µs。CPython はインタープリタであり、税はほぼ「オブジェクト生成数 + 関数呼び出し数 + バイトコード量」に線形 — 削る対象はこの 3 つ。
+
+### 14.1 設計原則
+
+1. **意味論は eager、実体化は lazy**: Fetch 標準は観測的意味論。`c.req.headers` が触られた瞬間に正しければ準拠であり、触られなかった Request 構成要素(Headers 実体・URL・signal・変数辞書)は作らない。
+2. **起動時に計算できるものは起動時に**: ルートコンパイル、ミドルウェアチェーン合成、定数のエンコード。Pyodide のメモリスナップショットは起動時計算を**ランタイムコストゼロ**にするため、この原則は Workers で二重に効く。
+3. **wire-native 内部表現**: サーバーは bytes を渡してくる。公開 API は Fetch の文字列意味論を維持し、内部は bytes を保持して**境界で遅延変換**する(ASGI はヘッダー名の小文字化を保証しており再正規化も不要)。
+
+### 14.2 3 層アーキテクチャ
+
+| Tier | 内容 | 動作環境 |
+|---|---|---|
+| 0: 参照実装 | pure Python。意味論の正であり、全機能のフォールバック | 全環境(Pyodide 含む) |
+| 1: 内部最適化 | 遅延実体化・bytes 内部表現・事前合成(Tier 0 と同一コードベース) | 全環境 |
+| 2: native accelerator | Rust(maturin)による **opt-in** 拡張。加速対象は計測で選定(候補: URLPattern マッチ、URL パース、multipart、SFV)。v0.2 以降 | native CPython(abi3 wheel)。**Workers は PyEmscripten wheel をサポートするため、emscripten ターゲットもビルドできれば Pyodide でも有効** |
+
+Tier 2 の受け入れ条件: ① pure Python フォールバックと挙動同一(同一テストスイートを両実装で実行)、② 意味論コードと加速コードの分離、③ Pyodide の 6 ヶ月ごとの ABI 追随コストを負えること。デメリット(ビルドチェーン複雑化・デバッグ困難化・供給網リスク)は①②で封じ込める。
+
+### 14.3 JIT との関係
+
+- CPython 3.13+ の copy-and-patch JIT は実験的・デフォルト無効で、**Pyodide(WASM)では実行時マシンコード生成が原理的に不可**。「JIT 前提の設計」は Cloudflare 対応と正面衝突するため採らない。
+- 代わりに **specializing adaptive interpreter(PEP 659、3.11+ で常時有効、Pyodide でも効く)前提**をコーディング規約とする: 呼び出しサイトの単相化、ホットパスの型安定、動的分岐の削減。この規約は将来 JIT が既定化したときそのまま JIT に有利に働く。
+- ベンチ体制: 床(素の ASGI)との差 =「フレームワーク税」を主指標とし、リグレッションを CI で検出する。
 
 ## 15. リポジトリ構成とツールチェーン
 

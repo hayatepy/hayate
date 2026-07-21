@@ -20,7 +20,7 @@ _REDIRECT_STATUSES = (301, 302, 303, 307, 308)
 
 
 class Response(Body):
-    __slots__ = ("headers", "status")
+    __slots__ = ("_background", "headers", "status")
 
     def __init__(
         self,
@@ -30,6 +30,9 @@ class Response(Body):
     ) -> None:
         if not 100 <= status <= 599:
             raise ValueError(f"status must be in 100-599, got {status}")
+        # Internal contract: an ExecutionContext with pending wait_until()
+        # work, drained by the adapter (or app.request) after delivery.
+        self._background = None
         self.status = status
         self.headers = Headers(headers)
         # Per Fetch: a text body implies text/plain;charset=UTF-8 unless set.
