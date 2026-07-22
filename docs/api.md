@@ -18,9 +18,7 @@ URL / URLPattern standards; spelling follows PEP 8 (`searchParams` →
 
 ::: hayate.Request
 
-::: hayate.Hayate
-
-::: hayate.RouteRequest
+::: hayate.HayateRequest
 
 ## Responses
 
