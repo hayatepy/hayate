@@ -37,7 +37,7 @@ the user-facing surface; WSGI/ASGI are adapter details.
 ## Commands
 
 ```sh
-uv run pytest -q                  # 245 passing on 3.14 (264 with accel); ~80 skips are *counted* wpt out-of-scope cases
+uv run pytest -q                  # 254 passing on 3.14 (283 with accel); ~80 skips are *counted* wpt out-of-scope cases
 uv run ruff check --fix src tests benchmarks && uv run ruff format src tests benchmarks
 uv run --group bench python benchmarks/bench.py       # vs Starlette; "floor" = raw ASGI fn
 uv sync --group docs && uv run mkdocs build --strict  # site: https://hayatepy.github.io/hayate/
@@ -93,9 +93,20 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
 
 ## Current state / next steps (as of 2026-07-22)
 
-- Published: **hayate 0.4.0** and **hayate-accel 0.1.0** on PyPI; docs
+- Published: **hayate 0.4.1** and **hayate-accel 0.2.0** on PyPI; docs
   site live; repository public under the `hayatepy` org (maintainer:
   Yusuke Hayashi, MIT).
+- 0.4.1 thinned the Workers FFI boundary (trusted URL split, trusted
+  header pairs, null-body skip, one-crossing response headers — DESIGN
+  §14.4 records the framework survey and adopted principles) and added
+  the Rust multipart splitter (SIMD memmem, 11x on a 10.5 MB body;
+  parity with the pure path pinned by tests). Re-verified on a local
+  workerd and re-deployed to production; Durable Object storage
+  persisted across the redeploy (counter continued 3 → 4).
+- The public-API audit ran (41 exported names, all documented; audit
+  procedure and freeze list in DESIGN §18) and the monthly report-only
+  `wpt refresh` workflow guards against silent spec drift (first
+  dispatch: green against latest upstream data).
 - **research §5 is fully verified — every item closed**, on a local
   workerd *and* in production (`pywrangler deploy`, account-owned URL
   recorded in research §5): websocket over `WebSocketPair` (same
