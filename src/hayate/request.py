@@ -135,11 +135,12 @@ class HayateRequest:
     via the URLPattern result if ever needed.
     """
 
-    __slots__ = ("_params", "raw")
+    __slots__ = ("_params", "_validated", "raw")
 
     def __init__(self, raw: Request) -> None:
         self.raw = raw
         self._params: dict[str, str | None] = {}
+        self._validated: dict[str, Any] | None = None
 
     @property
     def method(self) -> str:
@@ -175,6 +176,17 @@ class HayateRequest:
     def cookies(self) -> dict[str, str]:
         header = self.raw.headers.get("cookie")
         return {} if header is None else parse_cookies(header)
+
+    def _set_valid(self, target: str, value: Any) -> None:
+        if self._validated is None:
+            self._validated = {}
+        self._validated[target] = value
+
+    def valid(self, target: str) -> Any:
+        """Validated data stored by the ``validator`` middleware."""
+        if self._validated is None or target not in self._validated:
+            raise KeyError(f"no validated data for {target!r} — did the validator run?")
+        return self._validated[target]
 
     def query(self, name: str) -> str | None:
         return self.raw.url.search_params.get(name)

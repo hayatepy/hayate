@@ -452,7 +452,7 @@ v1 まで**やらない**と明示するもの:
 |---|---|---|
 | **v0.1 コア** | Headers → URL/URLSearchParams → URLPattern → Request/Response → Context/Router/App → ASGI アダプタ → testing → 初期ミドルウェア(logger, cors, etag, basic_auth, compress) | TODO API がテスト付きで書ける。wpt サブセット合格。Starlette 比ベンチ公開 |
 | **v0.2** | SSE / WebSocket / secure_headers / 署名 cookie / body_limit / timeout / 静的ファイル(Range, 304, 416)/ cache(マイクロキャッシュ + Cache-Control/Age)— **すべて実装済み** | リアルタイムチャットのサンプルが動く ✅(examples/chat.py + tests/test_chat_example.py) |
-| **v0.3** | validator フック + msgspec/pydantic extra / Workers・Lambda アダプタ / ドキュメントサイト。Workers アダプタは実装済み(`to_workers(app)`、FFI 変換 + `ctx.waitUntil` ブリッジ、モックテスト済み)— 残るは Pyodide 実機検証(docs/research/cloudflare.md §5)とストリーミングブリッジ | 同一アプリが uvicorn と Workers で無変更動作 |
+| **v0.3** | validator フック(実装済み — callable プロトコルにより msgspec / pydantic が**アダプタパッケージなしで直結**、専用 extra は YAGNI で不要と判明)/ Workers アダプタ(実装済み、モックテスト済み)/ Lambda アダプタ(実装済み、API GW v2.0)/ ドキュメントサイト(未) | 同一アプリが uvicorn と Workers で無変更動作 — 残タスクは Pyodide 実機検証(docs/research/cloudflare.md §5)とストリーミングブリッジ |
 | v1.0 | API 凍結、OpenAPI 等は証拠駆動で判断 | — |
 
 ### 未決事項(要判断)

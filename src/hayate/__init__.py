@@ -11,9 +11,10 @@ from .request import HayateRequest, Request
 from .response import Response
 from .url import URL, URLSearchParams
 from .urlpattern import URLPattern, URLPatternResult
+from .validator import validator
 from .websocket import WebSocket, WebSocketClosed
 
-__version__ = "0.2.0.dev0"
+__version__ = "0.3.0.dev0"
 
 __all__ = [
     "URL",
@@ -41,4 +42,5 @@ __all__ = [
     "WebSocketClosed",
     "__version__",
     "problem",
+    "validator",
 ]

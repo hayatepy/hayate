@@ -27,6 +27,7 @@ dev = [
   "pytest>=8.3",
   "pytest-asyncio>=0.25",
   "ruff>=0.9",
+  "msgspec>=0.18",
 ]
 bench = [
   "starlette>=0.40",
