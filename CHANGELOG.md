@@ -30,6 +30,13 @@ All notable changes to hayate are documented here.
 
 - GitHub Actions bumped to Node 24-native majors (checkout v7,
   upload-artifact v7, download-artifact v8, setup-uv v9, Pages v5).
+- Workflows hardened to a clean zizmor audit: every action pinned to a
+  commit SHA, least-privilege `permissions`, `persist-credentials:
+  false`, job timeouts, superseded PR runs cancelled, and no cache
+  restore in the release build. A zizmor job now audits the workflows
+  on every run.
+- Dependabot keeps the action SHA pins, the uv lockfile, and the
+  accelerator's cargo dependencies fresh (weekly, grouped).
 
 ## [0.3.1] - 2026-07-22
 
