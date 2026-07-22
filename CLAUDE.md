@@ -84,19 +84,15 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
 
 ## Current state / next steps (as of 2026-07-22)
 
-- Published: **hayate 0.3.1** and **hayate-accel 0.1.0** on PyPI; docs
+- Published: **hayate 0.3.2** and **hayate-accel 0.1.0** on PyPI; docs
   site live; repository public under the `hayatepy` org (maintainer:
   Yusuke Hayashi, MIT).
-- v0.1–v0.3 milestone acceptance criteria are all met, including
-  "same app runs unchanged on uvicorn and Workers" (verified on local
-  workerd — see research §5).
-- **In tree, unreleased**: Workers FFI streaming bridge (request and
-  response bodies as ReadableStream, buffered fallback) and AbortSignal
-  bridge, pinned by fake-runtime tests and SDK-source research.
-  **Next**: release 0.3.2, then verify both bridges on local workerd —
-  `examples/workers/` has `/stream`, `/events`, `/echo` routes for
-  exactly this. The release must come first: pywrangler vendors from
-  PyPI (see the trap above).
+- v0.1–v0.3 milestone acceptance criteria are all met. The Workers FFI
+  **streaming and AbortSignal bridges are verified on a local workerd**
+  (2026-07-22, hayate 0.3.2): SSE time-to-first-byte 3 ms vs 1.5 s
+  total (true incremental delivery), request bodies cross as streams,
+  and mid-stream client disconnects leave the server healthy. Numbers
+  and workerd/SDK source references are in research §5.
 - Open engineering work: research §5 remaining items (Durable Object
-  mount, WebSocket on Workers, production deploy) and DESIGN §18 v1.0
-  criteria.
+  mount, WebSocket on Workers, production deploy, abort-proxy lifetime
+  observation) and DESIGN §18 v1.0 criteria.

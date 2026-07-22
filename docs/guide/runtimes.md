@@ -31,8 +31,9 @@ Default = to_workers(app)
 - `c.wait_until` forwards to the platform `ctx.waitUntil`.
 - Bodies stream across the FFI boundary (JS `ReadableStream` in both
   directions, with a buffered fallback on runtimes that lack the pieces),
-  and the JS abort signal is mirrored onto `request.signal`. On-workerd
-  verification of the streaming paths is in progress — see the
+  and the JS abort signal is mirrored onto `request.signal`. Verified on
+  a local workerd: SSE time-to-first-byte 3 ms against 1.5 s total — true
+  incremental delivery, not buffering. Details in the
   [research log](https://github.com/hayatepy/hayate/blob/main/docs/research/cloudflare.md).
 
 A ready-to-deploy project lives at
