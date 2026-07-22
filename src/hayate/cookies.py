@@ -40,6 +40,12 @@ def serialize_set_cookie(
     http_only: bool = False,
     same_site: str | None = None,
 ) -> str:
+    """Serialize one ``Set-Cookie`` header value (RFC 6265bis).
+
+    Enforces the spec's structural rules up front: valid name/value octets,
+    ``SameSite=None`` requiring ``Secure``, and the ``__Host-``/``__Secure-``
+    prefix preconditions.
+    """
     if not _NAME_RE.match(name):
         raise ValueError(f"invalid cookie name: {name!r}")
     if _BAD_VALUE_RE.search(value):

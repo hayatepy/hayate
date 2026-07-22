@@ -26,6 +26,12 @@ URL / URLPattern standards; spelling follows PEP 8 (`searchParams` →
 
 ::: hayate.problem
 
+## Cookies
+
+::: hayate.parse_cookies
+
+::: hayate.serialize_set_cookie
+
 ## Primitives
 
 ::: hayate.Headers

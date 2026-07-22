@@ -2,7 +2,24 @@
 
 All notable changes to hayate are documented here.
 
-## [0.6.0] - 2026-07-22
+## [0.7.0] - 2026-07-22
+
+### Added
+
+- **`rate_limit` middleware** — fixed-window quotas advertised through
+  the `RateLimit` / `RateLimit-Policy` structured fields
+  (draft-ietf-httpapi-ratelimit-headers-11), with 429 + `Retry-After`
+  on exhaustion. The quota partition `key` is a required callable
+  (identifying a client is a trust-boundary decision the framework
+  refuses to guess); the bundled `MemoryRateLimitStore` is per-process
+  and swappable via the `RateLimitStore` protocol. Motivated by
+  hayate-auth §9, whose brute-force defense mandates throttling
+  `/api/auth/*`.
+- **`parse_cookies` / `serialize_set_cookie` promoted to the public
+  API.** hayate-auth's v0.1 dogfooding used both from the internal
+  `hayate.cookies` module for session cookies; RFC 6265bis
+  serialization belongs to the framework, so they are now exported,
+  documented, and part of the freeze-audit surface (DESIGN §18).
 
 ### Changed
 

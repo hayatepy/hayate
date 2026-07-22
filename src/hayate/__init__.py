@@ -4,6 +4,7 @@ from .abort import AbortError, AbortSignal
 from .app import ErrorHandler, Handler, Hayate, Middleware
 from .body import BodyInit
 from .context import Context, ExecutionContext, Next
+from .cookies import parse_cookies, serialize_set_cookie
 from .exceptions import HTTPException, problem
 from .formdata import File, FormData
 from .headers import Headers
@@ -15,7 +16,7 @@ from .urlpattern import URLPattern, URLPatternResult
 from .validator import validator
 from .websocket import WebSocket, WebSocketClosed
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 __all__ = [
     "URL",
@@ -43,6 +44,8 @@ __all__ = [
     "WebSocket",
     "WebSocketClosed",
     "__version__",
+    "parse_cookies",
     "problem",
+    "serialize_set_cookie",
     "validator",
 ]

@@ -32,7 +32,7 @@ chain.
 ```python
 from hayate.middleware import (
     basic_auth, body_limit, cache, compress, cors, etag,
-    logger, secure_headers, static_files, timeout,
+    logger, rate_limit, secure_headers, static_files, timeout,
 )
 ```
 
@@ -48,11 +48,25 @@ from hayate.middleware import (
 | `secure_headers()` | CSP/HSTS/nosniff/frame/referrer, composed at startup |
 | `cache(max_age=...)` | in-process GET micro-cache + `Cache-Control`/`Age` (RFC 9111) |
 | `static_files(root=...)` | files with ETag/304, single Range 206/416, traversal-safe |
+| `rate_limit(limit=..., window=..., key=...)` | quota + 429/`Retry-After`, advertised via `RateLimit`/`RateLimit-Policy` (draft-ietf-httpapi-ratelimit-headers) |
 
 Static assets, Hono-style:
 
 ```python
 app.use("/assets/*", static_files(root="public", strip_prefix="/assets"))
+```
+
+Rate limiting — `key` names the quota partition, and choosing it is a
+trust-boundary decision (peer IP behind *your* proxy, an API key, a user id),
+so it has no default. Return `None` to skip a request. The bundled store is
+in-memory and per-process; inject a `RateLimitStore` over shared storage when
+you scale out:
+
+```python
+app.use("/api/auth/*", rate_limit(
+    limit=10, window=60,
+    key=lambda c: c.req.header("cf-connecting-ip"),
+))
 ```
 
 ## Writing your own

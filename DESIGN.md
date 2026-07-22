@@ -490,6 +490,7 @@ v1 まで**やらない**と明示するもの:
 | **v0.3** | validator フック(実装済み — callable プロトコルにより msgspec / pydantic が**アダプタパッケージなしで直結**)/ Workers アダプタ / Lambda アダプタ / ドキュメントサイト(https://hayatepy.github.io/hayate/ — MkDocs Material + Pyodide プレイグラウンド + llms.txt)— **すべて完了** | 同一アプリが uvicorn と Workers で無変更動作 ✅(2026-07-22、ローカル workerd で実証。実機で発見した workers-py ラッパー形状の差異は 0.3.1 で修正) |
 | **v0.4** | Workers WebSocket(WebSocketPair ブリッジ — 同一 `@app.ws()` ハンドラ)/ Durable Object マウント(`@to_durable_object`、Hono のコンストラクタ内クロージャと同型)/ FFI proxy の決定的ライフサイクル(FinalizationRegistry 非依存)/ Cloudflare 本番デプロイ — **すべて完了** | 本番 wss で WS 全経路 ✅ / DO ストレージが本番で永続 ✅ / 3,200 req 負荷で RSS フラット(35.4→35.9 MB)✅ / 本番 SSE TTFB 53ms vs 総時間 1.55s ✅(2026-07-22、research §5 に全実測値) |
 | **v0.5–0.6** | `workers.forward()`(プラットフォーム応答素通し — WS が外側アプリを貫通して DO へ)/ セグメント trie ルータ / WHATWG IPv4/IPv6 正規化 + %2e dot-segment — **すべて完了** | 本番 wss で WS-through-outer ✅ / ルート数非依存 0.95µs・many-routes(64) 3.83x ✅ / **URL 準拠ラチェット 202 → 246/306(66% → 80.4%)** ✅(§14.4 と conformance.md に全数値) |
+| **v0.7** | `rate_limit` middleware(draft-ietf-httpapi-ratelimit-headers-11 の `RateLimit`/`RateLimit-Policy` + 429/`Retry-After`。key は必須 callable — クライアント同定は信頼境界の判断でフレームワークは既定を持たない。store は protocol 注入、同梱はメモリ fixed-window)+ `parse_cookies`/`serialize_set_cookie` 公開昇格(上記未決 1)— **完了(2026-07-22)** | エコシステム駆動の証拠: rate_limit は hayate-auth §9(ブルートフォース対策の必須構成)、cookies 昇格は auth v0.1 ドッグフーディングの実利用が根拠。テスト 274(rate_limit 9 本追加)✅ |
 | **v1.0** | 安定宣言: 公開 API 凍結(SemVer 遵守、破壊的変更は 2.0 のみ、非推奨化は 1 マイナー版前に告知)。OpenAPI 生成などの新機能は 1.x でも証拠駆動の門を通す | 下の「v1.0 受け入れ基準」5 項目をすべて満たすこと |
 
 **v1.0 受け入れ基準**(2026-07-22 策定):
@@ -505,12 +506,10 @@ v1 まで**やらない**と明示するもの:
 
 ### 未決事項(要判断)
 
-1. **`hayate.cookies` の公開昇格**(2026-07-22、hayate-auth v0.1 ドッグフーディングからの唯一の要望):
-   `parse_cookies` / `serialize_set_cookie` は hayate-auth がセッション cookie の読み書きに
-   実利用しているが、現状 `__all__` 外の内部モジュールで、v1.0 の凍結対象監査に載らない。
-   凍結前に (a) `hayate` 直下へ export して凍結対象に含める、(b) 内部のまま
-   hayate-auth 側へ複製する、のどちらかを決める。仮説は (a) — RFC 6265bis の実装は
-   本体の責務範囲で、エコシステム各所での再発明を防ぐ。
+1. ~~**`hayate.cookies` の公開昇格**~~ **解決(2026-07-22、v0.7.0)**: 仮説 (a) を採用し
+   `parse_cookies` / `serialize_set_cookie` を `hayate` 直下へ export(docstring 整備込み)。
+   理由: RFC 6265bis の実装は本体の責務範囲で、エコシステム各所での再発明を防ぐ。
+   hayate-auth v0.1 が実利用している実績が証拠。
 2. 次の判断ポイントは **v1.0 宣言のタイミング** — 上記受け入れ基準 5(外部利用 3 か月 +
    フィードバック実績)が時間を要する項目で、最短 2026-10 以降。それまでは 0.x で
    基準 1–4 を満たし続ける。
