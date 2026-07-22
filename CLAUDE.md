@@ -37,7 +37,7 @@ the user-facing surface; WSGI/ASGI are adapter details.
 ## Commands
 
 ```sh
-uv run pytest -q                  # 258 passing; ~80 skips are *counted* wpt out-of-scope cases
+uv run pytest -q                  # 245 passing on 3.14 (263 with accel); ~80 skips are *counted* wpt out-of-scope cases
 uv run ruff check --fix src tests benchmarks && uv run ruff format src tests benchmarks
 uv run --group bench python benchmarks/bench.py       # vs Starlette; "floor" = raw ASGI fn
 uv sync --group docs && uv run mkdocs build --strict  # site: https://hayatepy.github.io/hayate/
@@ -66,6 +66,11 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
   wrapper** (`bytes()` / `headers.items()`), not a raw JS proxy
   (`arrayBuffer()` / `entries()`). The adapter supports both shapes;
   `tests/test_workers_adapter.py` pins them. Mocks alone missed this.
+  The wrapper's exact surface is pinned from the SDK source (workerd
+  `src/pyodide/internal/workers-api`): the raw JS request sits on
+  `js_object`, `body` forwards the JS ReadableStream, and `signal`
+  exists *only* on `js_object`. `workers.Response` accepts a
+  `ReadableStream` body (`RESPONSE_ACCEPTED_TYPES`).
 - **pyo3 must stay ≥ 0.26**: 0.23 crashes at runtime on Python 3.14.
 - **GitHub `macos-13` (Intel) runners are retired**; Intel wheels are
   cross-compiled from `macos-latest` (`x86_64-apple-darwin`).
@@ -73,15 +78,19 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
 
 ## Current state / next steps (as of 2026-07-22)
 
-- Published: **hayate 0.3.1 on PyPI**; docs site live; repository public
-  under the `hayatepy` org (maintainer: Yusuke Hayashi, MIT).
+- Published: **hayate 0.3.1** and **hayate-accel 0.1.0** on PyPI; docs
+  site live; repository public under the `hayatepy` org (maintainer:
+  Yusuke Hayashi, MIT).
 - v0.1–v0.3 milestone acceptance criteria are all met, including
   "same app runs unchanged on uvicorn and Workers" (verified on local
   workerd — see research §5).
-- **Pending manual step**: hayate-accel publish. All wheels build in CI;
-  PyPI needs a pending publisher (project `hayate-accel`, owner `hayatepy`,
-  repo `hayate`, workflow `release-accel.yml`, environment `pypi`), then
-  rerun the failed publish job.
-- Open engineering work: research §5 unchecked items (streaming bridge,
-  AbortSignal bridge, Durable Object mount, WebSocket on Workers,
-  production deploy) and DESIGN §18 v1.0 criteria.
+- **In tree, unreleased**: Workers FFI streaming bridge (request and
+  response bodies as ReadableStream, buffered fallback) and AbortSignal
+  bridge, pinned by fake-runtime tests and SDK-source research.
+  **Next**: release 0.3.2, then verify both bridges on local workerd —
+  `examples/workers/` has `/stream`, `/events`, `/echo` routes for
+  exactly this. The release must come first: pywrangler vendors from
+  PyPI (see the trap above).
+- Open engineering work: research §5 remaining items (Durable Object
+  mount, WebSocket on Workers, production deploy) and DESIGN §18 v1.0
+  criteria.

@@ -453,7 +453,7 @@ v1 まで**やらない**と明示するもの:
 |---|---|---|
 | **v0.1 コア** | Headers → URL/URLSearchParams → URLPattern → Request/Response → Context/Router/App → ASGI アダプタ → testing → 初期ミドルウェア(logger, cors, etag, basic_auth, compress) | TODO API がテスト付きで書ける。wpt サブセット合格。Starlette 比ベンチ公開 |
 | **v0.2** | SSE / WebSocket / secure_headers / 署名 cookie / body_limit / timeout / 静的ファイル(Range, 304, 416)/ cache(マイクロキャッシュ + Cache-Control/Age)— **すべて実装済み** | リアルタイムチャットのサンプルが動く ✅(examples/chat.py + tests/test_chat_example.py) |
-| **v0.3** | validator フック(実装済み — callable プロトコルにより msgspec / pydantic が**アダプタパッケージなしで直結**)/ Workers アダプタ / Lambda アダプタ / ドキュメントサイト(https://hayatepy.github.io/hayate/ — MkDocs Material + Pyodide プレイグラウンド + llms.txt)— **すべて完了** | 同一アプリが uvicorn と Workers で無変更動作 ✅(2026-07-22、ローカル workerd で実証。実機で発見した workers-py ラッパー形状の差異は 0.3.1 で修正。残: 本番デプロイ・ストリーミングブリッジ — research §5) |
+| **v0.3** | validator フック(実装済み — callable プロトコルにより msgspec / pydantic が**アダプタパッケージなしで直結**)/ Workers アダプタ / Lambda アダプタ / ドキュメントサイト(https://hayatepy.github.io/hayate/ — MkDocs Material + Pyodide プレイグラウンド + llms.txt)— **すべて完了** | 同一アプリが uvicorn と Workers で無変更動作 ✅(2026-07-22、ローカル workerd で実証。実機で発見した workers-py ラッパー形状の差異は 0.3.1 で修正。残: 本番デプロイと、実装済みストリーミング/AbortSignal ブリッジの実機検証 — research §5) |
 | v1.0 | API 凍結、OpenAPI 等は証拠駆動で判断 | — |
 
 ### 未決事項(要判断)

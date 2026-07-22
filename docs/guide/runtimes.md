@@ -29,8 +29,11 @@ Default = to_workers(app)
 - `c.env` receives the Workers bindings (`c.env.KV`, `c.env.DB`, ... —
   awaitable JS proxies pass straight through).
 - `c.wait_until` forwards to the platform `ctx.waitUntil`.
-- Current limits: bodies are buffered across the FFI boundary; the abort
-  signal is not yet bridged.
+- Bodies stream across the FFI boundary (JS `ReadableStream` in both
+  directions, with a buffered fallback on runtimes that lack the pieces),
+  and the JS abort signal is mirrored onto `request.signal`. On-workerd
+  verification of the streaming paths is in progress — see the
+  [research log](https://github.com/hayatepy/hayate/blob/main/docs/research/cloudflare.md).
 
 A ready-to-deploy project lives at
 [`examples/workers/`](https://github.com/hayatepy/hayate/tree/main/examples/workers).

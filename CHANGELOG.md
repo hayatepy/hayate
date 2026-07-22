@@ -2,6 +2,35 @@
 
 All notable changes to hayate are documented here.
 
+## [Unreleased]
+
+### Added
+
+- **Workers adapter: FFI streaming bridge.** An async-iterable response
+  body now crosses as a JS `ReadableStream` (`ReadableStream.from()`,
+  chunks pre-converted to `Uint8Array`), so SSE and chunked responses
+  stream instead of buffering; a `ReadableStream` request body is
+  surfaced to the app as `AsyncIterable[bytes]`. Runtimes without the
+  pieces keep the buffered crossing. On-workerd verification is tracked
+  in docs/research/cloudflare.md §5 (it requires a PyPI release, because
+  pywrangler vendors dependencies from PyPI).
+- **Workers adapter: AbortSignal bridge.** The JS `request.signal` —
+  reached via the workers-py wrapper's `js_object`, which is the only
+  place the wrapper exposes it — is mirrored onto `request.signal`, so
+  handlers can observe client disconnects.
+- `examples/workers/`: `/stream`, `/events` (SSE), and `/echo` routes
+  for on-workerd verification of the bridges.
+
+### Fixed
+
+- wpt data files are read as UTF-8 explicitly; test collection no longer
+  crashes on Windows locales such as cp932.
+
+### CI
+
+- GitHub Actions bumped to Node 24-native majors (checkout v7,
+  upload-artifact v7, download-artifact v8, setup-uv v9, Pages v5).
+
 ## [0.3.1] - 2026-07-22
 
 ### Fixed

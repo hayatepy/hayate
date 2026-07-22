@@ -98,8 +98,8 @@ GET / ルートパラメータ / 404 `application/problem+json` / 405 + `Allow` 
 - [x] Pyodide 上で hayate コアの import・起動 — 問題なし(hayate 0.3.1 を PyPI wheel から vendor して動作)
 - [x] 実ランタイムの FFI 形状 — **workerd は workers-py の Python Request ラッパー(`bytes()` / `headers.items()`)を渡す**。raw JsProxy(`arrayBuffer()` / `entries()`)とは別形状。両対応に修正(0.3.1)し回帰テストで固定。モックだけでは検出不能だった
 - [x] `pywrangler` との相性 — pywrangler は pylock.toml(PyPI 解決)から `python_modules/` に vendor するため、`tool.uv.sources` の path 依存は**反映されない**。ローカル変更の実機検証は PyPI リリース経由が確実
-- [ ] JS ReadableStream ↔ `AsyncIterable[bytes]` ブリッジ(現状はバッファリングで対応)
-- [ ] JS AbortSignal → hayate AbortSignal ブリッジ
+- [ ] JS ReadableStream ↔ `AsyncIterable[bytes]` ブリッジ — **アダプタ実装済み(未リリース)、実機検証待ち**。レスポンス側は `ReadableStream.from()` + チャンクを `to_js` で `Uint8Array` 化(`from` は workerd では compat flag なしの常時有効 — `readable.h` の `JSG_STATIC_METHOD(from)` で確認)。workers SDK の `Response` は `RESPONSE_ACCEPTED_TYPES` に `"ReadableStream"` を含む(SDK ソースで確認)ため body に直接渡せる。リクエスト側は `getReader()` ループ。どちらも部品が無い環境ではバッファリングへフォールバック。検証は 0.3.2 リリース後に `examples/workers/` の `/stream` `/events` `/echo` で行う(pywrangler が PyPI 解決のため)
+- [ ] JS AbortSignal → hayate AbortSignal ブリッジ — **アダプタ実装済み(未リリース)、実機検証待ち**。ラッパー Request は `signal` を持たず、生 JS Request を保持する `js_object` 経由でのみ到達できる(SDK ソースで確認)。リスナーは `create_proxy` で保持(暗黙変換だと呼び出し終了時に破棄される)。要観察: リクエストごとの proxy が FinalizationRegistry で回収されるか
 - [ ] DO の fetch に hayate app をマウントするパターンの成立性
 - [ ] WebSocket upgrade の API 形状
 - [ ] Cloudflare 本番へのデプロイ(要アカウント・`pywrangler deploy`)
@@ -110,6 +110,8 @@ GET / ルートパラメータ / 404 `application/problem+json` / 405 + `Allow` 
 - [Python packages in Workers](https://developers.cloudflare.com/workers/languages/python/packages/)(pyproject.toml / pywrangler / 対応パッケージ)
 - [How Python Workers work](https://developers.cloudflare.com/workers/languages/python/how-python-workers-work/)(Pyodide、スナップショット、バージョン管理)
 - [Python Workers FFI](https://developers.cloudflare.com/workers/languages/python/ffi/)(js モジュール、to_js、バインディング呼び出し)
+- [workers SDK ソース(`_workers.py`)](https://github.com/cloudflare/workerd/blob/main/src/pyodide/internal/workers-api/src/workers/_workers.py)(ラッパー Request/Response の正確な形状: `js_object`、`body`、`RESPONSE_ACCEPTED_TYPES`。`signal` プロパティは存在しない)
+- [workerd `readable.h`](https://github.com/cloudflare/workerd/blob/main/src/workerd/api/streams/readable.h)(`ReadableStream.from` が `JSG_STATIC_METHOD` として無条件登録)
 - [Python Workers examples](https://developers.cloudflare.com/workers/languages/python/examples/)(fetch / scheduled / DO / D1 / Queues のコード例)
 - [Python Workers redux: fast cold starts, packages, and a uv-first workflow](https://blog.cloudflare.com/python-workers-advancements/)(2025-12 の大幅改善)
 - [A closer look at Python Workflows](https://blog.cloudflare.com/python-workflows/)(Python Workflows ベータ)
