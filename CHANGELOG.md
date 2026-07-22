@@ -2,7 +2,7 @@
 
 All notable changes to hayate are documented here.
 
-## [Unreleased]
+## [0.3.2] - 2026-07-22
 
 ### Added
 
@@ -45,6 +45,9 @@ All notable changes to hayate are documented here.
   on every run.
 - Dependabot keeps the action SHA pins, the uv lockfile, and the
   accelerator's cargo dependencies fresh (weekly, grouped).
+- Evaluated the `ty` type checker: not adopted at 0.0.62 (false
+  positives on the Fetch-standard `bytes()` name and on guarded
+  platform imports) — revisit at 1.0.
 
 ## [0.3.1] - 2026-07-22
 
