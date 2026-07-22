@@ -93,16 +93,23 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
 
 ## Current state / next steps (as of 2026-07-22)
 
-- Published: **hayate 0.4.1** and **hayate-accel 0.2.0** on PyPI; docs
+- Published: **hayate 0.5.0** and **hayate-accel 0.2.0** on PyPI; docs
   site live; repository public under the `hayatepy` org (maintainer:
   Yusuke Hayashi, MIT).
+- 0.5.0 added **`workers.forward(c, fetcher)`** — platform-response
+  passthrough. Because nothing is rebuilt, a websocket upgrade passes
+  *through* the outer app into a Durable Object's own `@app.ws()`
+  route; verified on a local workerd and in production over wss. This
+  closed the boundary-impedance gap recorded in DESIGN §14.4. Also:
+  measured micro-optimizations (wire-encode memo 114→41ns/pair,
+  `Headers.get` fast path, shared empty params) and measured
+  *rejections* (header interning, per-method route indexes) — every
+  number is in §14.4 so the questions stay settled.
 - 0.4.1 thinned the Workers FFI boundary (trusted URL split, trusted
-  header pairs, null-body skip, one-crossing response headers — DESIGN
-  §14.4 records the framework survey and adopted principles) and added
-  the Rust multipart splitter (SIMD memmem, 11x on a 10.5 MB body;
-  parity with the pure path pinned by tests). Re-verified on a local
-  workerd and re-deployed to production; Durable Object storage
-  persisted across the redeploy (counter continued 3 → 4).
+  header pairs, null-body skip, one-crossing response headers) and
+  added the Rust multipart splitter (SIMD memmem, 11x on a 10.5 MB
+  body; parity with the pure path pinned by tests). Durable Object
+  storage persists across redeploys (counter 3 → 4 → 5).
 - The public-API audit ran (41 exported names, all documented; audit
   procedure and freeze list in DESIGN §18) and the monthly report-only
   `wpt refresh` workflow guards against silent spec drift (first

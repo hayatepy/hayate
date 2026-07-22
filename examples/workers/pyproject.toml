@@ -2,7 +2,7 @@
 name = "hayate-workers-example"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["hayate>=0.4.1"]
+dependencies = ["hayate>=0.5.0"]
 
 [dependency-groups]
 dev = ["workers-py"]
