@@ -2,12 +2,7 @@
 name = "hayate-workers-example"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["hayate"]
+dependencies = ["hayate>=0.3.1"]
 
 [dependency-groups]
 dev = ["workers-py"]
-
-# Inside this repository the example runs against the local checkout;
-# copy the example standalone and this section disappears with it.
-[tool.uv.sources]
-hayate = { path = "../.." }

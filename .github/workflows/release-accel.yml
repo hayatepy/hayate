@@ -10,7 +10,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-13, macos-14, windows-latest]
+        include:
+          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
+          - os: macos-latest
+          # Intel macs are cross-compiled: the x86_64 hosted runners retired.
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: windows-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -19,10 +26,11 @@ jobs:
           working-directory: accel
           command: build
           args: --release -o dist
+          target: ${{ matrix.target || '' }}
           manylinux: auto
       - uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}
+          name: wheels-${{ matrix.os }}-${{ matrix.target || 'native' }}
           path: accel/dist/*.whl
 
   sdist:

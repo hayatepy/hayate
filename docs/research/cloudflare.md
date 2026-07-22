@@ -90,14 +90,19 @@ Default = to_workers(app)   # WorkerEntrypoint サブクラスを生成
 6. **Agents SDK は JS のみ**
 7. **Pyodide の Python バージョンは選べない**(compatibility date で間接指定)→ hayate の 3.12+ 要件は Pyodide 現行(3.12/3.13 系)と整合
 
-## 5. M3(Workers アダプタ実装)前の実機検証リスト
+## 5. Workers 実機検証リスト(2026-07-22 更新: ローカル workerd で初回実機検証を実施)
 
-- [ ] Pyodide 上で hayate コアの import → スナップショット化が問題なく動くか(スレッド・ファイル I/O 等の暗黙依存がないか)
-- [ ] JS ReadableStream ↔ `AsyncIterable[bytes]` ブリッジの挙動(バックプレッシャ、大きなボディ、キャンセル)
+検証環境: `examples/workers/` + `pywrangler dev`(workers-py 1.15 / wrangler、ローカル workerd)。
+GET / ルートパラメータ / 404 `application/problem+json` / 405 + `Allow` がすべて期待どおり動作。
+
+- [x] Pyodide 上で hayate コアの import・起動 — 問題なし(hayate 0.3.1 を PyPI wheel から vendor して動作)
+- [x] 実ランタイムの FFI 形状 — **workerd は workers-py の Python Request ラッパー(`bytes()` / `headers.items()`)を渡す**。raw JsProxy(`arrayBuffer()` / `entries()`)とは別形状。両対応に修正(0.3.1)し回帰テストで固定。モックだけでは検出不能だった
+- [x] `pywrangler` との相性 — pywrangler は pylock.toml(PyPI 解決)から `python_modules/` に vendor するため、`tool.uv.sources` の path 依存は**反映されない**。ローカル変更の実機検証は PyPI リリース経由が確実
+- [ ] JS ReadableStream ↔ `AsyncIterable[bytes]` ブリッジ(現状はバッファリングで対応)
 - [ ] JS AbortSignal → hayate AbortSignal ブリッジ
-- [ ] `pywrangler` と uv workspace(hayate モノレポ)の相性
 - [ ] DO の fetch に hayate app をマウントするパターンの成立性
-- [ ] WebSocket upgrade の API 形状(v0.2 設計への入力)
+- [ ] WebSocket upgrade の API 形状
+- [ ] Cloudflare 本番へのデプロイ(要アカウント・`pywrangler deploy`)
 
 ## 6. 情報源
 
