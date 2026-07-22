@@ -2,6 +2,53 @@
 
 All notable changes to hayate are documented here.
 
+## [0.4.0] - 2026-07-22
+
+### Added
+
+- **Workers adapter: WebSocket upgrade.** An `Upgrade: websocket` request
+  matching an `@app.ws()` route is served through `WebSocketPair`: the
+  handler drives the server socket via the exact same `WebSocket` API as
+  on ASGI (text/bytes echo, server-initiated close, `async for`), and
+  the fetch returns `101` with the client socket
+  (`workers.Response(web_socket=...)`). Binary frames are read as
+  `ArrayBuffer` (`binaryType` is set on accept — workerd delivers `Blob`
+  by default, which only offers async readers). Verified on a local
+  workerd. An upgrade request with no matching websocket route falls
+  through to normal HTTP handling.
+- **Workers adapter: Durable Object mount** — `to_durable_object`:
+
+  ```python
+  @to_durable_object
+  def Counter(ctx, env):
+      app = Hayate()
+      ...  # route closures capture ctx.storage (Hono's constructor idiom)
+      return app
+  ```
+
+  The factory's name becomes the exported class name (workerd registers
+  Durable Object classes by `__name__` — it must match `class_name` in
+  wrangler.toml). Websocket routes work inside the object too. Verified
+  on a local workerd (per-name counters persist in DO storage).
+- `examples/workers/`: `/ws` (websocket echo) and `/counter/:name`
+  (Durable Object via `getByName` + stub fetch), with the DO binding and
+  `new_sqlite_classes` migration in wrangler.toml.
+
+### Changed
+
+- **Workers adapter: deterministic FFI proxy lifecycle.** Every
+  `create_proxy` made for a request — the abort listener, the response
+  generator, websocket listeners — is now destroyed when that request's
+  lifecycle ends (buffered response: at translation; streaming: when the
+  stream drains or cancels; websocket: when the connection closes),
+  instead of waiting for FinalizationRegistry, which engines do not
+  guarantee to run. Measured on workerd: 3,200 requests (400 SSE
+  mid-disconnects, 400 websocket cycles) moved RSS 35.4 → 35.9 MB with
+  zero errors — allocator noise, no growth trend.
+- The abort listener is therefore detached once the response completes;
+  an abort firing after completion is no longer mirrored (it had no
+  observer by then anyway).
+
 ## [0.3.2] - 2026-07-22
 
 ### Added

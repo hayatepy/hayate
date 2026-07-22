@@ -7,6 +7,7 @@ workerd (2026-07). Real on-platform verification (Pyodide, streaming,
 snapshots) is tracked in docs/research/cloudflare.md §5.
 """
 
+import asyncio
 import json
 import sys
 import types
@@ -31,14 +32,70 @@ class FakeJsHeadersClass:
 
 
 class FakeWorkersResponse:
-    def __init__(self, body, status=200, headers=None):
+    def __init__(self, body, status=200, headers=None, web_socket=None):
         self.body = body
         self.status = status
         self.headers = headers
+        self.web_socket = web_socket
 
 
 class FakeWorkerEntrypoint:
     pass
+
+
+class FakeDurableObject:
+    """Stands in for ``workers.DurableObject``."""
+
+    def __init__(self, ctx, env):
+        self.ctx = ctx
+        self.env = env
+
+
+class FakeJsWebSocket:
+    """One side of a ``WebSocketPair``: records sends, replays events."""
+
+    def __init__(self):
+        self.accepted = False
+        self.sent = []
+        self.closed = None
+        self.listeners = {}
+
+    def accept(self):
+        self.accepted = True
+
+    def send(self, data):
+        self.sent.append(data)
+
+    def close(self, code=1000, reason=""):
+        self.closed = (code, reason)
+
+    def addEventListener(self, event, listener):
+        self.listeners.setdefault(event, []).append(listener)
+
+    def removeEventListener(self, event, listener):
+        self.listeners[event].remove(listener)
+
+    def fire(self, event, payload):
+        for listener in list(self.listeners.get(event, [])):
+            listener(payload)
+
+
+class FakeWebSocketPair:
+    """``WebSocketPair.new().object_values()`` — the official Python idiom."""
+
+    last = None
+
+    def __init__(self):
+        self.client = FakeJsWebSocket()
+        self.server = FakeJsWebSocket()
+        FakeWebSocketPair.last = self
+
+    @classmethod
+    def new(cls):
+        return cls()
+
+    def object_values(self):
+        return [self.client, self.server]
 
 
 class FakeJsReadableStream:
@@ -56,14 +113,23 @@ class FakeJsReadableStream:
 setattr(FakeJsReadableStream, "from", FakeJsReadableStream._from)
 
 
-def _install_runtime(monkeypatch, *, response_cls=FakeWorkersResponse, readable_stream=None):
+def _install_runtime(
+    monkeypatch,
+    *,
+    response_cls=FakeWorkersResponse,
+    readable_stream=None,
+    websocket_pair=None,
+):
     workers_module = types.ModuleType("workers")
     workers_module.WorkerEntrypoint = FakeWorkerEntrypoint
+    workers_module.DurableObject = FakeDurableObject
     workers_module.Response = response_cls
     js_module = types.ModuleType("js")
     js_module.Headers = FakeJsHeadersClass
     if readable_stream is not None:
         js_module.ReadableStream = readable_stream
+    if websocket_pair is not None:
+        js_module.WebSocketPair = websocket_pair
     monkeypatch.setitem(sys.modules, "workers", workers_module)
     monkeypatch.setitem(sys.modules, "js", js_module)
 
@@ -77,6 +143,11 @@ def workers_runtime(monkeypatch):
 @pytest.fixture
 def workers_streaming_runtime(monkeypatch):
     _install_runtime(monkeypatch, readable_stream=FakeJsReadableStream)
+
+
+@pytest.fixture
+def workers_ws_runtime(monkeypatch):
+    _install_runtime(monkeypatch, websocket_pair=FakeWebSocketPair)
 
 
 class FakeJsRequestHeaders:
@@ -113,6 +184,10 @@ class FakeJsAbortSignal:
     def addEventListener(self, event, listener):
         assert event == "abort"
         self.listeners.append(listener)
+
+    def removeEventListener(self, event, listener):
+        assert event == "abort"
+        self.listeners.remove(listener)
 
     def fire(self, reason=None):
         self.aborted = True
@@ -344,15 +419,24 @@ async def test_request_stream_body_is_bridged_not_buffered(workers_runtime):
     assert stream.reads == 3  # two chunks + the done signal
 
 
-async def test_wrapper_streams_body_and_bridges_signal_via_js_object(workers_runtime):
-    """The wrapper's ``js_object`` is the escape hatch for body and signal."""
+async def test_wrapper_streams_body_and_bridges_signal_via_js_object(workers_streaming_runtime):
+    """The wrapper's ``js_object`` is the escape hatch for body and signal.
+
+    The abort must be visible while the response is still streaming, and
+    the JS listener must be released once the stream has finished.
+    """
     app = Hayate()
-    seen = {}
 
     @app.post("/echo")
     async def echo(c: Context):
-        seen["signal"] = c.req.signal
-        return c.json({"got": await c.req.json()})
+        await c.req.json()  # the body arrives over the js_object stream
+        signal = c.req.signal
+
+        async def chunks():
+            yield f"start aborted={signal.aborted}".encode()
+            yield f" end aborted={signal.aborted} reason={signal.reason}".encode()
+
+        return c.body(chunks())
 
     js_signal = FakeJsAbortSignal()
     wrapper = FakePyRequest(
@@ -363,12 +447,13 @@ async def test_wrapper_streams_body_and_bridges_signal_via_js_object(workers_run
     )
 
     js_response = await _entry(app).fetch(wrapper)
-    assert json.loads(js_response.body) == {"got": {"k": 1}}
-    assert seen["signal"].aborted is False
-
-    js_signal.fire("client went away")  # disconnect after the response
-    assert seen["signal"].aborted is True
-    assert seen["signal"].reason == "client went away"
+    iterator = js_response.body.iterable.__aiter__()
+    first = await iterator.__anext__()
+    assert first == b"start aborted=False"
+    js_signal.fire("client went away")  # disconnect mid-stream
+    rest = b"".join([chunk async for chunk in iterator])
+    assert rest == b" end aborted=True reason=client went away"
+    assert js_signal.listeners == []  # released deterministically after the stream
 
 
 async def test_already_aborted_signal_is_mirrored(workers_runtime):
@@ -383,3 +468,139 @@ async def test_already_aborted_signal_is_mirrored(workers_runtime):
 
     js_response = await _entry(app).fetch(request)
     assert json.loads(js_response.body) == {"aborted": True, "reason": "boom"}
+
+
+async def test_abort_listener_is_released_after_a_buffered_response(workers_runtime):
+    """No reliance on FinalizationRegistry: the listener is removed at once."""
+    app = Hayate()
+
+    @app.get("/")
+    async def root(c: Context):
+        return c.text("ok")
+
+    request = FakeJsRequest("https://edge.example/")
+    request.signal = FakeJsAbortSignal()
+
+    await _entry(app).fetch(request)
+    assert request.signal.listeners == []
+
+
+def _ws_upgrade_request(url="https://edge.example/ws"):
+    return FakeJsRequest(url, headers=[("connection", "Upgrade"), ("upgrade", "websocket")])
+
+
+async def test_websocket_upgrade_serves_the_ws_route(workers_ws_runtime):
+    """An ``@app.ws()`` handler runs unchanged over a ``WebSocketPair``."""
+    from hayate.adapters.workers import _live_connections
+
+    app = Hayate()
+
+    @app.ws("/ws/:room")
+    async def echo(c: Context, ws):
+        await ws.send(f"joined {c.req.param('room')}")
+        async for message in ws:
+            await ws.send(message)
+
+    js_response = await _entry(app).fetch(_ws_upgrade_request("https://edge.example/ws/lobby"))
+    pair = FakeWebSocketPair.last
+
+    assert js_response.status == 101
+    assert js_response.web_socket is pair.client
+    assert pair.server.accepted
+    task = next(iter(_live_connections))
+
+    pair.server.fire("message", types.SimpleNamespace(data="hi"))
+    pair.server.fire("message", types.SimpleNamespace(data=b"\x01\x02"))
+    pair.server.fire("close", types.SimpleNamespace(code=1000, reason=""))
+    await asyncio.wait_for(task, 1)
+
+    assert pair.server.sent == ["joined lobby", "hi", b"\x01\x02"]
+    assert all(not registered for registered in pair.server.listeners.values())
+
+
+async def test_websocket_handler_error_closes_with_1011(workers_ws_runtime):
+    from hayate.adapters.workers import _live_connections
+
+    app = Hayate()
+
+    @app.ws("/ws")
+    async def boom(c: Context, ws):
+        raise RuntimeError("handler bug")
+
+    await _entry(app).fetch(_ws_upgrade_request())
+    pair = FakeWebSocketPair.last
+    await asyncio.wait_for(next(iter(_live_connections)), 1)
+
+    assert pair.server.closed == (1011, "internal error")
+    assert all(not registered for registered in pair.server.listeners.values())
+
+
+async def test_upgrade_without_a_ws_route_falls_through_to_http(workers_ws_runtime):
+    app = Hayate()
+    js_response = await _entry(app).fetch(_ws_upgrade_request("https://edge.example/nope"))
+    assert js_response.status == 404
+    assert json.loads(js_response.body)["title"] == "Not Found"
+
+
+class FakeStorage:
+    """``ctx.storage`` — the async KV surface of DurableObjectStorage."""
+
+    def __init__(self):
+        self.data = {}
+
+    async def get(self, key):
+        return self.data.get(key)
+
+    async def put(self, key, value):
+        self.data[key] = value
+
+
+def _counter_factory(ctx, env):
+    app = Hayate()
+
+    @app.get("/count")
+    async def count(c: Context):
+        n = int((await ctx.storage.get("n")) or 0) + 1
+        await ctx.storage.put("n", n)
+        return c.json({"count": n, "binding": c.env["KV"]})
+
+    return app
+
+
+async def test_durable_object_mounts_a_hayate_app(workers_runtime):
+    """``to_durable_object``: routes read the object's storage via closure."""
+    from hayate.adapters.workers import to_durable_object
+
+    counter_cls = to_durable_object(_counter_factory)
+    # workerd registers Durable Object classes by __name__, not by the
+    # module attribute they are assigned to (introspection.py) — the
+    # factory's name is the exported class name.
+    assert counter_cls.__name__ == "_counter_factory"
+    ctx = types.SimpleNamespace(storage=FakeStorage())
+    obj = counter_cls(ctx, {"KV": "bound"})
+
+    first = await obj.fetch(FakeJsRequest("https://do.example/count"))
+    second = await obj.fetch(FakeJsRequest("https://do.example/count"))
+
+    assert json.loads(first.body) == {"count": 1, "binding": "bound"}
+    assert json.loads(second.body) == {"count": 2, "binding": "bound"}
+    assert obj.ctx is ctx  # the DurableObject base-class contract
+
+
+async def test_durable_object_serves_websocket_routes(workers_ws_runtime):
+    from hayate.adapters.workers import to_durable_object
+
+    def build(ctx, env):
+        app = Hayate()
+
+        @app.ws("/ws")
+        async def echo(c: Context, ws):
+            async for message in ws:
+                await ws.send(message)
+
+        return app
+
+    obj = to_durable_object(build)(types.SimpleNamespace(storage=FakeStorage()), None)
+    js_response = await obj.fetch(_ws_upgrade_request("https://do.example/ws"))
+    assert js_response.status == 101
+    assert js_response.web_socket is FakeWebSocketPair.last.client

@@ -7,9 +7,28 @@ Usage — the entry module of a Python Worker:
 
     Default = to_workers(app)
 
+A Durable Object mounts an app the same way Hono does — build it in the
+constructor so route closures capture the object's state. The factory's
+name becomes the exported class name (must match ``class_name`` in
+wrangler.toml):
+
+    from hayate.adapters.workers import to_durable_object
+
+    @to_durable_object
+    def Counter(ctx, env):
+        app = Hayate()
+
+        @app.get("/count")
+        async def count(c):
+            n = int((await ctx.storage.get("n")) or 0) + 1
+            await ctx.storage.put("n", n)
+            return c.json({"count": n})
+
+        return app
+
 The Workers runtime modules (``workers``, ``js``) exist only inside
-Pyodide, so they are imported inside ``to_workers()``; the translation
-helpers are plain Python and unit-testable anywhere.
+Pyodide, so they are imported when the entrypoint class is built; the
+translation helpers are plain Python and unit-testable anywhere.
 
 Unlike the official FastAPI integration (JS Request -> ASGI -> Starlette
 Request), this is a single-step translation: JS Request -> hayate
@@ -20,25 +39,38 @@ pieces: a JS ``ReadableStream`` request body is surfaced to the app as an
 ``AsyncIterable[bytes]``, and an async-iterable response body becomes a
 JS ``ReadableStream`` via ``ReadableStream.from()``. Anything else falls
 back to the buffered crossing. The JS ``AbortSignal`` is mirrored onto
-``request.signal``. On-workerd verification of the streaming paths is
-tracked in docs/research/cloudflare.md §5.
+``request.signal``. ``@app.ws()`` routes are served through
+``WebSocketPair`` — an ``Upgrade: websocket`` request matching a
+websocket route returns ``101`` with the client socket, and the handler
+drives the server socket through the same ``WebSocket`` API as on ASGI.
+
+Every ``create_proxy`` made for a request (abort listener, response
+generator, websocket listeners) is destroyed deterministically when that
+request's lifecycle ends — engines do not guarantee FinalizationRegistry
+callbacks, so garbage collection is a backstop, not the mechanism.
+On-workerd verification is tracked in docs/research/cloudflare.md §5.
 """
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
-from collections.abc import AsyncIterable, AsyncIterator
+import logging
+from collections.abc import AsyncIterable, AsyncIterator, Callable
 from typing import TYPE_CHECKING, Any
 
 from ..abort import AbortSignal
-from ..context import ExecutionContext
+from ..context import Context, ExecutionContext
 from ..headers import Headers
-from ..request import Request
+from ..request import HayateRequest, Request
+from ..router import WEBSOCKET_METHOD
+from ..websocket import WebSocket, WebSocketClosed
 
 if TYPE_CHECKING:
     from ..app import Hayate
     from ..response import Response
+
+_logger = logging.getLogger("hayate.workers")
 
 try:  # Pyodide-only; under CPython (tests) the helpers run without them.
     from pyodide.ffi import create_proxy as _create_proxy
@@ -46,6 +78,54 @@ try:  # Pyodide-only; under CPython (tests) the helpers run without them.
 except ImportError:
     _create_proxy = None
     _to_js = None
+
+# The event loop only holds tasks weakly; websocket handlers outlive the
+# fetch that spawned them, so keep strong references until each ends.
+_live_connections: set[asyncio.Task[None]] = set()
+
+
+class _Runtime:
+    """Handles to the Workers runtime pieces, resolved once per entrypoint."""
+
+    __slots__ = ("headers_cls", "readable_stream_cls", "response_cls", "websocket_pair_cls")
+
+    def __init__(self) -> None:
+        from js import Headers as headers_cls
+        from workers import Response as response_cls
+
+        self.headers_cls = headers_cls
+        self.response_cls = response_cls
+        try:
+            from js import ReadableStream as readable_stream_cls
+        except ImportError:  # a runtime without streams: responses are buffered
+            readable_stream_cls = None
+        self.readable_stream_cls = readable_stream_cls
+        try:
+            from js import WebSocketPair as websocket_pair_cls
+        except ImportError:  # a runtime without WebSocketPair: no upgrades
+            websocket_pair_cls = None
+        self.websocket_pair_cls = websocket_pair_cls
+
+
+def _proxy(obj: Any) -> Any:
+    return obj if _create_proxy is None else _create_proxy(obj)
+
+
+def _destroy(proxy: Any) -> None:
+    if _create_proxy is not None:
+        proxy.destroy()
+
+
+def _once(*callbacks: Callable[[], None] | None) -> Callable[[], None]:
+    """Combine cleanups into one idempotent, never-raising callable."""
+    pending = [callback for callback in callbacks if callback is not None]
+
+    def run() -> None:
+        while pending:
+            with contextlib.suppress(Exception):
+                pending.pop()()
+
+    return run
 
 
 def _js_headers_to_pairs(js_headers: Any) -> list[tuple[str, str]]:
@@ -77,6 +157,21 @@ def _js_body_stream(js_request: Any) -> Any:
     return body if body is not None and hasattr(body, "getReader") else None
 
 
+def _js_bytes(value: Any) -> bytes:
+    """Bytes from a JS binary value (ArrayBuffer or view) or Python buffer.
+
+    ``to_py()`` converts TypedArray views but passes a bare ArrayBuffer
+    through unchanged (observed on workerd: websocket ``event.data``), so
+    prefer the JsBuffer API, which covers both.
+    """
+    to_bytes = getattr(value, "to_bytes", None)
+    if to_bytes is not None:
+        return to_bytes()
+    if hasattr(value, "to_py"):
+        value = value.to_py()
+    return bytes(value)
+
+
 async def _iter_js_stream(js_stream: Any) -> AsyncIterator[bytes]:
     """Drive a JS ReadableStream reader as an async byte iterator."""
     reader = js_stream.getReader()
@@ -84,10 +179,7 @@ async def _iter_js_stream(js_stream: Any) -> AsyncIterator[bytes]:
         result = await reader.read()
         if result.done:
             return
-        value = result.value
-        if hasattr(value, "to_py"):
-            value = value.to_py()
-        yield bytes(value)
+        yield _js_bytes(result.value)
 
 
 async def _read_body(js_request: Any) -> bytes | None:
@@ -103,17 +195,14 @@ async def _read_body(js_request: Any) -> bytes | None:
         reader = getattr(js_request, "bytes", None)
     if reader is None:
         return None
-    data = await reader()
-    if hasattr(data, "to_py"):
-        data = data.to_py()
-    return bytes(data) or None
+    return _js_bytes(await reader()) or None
 
 
-def _bridge_abort_signal(js_request: Any) -> AbortSignal | None:
-    """Mirror the JS AbortSignal onto a hayate AbortSignal, if present."""
+def _bridge_abort_signal(js_request: Any) -> tuple[AbortSignal | None, Callable[[], None] | None]:
+    """Mirror the JS AbortSignal, returning the signal and its release."""
     js_signal = _probe(js_request, "signal")
     if js_signal is None or not hasattr(js_signal, "addEventListener"):
-        return None
+        return None, None
     signal = AbortSignal()
 
     def on_abort(*_event: Any) -> None:
@@ -121,69 +210,97 @@ def _bridge_abort_signal(js_request: Any) -> AbortSignal | None:
 
     # An implicitly-converted callable would be destroyed when this call
     # returns (the classic addEventListener trap) — create_proxy keeps the
-    # listener alive for the lifetime of the request.
-    listener = on_abort if _create_proxy is None else _create_proxy(on_abort)
+    # listener alive until the release below destroys it.
+    listener = _proxy(on_abort)
     js_signal.addEventListener("abort", listener)
     if getattr(js_signal, "aborted", False):
         on_abort()  # aborted before the listener was attached
-    return signal
+
+    def release() -> None:
+        js_signal.removeEventListener("abort", listener)
+        _destroy(listener)
+
+    return signal, release
 
 
-async def _to_hayate_request(js_request: Any) -> Request:
+async def _to_hayate_request(js_request: Any) -> tuple[Request, Callable[[], None] | None]:
     stream = _js_body_stream(js_request)
     body = _iter_js_stream(stream) if stream is not None else await _read_body(js_request)
-    return Request(
+    signal, release = _bridge_abort_signal(js_request)
+    request = Request(
         str(js_request.url),
         method=str(js_request.method),
         headers=Headers(_js_headers_to_pairs(js_request.headers), guard="immutable"),
         body=body,
-        signal=_bridge_abort_signal(js_request),
+        signal=signal,
     )
+    return request, release
 
 
-def _js_stream_from_body(body: AsyncIterable[bytes], readable_stream_cls: Any) -> Any:
+def _js_stream_from_body(
+    body: AsyncIterable[bytes], readable_stream_cls: Any, on_done: Callable[[], None]
+) -> Any:
     """Build a JS ReadableStream from an async byte iterable, or None.
 
     ``ReadableStream.from(asyncIterable)`` (unconditional in workerd)
     consumes the async-iteration protocol of the generator's proxy;
-    chunks cross pre-converted to ``Uint8Array``.
+    chunks cross pre-converted to ``Uint8Array``. ``on_done`` runs when
+    the stream finishes or is canceled, and the generator's own proxy is
+    destroyed one tick later — after its final result crossed to JS.
     """
-    stream_from = getattr(readable_stream_cls, "from", None)
+    stream_from = getattr(readable_stream_cls, "from", None) if readable_stream_cls else None
     if stream_from is None:
         return None
 
+    proxy_ref: list[Any] = []
+
     async def chunks() -> AsyncIterator[Any]:
-        async for chunk in body:
-            data = bytes(chunk)
-            yield data if _to_js is None else _to_js(data)
+        try:
+            async for chunk in body:
+                data = bytes(chunk)
+                yield data if _to_js is None else _to_js(data)
+        finally:
+            on_done()
+            if proxy_ref:
+                asyncio.get_running_loop().call_soon(proxy_ref.pop().destroy)
 
     generator = chunks()
+    if _create_proxy is None:
+        handle: Any = generator
+    else:
+        handle = _create_proxy(generator)
+        proxy_ref.append(handle)
     try:
-        return stream_from(generator if _create_proxy is None else _create_proxy(generator))
+        return stream_from(handle)
     except Exception:
-        return None  # the generator has not started; buffering stays correct
+        if proxy_ref:  # the generator has not started; buffering stays correct
+            proxy_ref.pop().destroy()
+        return None
 
 
 async def _to_workers_response(
-    response: Response,
-    workers_response_cls: Any,
-    js_headers_cls: Any,
-    readable_stream_cls: Any = None,
+    response: Response, runtime: _Runtime, on_done: Callable[[], None]
 ) -> Any:
-    js_headers = js_headers_cls.new()
+    js_headers = runtime.headers_cls.new()
     for name, value in response.headers.raw():
         js_headers.append(name, value)
     body = response.body
     if body is not None and not isinstance(body, bytes):
-        stream = _js_stream_from_body(body, readable_stream_cls)
+        stream = _js_stream_from_body(body, runtime.readable_stream_cls, on_done)
         if stream is not None:
             # workers.Response accepts a ReadableStream body (it is in the
             # SDK's RESPONSE_ACCEPTED_TYPES); an SDK that rejects it falls
-            # back to buffering — the generator has not started yet.
-            with contextlib.suppress(Exception):
-                return workers_response_cls(stream, status=response.status, headers=js_headers)
+            # back to buffering — the generator has not started yet, so
+            # canceling the stream releases its proxy without touching
+            # the underlying body iterable.
+            try:
+                return runtime.response_cls(stream, status=response.status, headers=js_headers)
+            except Exception:
+                with contextlib.suppress(Exception):
+                    stream.cancel()
         body = await response.bytes()
-    return workers_response_cls(body, status=response.status, headers=js_headers)
+    on_done()
+    return runtime.response_cls(body, status=response.status, headers=js_headers)
 
 
 class _WorkersExecutionContext(ExecutionContext):
@@ -200,24 +317,170 @@ class _WorkersExecutionContext(ExecutionContext):
         self._js_ctx.waitUntil(asyncio.ensure_future(awaitable))
 
 
+def _accept_websocket(
+    route: Any,
+    params: dict[str, str | None],
+    request: Request,
+    env: Any,
+    js_ctx: Any,
+    runtime: _Runtime,
+    release: Callable[[], None],
+) -> Any:
+    """Upgrade via WebSocketPair and drive the handler over the server side.
+
+    The handler sees the exact ``WebSocket`` surface it sees on ASGI: the
+    JS events are queued as ASGI-shaped messages, and sends map onto the
+    server socket. Returns the ``101`` response holding the client side.
+    """
+    client, server = runtime.websocket_pair_cls.new().object_values()
+    server.accept()
+    # Binary frames arrive as Blob by default, which only offers async
+    # readers; ArrayBuffer keeps the message listener synchronous
+    # (WHATWG WebSocket ``binaryType``). Observed on workerd, 2026-07.
+    server.binaryType = "arraybuffer"
+
+    queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+    queue.put_nowait({"type": "websocket.connect"})
+
+    def on_message(event: Any) -> None:
+        data = event.data
+        if isinstance(data, str):
+            queue.put_nowait({"type": "websocket.receive", "text": data})
+        else:
+            queue.put_nowait({"type": "websocket.receive", "bytes": _js_bytes(data)})
+
+    def on_close(event: Any) -> None:
+        queue.put_nowait(
+            {
+                "type": "websocket.disconnect",
+                "code": getattr(event, "code", None) or 1005,
+                "reason": getattr(event, "reason", None) or "",
+            }
+        )
+
+    def on_error(_event: Any) -> None:
+        queue.put_nowait({"type": "websocket.disconnect", "code": 1006, "reason": "error"})
+
+    listeners = [
+        ("message", _proxy(on_message)),
+        ("close", _proxy(on_close)),
+        ("error", _proxy(on_error)),
+    ]
+    for event_name, listener in listeners:
+        server.addEventListener(event_name, listener)
+
+    async def receive() -> dict[str, Any]:
+        return await queue.get()
+
+    async def send(message: dict[str, Any]) -> None:
+        kind = message["type"]
+        if kind == "websocket.send":
+            text = message.get("text")
+            if text is not None:
+                server.send(text)
+            else:
+                data = message.get("bytes", b"")
+                server.send(data if _to_js is None else _to_js(data))
+        elif kind == "websocket.close":
+            # Best-effort: the peer may already be gone.
+            with contextlib.suppress(Exception):
+                server.close(message.get("code", 1000), message.get("reason", ""))
+        # "websocket.accept" needs no action: the pair was accepted above.
+
+    ws = WebSocket(receive, send)
+    hayate_request = HayateRequest(request)
+    hayate_request._params = params
+    c = Context(hayate_request, env, _WorkersExecutionContext(js_ctx))
+
+    async def run() -> None:
+        try:
+            await ws.accept()  # consumes the synthetic connect message
+            try:
+                await route.handler(c, ws)
+            except WebSocketClosed:
+                pass
+            except Exception:
+                _logger.exception("websocket handler failed on %s", request.url.pathname)
+                await ws.close(1011, "internal error")
+                return
+            await ws.close()
+        finally:
+            for event_name, listener in listeners:
+                with contextlib.suppress(Exception):
+                    server.removeEventListener(event_name, listener)
+                _destroy(listener)
+            release()
+
+    task = asyncio.ensure_future(run())
+    _live_connections.add(task)
+    task.add_done_callback(_live_connections.discard)
+    return runtime.response_cls(None, status=101, web_socket=client)
+
+
+async def _handle_fetch(
+    app: Hayate, js_request: Any, js_ctx: Any, env: Any, runtime: _Runtime
+) -> Any:
+    request, release_signal = await _to_hayate_request(js_request)
+    release = _once(release_signal)
+    try:
+        if runtime.websocket_pair_cls is not None:
+            upgrade = request.headers.get("upgrade")
+            if upgrade is not None and upgrade.lower() == "websocket":
+                matched = app._router.match(WEBSOCKET_METHOD, request.url.pathname)
+                if matched is not None:
+                    route, params = matched
+                    return _accept_websocket(route, params, request, env, js_ctx, runtime, release)
+        response = await app.fetch(request, env=env, ctx=_WorkersExecutionContext(js_ctx))
+        return await _to_workers_response(response, runtime, on_done=release)
+    except BaseException:  # adapter failure or cancellation: do not leak the proxy
+        release()
+        raise
+
+
 def to_workers(app: Hayate) -> type:
     """Build the Workers entrypoint class: ``Default = to_workers(app)``."""
-    from js import Headers as JsHeaders
-    from workers import Response as WorkersResponse
     from workers import WorkerEntrypoint
 
-    try:
-        from js import ReadableStream as JsReadableStream
-    except ImportError:  # a runtime without streams: responses are buffered
-        JsReadableStream = None
+    runtime = _Runtime()
 
     class Default(WorkerEntrypoint):
         async def fetch(self, request: Any) -> Any:
-            hayate_request = await _to_hayate_request(request)
-            exec_ctx = _WorkersExecutionContext(self.ctx)
-            response = await app.fetch(hayate_request, env=self.env, ctx=exec_ctx)
-            return await _to_workers_response(
-                response, WorkersResponse, JsHeaders, JsReadableStream
-            )
+            return await _handle_fetch(app, request, self.ctx, self.env, runtime)
 
     return Default
+
+
+def to_durable_object(factory: Callable[[Any, Any], Hayate]) -> type:
+    """Build a Durable Object class that serves a hayate app from ``fetch``.
+
+    ``factory(ctx, env)`` runs once per object instance and returns the
+    app; route closures capture ``ctx.storage`` (the same idiom Hono
+    uses — build the app in the constructor). Websocket routes work here
+    too: a direct upgrade request to the object returns ``101``.
+
+    The runtime registers Durable Object classes by ``__name__`` (workerd
+    ``introspection.py``), so the factory's name becomes the class name
+    and must match ``class_name`` in wrangler.toml — most natural as a
+    decorator::
+
+        @to_durable_object
+        def Counter(ctx, env):
+            app = Hayate()
+            ...
+            return app
+    """
+    from workers import DurableObject
+
+    runtime = _Runtime()
+
+    class HayateDurableObject(DurableObject):
+        def __init__(self, ctx: Any, env: Any) -> None:
+            super().__init__(ctx, env)
+            self._app = factory(ctx, env)
+
+        async def fetch(self, request: Any) -> Any:
+            return await _handle_fetch(self._app, request, self.ctx, self.env, runtime)
+
+    HayateDurableObject.__name__ = factory.__name__
+    HayateDurableObject.__qualname__ = factory.__name__
+    return HayateDurableObject
