@@ -2,6 +2,34 @@
 
 All notable changes to hayate are documented here.
 
+## [0.5.0] - 2026-07-22
+
+### Added
+
+- **`hayate.adapters.workers.forward(c, fetcher)`** — forward the
+  original platform request to any Fetcher binding (Durable Object
+  stub, service binding) and return its response **untouched**.
+  Platform extensions survive the crossing, so a websocket upgrade
+  passes *through* the outer app into the Durable Object's own
+  `@app.ws()` route — verified on a local workerd and in production
+  over `wss://`. Caveat (documented): a forwarded response is exactly
+  the platform's response; staged response mutations (`c.header()`) do
+  not apply to it. `examples/workers/` gains `/do-ws/:name`
+  demonstrating the pass-through upgrade, and `/counter/:name` now
+  forwards instead of rebuilding the response.
+
+### Changed
+
+- Hot-path micro-optimizations, each measured (DESIGN §14.4 records
+  the numbers and the rejected alternatives):
+  - Response header wire encoding is memoized (114 → 41 ns per pair) —
+    the same pairs were re-encoded on every request.
+  - `Headers.get()` takes a single-value fast path (181 → 145 ns).
+  - Static route matches share one empty params dict (40 → 31 ns).
+  - Header-name interning and per-method dynamic-route indexes were
+    measured and rejected — the numbers are recorded so they stay
+    settled.
+
 ## [0.4.1] - 2026-07-22
 
 ### Changed

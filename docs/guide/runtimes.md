@@ -75,9 +75,23 @@ tag = "v1"
 new_sqlite_classes = ["Counter"]
 ```
 
-Reach it from a route via the binding:
-`stub = c.env.COUNTER.getByName(name)` then `await stub.fetch(url)`.
-Websocket routes work inside the object too.
+Reach it from a route with `forward()` — it hands the *original*
+platform request to any Fetcher binding (a Durable Object stub, a
+service binding) and returns the response untouched:
+
+```python
+from hayate.adapters.workers import forward
+
+@app.get("/room/:name")
+async def room(c: Context):
+    return await forward(c, c.env.ROOMS.getByName(c.req.param("name")))
+```
+
+Because nothing is rebuilt, platform extensions survive — a websocket
+upgrade passes **through** this app into the object's own `@app.ws()`
+route (verified in production over `wss://`). One caveat: a forwarded
+response is exactly the platform's response, so staged response
+mutations (`c.header()`) do not apply to it.
 
 A ready-to-deploy project lives at
 [`examples/workers/`](https://github.com/hayatepy/hayate/tree/main/examples/workers).

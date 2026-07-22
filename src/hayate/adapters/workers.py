@@ -63,13 +63,13 @@ from ..abort import AbortSignal
 from ..context import Context, ExecutionContext
 from ..headers import Headers
 from ..request import HayateRequest, Request
+from ..response import Response
 from ..router import WEBSOCKET_METHOD
 from ..url import URL
 from ..websocket import WebSocket, WebSocketClosed
 
 if TYPE_CHECKING:
     from ..app import Hayate
-    from ..response import Response
 
 _logger = logging.getLogger("hayate.workers")
 
@@ -326,6 +326,10 @@ _NULL_BODY_STATUSES = frozenset((101, 103, 204, 205, 304))
 async def _to_workers_response(
     response: Response, runtime: _Runtime, on_done: Callable[[], None]
 ) -> Any:
+    platform_response = getattr(response, "platform_response", None)
+    if platform_response is not None:  # forward(): return it untouched
+        on_done()
+        return platform_response
     # One crossing for the whole header list — the JS Headers constructor
     # takes a sequence of pairs, so per-header append() calls (N proxy
     # round-trips) are unnecessary.
@@ -351,17 +355,53 @@ async def _to_workers_response(
 
 
 class _WorkersExecutionContext(ExecutionContext):
-    """Forwards ``wait_until`` to the Workers runtime (``ctx.waitUntil``)."""
+    """Forwards ``wait_until`` to the Workers runtime (``ctx.waitUntil``).
 
-    __slots__ = ("_js_ctx",)
+    Also carries the original platform request so ``forward()`` can hand
+    it to a Fetcher binding untouched.
+    """
 
-    def __init__(self, js_ctx: Any) -> None:
+    __slots__ = ("_js_ctx", "js_request")
+
+    def __init__(self, js_ctx: Any, js_request: Any = None) -> None:
         super().__init__()
         self._js_ctx = js_ctx
+        self.js_request = js_request
 
     def wait_until(self, awaitable: Any) -> None:
         # Pyodide converts asyncio futures to JS promises at the boundary.
         self._js_ctx.waitUntil(asyncio.ensure_future(awaitable))
+
+
+class _PassthroughResponse(Response):
+    """A platform response that must cross the boundary untouched."""
+
+    __slots__ = ("platform_response",)
+
+
+async def forward(c: Context, fetcher: Any) -> Response:
+    """Forward the original platform request to a Fetcher binding.
+
+    ``fetcher`` is anything with a Workers ``fetch`` — a Durable Object
+    stub (``c.env.NS.getByName(name)``) or a service binding. The
+    response crosses back *untouched*, so platform extensions survive:
+    an accepted websocket upgrade (the ``webSocket`` property of a
+    ``101``) reaches the client even through this app, which a rebuilt
+    ``Response`` cannot carry. Because it is exactly the platform's
+    response, staged response middleware mutations (``c.header()``) do
+    not apply to it.
+    """
+    js_request = getattr(c._exec, "js_request", None)
+    if js_request is None:
+        raise RuntimeError(
+            "forward() needs the original platform request; it is only "
+            "available under the Workers adapter (to_workers / to_durable_object)"
+        )
+    raw = getattr(js_request, "js_object", None)
+    js_response = await fetcher.fetch(raw if raw is not None else js_request)
+    response = _PassthroughResponse(None, int(getattr(js_response, "status", None) or 200))
+    response.platform_response = js_response
+    return response
 
 
 def _accept_websocket(
@@ -477,7 +517,8 @@ async def _handle_fetch(
                 if matched is not None:
                     route, params = matched
                     return _accept_websocket(route, params, request, env, js_ctx, runtime, release)
-        response = await app.fetch(request, env=env, ctx=_WorkersExecutionContext(js_ctx))
+        exec_ctx = _WorkersExecutionContext(js_ctx, js_request)
+        response = await app.fetch(request, env=env, ctx=exec_ctx)
         return await _to_workers_response(response, runtime, on_done=release)
     except BaseException:  # adapter failure or cancellation: do not leak the proxy
         release()

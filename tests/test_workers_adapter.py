@@ -663,6 +663,55 @@ async def test_durable_object_mounts_a_hayate_app(workers_runtime):
     assert obj.ctx is ctx  # the DurableObject base-class contract
 
 
+class FakeFetcherStub:
+    """A Durable Object stub / service binding: records what it was fed."""
+
+    def __init__(self, response):
+        self.response = response
+        self.received = None
+
+    async def fetch(self, request):
+        self.received = request
+        return self.response
+
+
+async def test_forward_returns_the_platform_response_untouched(workers_runtime):
+    from hayate.adapters.workers import forward
+
+    platform_response = types.SimpleNamespace(status=101, web_socket="the-client-socket")
+    stub = FakeFetcherStub(platform_response)
+    app = Hayate()
+
+    @app.get("/room/:name")
+    async def room(c: Context):
+        return await forward(c, stub)
+
+    raw_js = types.SimpleNamespace(body=None, signal=None)
+    request = FakePyRequest(
+        "https://edge.example/room/lobby",
+        headers=[("connection", "Upgrade"), ("upgrade", "websocket")],
+        js_object=raw_js,
+    )
+
+    result = await _entry(app).fetch(request)
+    # Identity, not equality: platform extensions (webSocket) must survive.
+    assert result is platform_response
+    assert stub.received is raw_js  # the *original* platform request was forwarded
+
+
+async def test_forward_outside_the_workers_adapter_is_an_error():
+    from hayate.adapters.workers import forward
+
+    app = Hayate()
+
+    @app.get("/room")
+    async def room(c: Context):
+        return await forward(c, FakeFetcherStub(None))
+
+    response = await app.request("/room")
+    assert response.status == 500  # RuntimeError -> problem+json
+
+
 async def test_durable_object_serves_websocket_routes(workers_ws_runtime):
     from hayate.adapters.workers import to_durable_object
 

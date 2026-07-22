@@ -196,12 +196,28 @@ def _build_url(scope: dict[str, Any], host_header: bytes | None) -> URL:
     return URL._from_server(scheme, host, path, query)
 
 
+# Response header pairs repeat massively across requests (content-type,
+# cache-control, ...), so their wire encoding is memoized: 114 ns -> 41 ns
+# per pair (measured, DESIGN §14.4). Bounded so per-request values
+# (set-cookie, etag) cannot grow it without bound — beyond the cap,
+# uncached pairs are encoded directly.
+_WIRE_CACHE: dict[tuple[str, str], tuple[bytes, bytes]] = {}
+_WIRE_CACHE_MAX = 1024
+
+
+def _wire_pair(pair: tuple[str, str]) -> tuple[bytes, bytes]:
+    cached = _WIRE_CACHE.get(pair)
+    if cached is None:
+        cached = (pair[0].encode("latin-1"), pair[1].encode("latin-1"))
+        if len(_WIRE_CACHE) < _WIRE_CACHE_MAX:
+            _WIRE_CACHE[pair] = cached
+    return cached
+
+
 async def _send_response(scope: dict[str, Any], send: Send, response: Response) -> None:
     status = response.status
     body = response.body
-    headers = [
-        (name.encode("latin-1"), value.encode("latin-1")) for name, value in response.headers.raw()
-    ]
+    headers = [_wire_pair(pair) for pair in response.headers.raw()]
     body_allowed = status >= 200 and status not in (204, 304)
     if body_allowed and not response.headers.has("content-length"):
         if isinstance(body, bytes):

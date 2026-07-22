@@ -9,7 +9,7 @@ Deploy (from this directory, wrangler + Python Workers beta):
 import asyncio
 
 from hayate import Context, Hayate
-from hayate.adapters.workers import to_durable_object, to_workers
+from hayate.adapters.workers import forward, to_durable_object, to_workers
 
 app = Hayate()
 
@@ -70,12 +70,16 @@ async def ws_echo(c: Context, ws):
 
 @app.get("/counter/:name")
 async def counter(c: Context):
-    """Forward to the named Durable Object; each name has its own storage."""
-    stub = c.env.COUNTER.getByName(c.req.param("name"))
-    resp = await stub.fetch(c.req.url.href)
-    return c.body(
-        await resp.text(), status=resp.status, headers={"content-type": "application/json"}
-    )
+    """Forward to the named Durable Object; the response crosses untouched."""
+    return await forward(c, c.env.COUNTER.getByName(c.req.param("name")))
+
+
+@app.get("/do-ws/:name")
+async def do_ws(c: Context):
+    """WebSocket upgrade THROUGH this app into the Durable Object:
+    forward() passes the platform response back untouched, so the
+    ``webSocket`` of the 101 survives."""
+    return await forward(c, c.env.COUNTER.getByName(c.req.param("name")))
 
 
 # The factory's name becomes the Durable Object class name and must
@@ -90,6 +94,14 @@ def Counter(ctx, env):
         n = int((await ctx.storage.get("n")) or 0) + 1
         await ctx.storage.put("n", n)
         return c.json({"name": c.req.param("name"), "count": n})
+
+    @do_app.ws("/do-ws/:name")
+    async def ws_in_do(c: Context, ws):
+        await ws.send(f"hello from durable object {c.req.param('name')}")
+        async for message in ws:
+            if message == "bye":
+                break
+            await ws.send(f"do-echo: {message}")
 
     return do_app
 

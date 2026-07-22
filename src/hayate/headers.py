@@ -145,10 +145,19 @@ class Headers:
     def get(self, name: str) -> str | None:
         """Combined value per Fetch: multiple values joined with ", "."""
         lname = name.lower()
-        values = [v for n, v in self._decoded() if n == lname]
-        if not values:
-            return None
-        return ", ".join(values)
+        first: str | None = None
+        rest: list[str] | None = None
+        for n, v in self._decoded():
+            if n == lname:
+                if first is None:
+                    first = v  # the overwhelmingly common single-value case
+                elif rest is None:
+                    rest = [first, v]
+                else:
+                    rest.append(v)
+        if rest is not None:
+            return ", ".join(rest)
+        return first
 
     def has(self, name: str) -> bool:
         lname = name.lower()
