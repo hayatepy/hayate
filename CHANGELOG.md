@@ -2,6 +2,31 @@
 
 All notable changes to hayate are documented here.
 
+## [0.6.0] - 2026-07-22
+
+### Changed
+
+- **Router: segment trie for plain-parameter routes.** Patterns made
+  only of literal and `:name` segments now match through a segment trie
+  — O(path segments) whatever the route count (~0.95 µs flat; the
+  many-routes(64) benchmark went 102k → 200k req/s, 3.83x Starlette).
+  Regexp constraints, optional params, and wildcards stay on the regex
+  tail; **registration order still decides between overlapping dynamic
+  routes** (each route carries its registration index), so the tiering
+  is invisible to applications — pinned by tests/test_router.py. Known
+  trade-off: a single dynamic route pays ~0.4 µs over the previous
+  one-regex scan (dynamic-json −8%); DESIGN §14.4 records the numbers
+  and the rejected flat-alternation design (9x *worse* at 1024 routes).
+- **URL: WHATWG IPv4/IPv6 canonicalization and %2e-aware dot-segment
+  removal** — `0x7f.1` → `127.0.0.1` with overflow rejection
+  (hosts ending in a number must parse as IPv4), IPv6 parsing with
+  RFC 5952 `::`-compressed lowercase serialization, `%2e`/`%2E` dot
+  segments, and multi-slash edge cases. **The wpt conformance ratchet
+  rose 202 → 246 of 306 in-scope cases (66% → 80.4%)** with zero new
+  dependencies and no tables. The remaining gap is the host
+  percent-decode → IDNA/UTS-46 pipeline, demand-gated at
+  hayatepy/hayate#2 (the rejection error now points there).
+
 ## [0.5.0] - 2026-07-22
 
 ### Added

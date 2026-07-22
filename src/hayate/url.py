@@ -115,24 +115,201 @@ def parse_form_urlencoded(query: str) -> list[tuple[str, str]]:
     return pairs
 
 
+# Dot segments compare after percent-decoding just the dots, ASCII
+# case-insensitively (WHATWG path state): "%2e" == ".".
+_SINGLE_DOTS = frozenset((".", "%2e"))
+_DOUBLE_DOTS = frozenset(("..", ".%2e", "%2e.", "%2e%2e"))
+
+
 def _remove_dot_segments(path: str) -> str:
-    out: list[str] = []
-    ends_with_slash = False
-    for segment in path.split("/")[1:]:
-        if segment == ".":
-            ends_with_slash = True
+    output: list[str] = []
+    segments = path.split("/")
+    last = len(segments) - 1
+    for i in range(1, last + 1):
+        segment = segments[i]
+        low = segment.lower() if "%" in segment else segment
+        if low in _DOUBLE_DOTS:
+            if output:
+                output.pop()
+            if i == last:
+                output.append("")
+        elif low in _SINGLE_DOTS:
+            if i == last:
+                output.append("")
+        else:
+            output.append(segment)
+    return "/" + "/".join(output)
+
+
+def _needs_dot_removal(path: str) -> bool:
+    return "/." in path or ("%2" in path and "%2e" in path.lower())
+
+
+def _parse_ipv4_number(part: str) -> int | None:
+    """WHATWG IPv4-number parser: decimal, ``0x`` hex, or ``0``-octal."""
+    if not part:
+        return None
+    radix = 10
+    if len(part) >= 2 and part[0] == "0" and part[1] in "xX":
+        part = part[2:]
+        radix = 16
+    elif len(part) >= 2 and part[0] == "0":
+        part = part[1:]
+        radix = 8
+    if not part:
+        return 0
+    digits = "0123456789abcdef"[:radix]
+    low = part.lower()
+    if any(ch not in digits for ch in low):
+        return None
+    return int(low, radix)
+
+
+def _ends_in_number(hostname: str) -> bool:
+    """WHATWG ends-in-a-number checker: such hosts must parse as IPv4."""
+    parts = hostname.split(".")
+    if parts[-1] == "":
+        if len(parts) == 1:
+            return False
+        parts = parts[:-1]
+    tail = parts[-1]
+    if tail and all(ch in "0123456789" for ch in tail):
+        return True
+    return _parse_ipv4_number(tail) is not None
+
+
+def _canonicalize_ipv4(hostname: str, url: str) -> str:
+    """WHATWG IPv4 parser: canonical dotted-decimal, or ``ValueError``."""
+    parts = hostname.split(".")
+    if parts[-1] == "":
+        parts = parts[:-1]
+    if not parts or len(parts) > 4:
+        raise ValueError(f"invalid IPv4 host in URL: {url!r}")
+    numbers: list[int] = []
+    for part in parts:
+        value = _parse_ipv4_number(part)
+        if value is None:
+            raise ValueError(f"invalid IPv4 host in URL: {url!r}")
+        numbers.append(value)
+    if any(n > 255 for n in numbers[:-1]) or numbers[-1] >= 256 ** (5 - len(numbers)):
+        raise ValueError(f"IPv4 address out of range in URL: {url!r}")
+    address = numbers[-1]
+    for i, n in enumerate(numbers[:-1]):
+        address += n << (8 * (3 - i))
+    return ".".join(str((address >> (8 * (3 - i))) & 0xFF) for i in range(4))
+
+
+def _canonicalize_ipv6(inner: str, url: str) -> str:
+    """WHATWG IPv6 parser + serializer (RFC 5952 ``::`` compression)."""
+
+    def fail() -> ValueError:
+        return ValueError(f"invalid IPv6 host in URL: {url!r}")
+
+    pieces = [0] * 8
+    piece_index = 0
+    compress: int | None = None
+    pointer = 0
+    n = len(inner)
+    if pointer < n and inner[pointer] == ":":
+        if not inner.startswith("::"):
+            raise fail()
+        pointer += 2
+        piece_index += 1
+        compress = piece_index
+    while pointer < n:
+        if piece_index == 8:
+            raise fail()
+        if inner[pointer] == ":":
+            if compress is not None:
+                raise fail()
+            pointer += 1
+            piece_index += 1
+            compress = piece_index
             continue
-        if segment == "..":
-            if out:
-                out.pop()
-            ends_with_slash = True
+        value = length = 0
+        while length < 4 and pointer < n and inner[pointer] in "0123456789abcdefABCDEF":
+            value = value * 16 + int(inner[pointer], 16)
+            pointer += 1
+            length += 1
+        if pointer < n and inner[pointer] == ".":
+            if length == 0:
+                raise fail()
+            pointer -= length
+            if piece_index > 6:
+                raise fail()
+            numbers_seen = 0
+            while pointer < n:
+                ipv4_piece: int | None = None
+                if numbers_seen > 0:
+                    if inner[pointer] == "." and numbers_seen < 4:
+                        pointer += 1
+                    else:
+                        raise fail()
+                if pointer >= n or inner[pointer] not in "0123456789":
+                    raise fail()
+                while pointer < n and inner[pointer] in "0123456789":
+                    digit = int(inner[pointer])
+                    if ipv4_piece is None:
+                        ipv4_piece = digit
+                    elif ipv4_piece == 0:
+                        raise fail()
+                    else:
+                        ipv4_piece = ipv4_piece * 10 + digit
+                    if ipv4_piece > 255:
+                        raise fail()
+                    pointer += 1
+                pieces[piece_index] = pieces[piece_index] * 256 + (ipv4_piece or 0)
+                numbers_seen += 1
+                if numbers_seen in (2, 4):
+                    piece_index += 1
+            if numbers_seen != 4:
+                raise fail()
+            break
+        if pointer < n:
+            if inner[pointer] != ":":
+                raise fail()
+            pointer += 1
+            if pointer == n:
+                raise fail()
+        pieces[piece_index] = value
+        piece_index += 1
+    if compress is not None:
+        swaps = piece_index - compress
+        piece_index = 7
+        while piece_index != 0 and swaps > 0:
+            other = compress + swaps - 1
+            pieces[piece_index], pieces[other] = pieces[other], pieces[piece_index]
+            piece_index -= 1
+            swaps -= 1
+    elif piece_index != 8:
+        raise fail()
+    # Serialize: compress the leftmost longest run (>= 2) of zero pieces.
+    best_start, best_len = -1, 1
+    i = 0
+    while i < 8:
+        if pieces[i] == 0:
+            j = i
+            while j < 8 and pieces[j] == 0:
+                j += 1
+            if j - i > best_len:
+                best_start, best_len = i, j - i
+            i = j
+        else:
+            i += 1
+    parts: list[str] = []
+    i = 0
+    while i < 8:
+        if i == best_start:
+            if i == 0:
+                parts.append("")
+            parts.append("")
+            i += best_len
+            if i == 8:
+                parts.append("")
             continue
-        out.append(segment)
-        ends_with_slash = False
-    result = "/" + "/".join(out)
-    if ends_with_slash and not result.endswith("/"):
-        result += "/"
-    return result
+        parts.append(format(pieces[i], "x"))
+        i += 1
+    return ":".join(parts)
 
 
 class URLSearchParams:
@@ -257,7 +434,7 @@ class URL:
         url._port = port
         if not path:
             path = "/"
-        elif "/." in path:
+        elif _needs_dot_removal(path):
             path = _remove_dot_segments(path)
         url._pathname = path
         url._search = f"?{query}" if query else ""
@@ -300,9 +477,7 @@ class URL:
             close = hostport.find("]")
             if close == -1:
                 raise ValueError(f"invalid IPv6 host in URL: {url!r}")
-            hostname = hostport[: close + 1].lower()
-            if not all(ch in "0123456789abcdef:." for ch in hostname[1:-1]):
-                raise ValueError(f"invalid IPv6 host in URL: {url!r}")
+            hostname = "[" + _canonicalize_ipv6(hostport[1:close], url) + "]"
             portpart = hostport[close + 1 :]
             if portpart and not portpart.startswith(":"):
                 raise ValueError(f"invalid host in URL: {url!r}")
@@ -320,6 +495,10 @@ class URL:
                 )
             if _FORBIDDEN_HOST_RE.search(hostname):
                 raise ValueError(f"forbidden host code point in URL: {url!r}")
+            if _ends_in_number(hostname):
+                # WHATWG: a host whose last label is numeric *is* an IPv4
+                # address — canonicalize or reject (overflow, bad digits).
+                hostname = _canonicalize_ipv4(hostname, url)
         if not hostname:
             raise ValueError(f"empty host in URL: {url!r}")
         if port:

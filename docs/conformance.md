@@ -41,19 +41,18 @@ removal), backslash tolerance for special schemes, default-port
 elision, dot-segment removal, component percent-encoding for path /
 query / fragment / userinfo, forbidden-host-code-point validation.
 
-Known gaps (counted as failures above, not hidden). The 102 in-scope
-failures decompose as (measured 2026-07-22):
+Implemented in 0.6.0 (raised the ratchet 202 → 246 of 306, 66% →
+80.4%): WHATWG IPv4 canonicalization (`0x7f.1` → `127.0.0.1`, overflow
+rejection), IPv6 parsing with RFC 5952 `::`-compressed serialization,
+and `%2e`-aware dot-segment removal including multi-slash edge cases.
 
-- Host percent-decode → UTS-46 `domain_to_ascii` pipeline (57 cases) —
-  non-ASCII hosts raise `ValueError` instead of converting (explicit
-  error over silent mojibake). Full support costs ~310 KiB of UTS-46
-  tables, so it waits for demand — if you need it, comment on
-  [hayatepy/hayate#2](https://github.com/hayatepy/hayate/issues/2),
-  which the error message also points at.
-- Stricter host rejection (26) plus IPv4 (`0x7f.1` style, 5) and IPv6
-  (9) canonicalization, percent-decoded dot-segments and multi-slash
-  edge cases (5) — pure algorithms, no tables; the next planned
-  conformance work.
+Known gaps (counted as failures, not hidden): the remaining ~60 cases
+are almost entirely the host percent-decode → UTS-46 `domain_to_ascii`
+pipeline — non-ASCII hosts raise `ValueError` instead of converting
+(explicit error over silent mojibake). Full support costs ~310 KiB of
+UTS-46 tables, so it waits for demand — if you need it, comment on
+[hayatepy/hayate#2](https://github.com/hayatepy/hayate/issues/2),
+which the error message also points at.
 
 ## Headers / Fetch semantics
 

@@ -11,17 +11,24 @@ Run:
 uv run --group bench python benchmarks/bench.py
 ```
 
-## Results (2026-07-22, Tier 1 + Tier 2 accelerator)
+## Results (2026-07-22, hayate 0.6.0, Tier 1 + Tier 2 accelerator)
 
-Apple Silicon (arm64), CPython 3.14.6, hayate 0.2.0.dev0 with
-hayate-accel, starlette 1.3.1. N=10,000 per round, best of 3 rounds.
+Apple Silicon (arm64), CPython 3.14.6, hayate 0.6.0 with hayate-accel,
+starlette 1.3.1. N=10,000 per round, best of 3 rounds.
 
 | Scenario | hayate req/s | Starlette req/s | Ratio |
 |---|---:|---:|---:|
-| static-text | 236,323 | 197,388 | **1.20x** |
-| dynamic-json | 187,466 | 153,280 | **1.22x** |
-| many-routes(64) | 100,826 | 52,356 | **1.93x** |
-| middleware(2) | 149,331 | 3,403 | 43.89x * |
+| static-text | 243,782 | 192,686 | **1.27x** |
+| dynamic-json | 170,337 | 154,827 | **1.10x** † |
+| many-routes(64) | 200,097 | 52,190 | **3.83x** |
+| middleware(2) | 155,975 | 3,512 | 44.41x * |
+
+† 0.6.0's segment-trie router is flat at ~0.95 µs/match regardless of
+route count (many-routes went 1.93x → 3.83x), but a *single* dynamic
+route is the linear scan's absolute best case (one C-regex call,
+~0.5 µs) — this scenario gave back ~8%. Real apps with more than a
+couple of routes come out ahead; the trade-off and the rejected
+alternatives are recorded in DESIGN §14.4.
 
 \* Starlette's stock middleware mechanism (``BaseHTTPMiddleware``) has a
 well-known high overhead (a task plus stream re-wrapping per request);
