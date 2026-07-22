@@ -13,6 +13,12 @@ demoted to adapter-level implementation details.
   ASGI servers, Cloudflare Python Workers, and AWS Lambda are thin adapters.
 - **Async-first, typed** — Python 3.12+.
 
+## Install
+
+```sh
+uv add hayate        # or: pip install hayate
+```
+
 ## Quickstart
 
 ```python
@@ -56,8 +62,9 @@ async def test_show_book():
 
 ## Status
 
-Pre-alpha; v0.1 under active development (private). Design decisions are documented in
-[DESIGN.md](DESIGN.md) (Japanese) and platform research in [docs/research/](docs/research/).
+Alpha (0.3.x): the surface tracks [DESIGN.md](DESIGN.md) (Japanese) and may still move
+before 1.0. Changes are recorded in [CHANGELOG.md](CHANGELOG.md); platform research
+lives in [docs/research/](docs/research/).
 
 ## License
 

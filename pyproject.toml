@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hayate"
-version = "0.2.0.dev0"
+version = "0.3.0"
 description = "Web-standards-first Python web framework: Fetch API semantics, zero dependencies, runtime-agnostic core"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -12,7 +12,7 @@ license = "MIT"
 authors = [{ name = "haya-inc" }]
 keywords = ["web", "framework", "asgi", "fetch", "urlpattern", "web-standards", "hono"]
 classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
+  "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -21,6 +21,10 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = []
+
+[project.urls]
+Repository = "https://github.com/haya-inc/hayate"
+Changelog = "https://github.com/haya-inc/hayate/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = [
