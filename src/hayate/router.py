@@ -78,13 +78,14 @@ class Route:
 
 
 class Router:
-    __slots__ = ("_count", "_regex", "_static", "_trie")
+    __slots__ = ("_all", "_count", "_regex", "_static", "_trie")
 
     def __init__(self) -> None:
         self._static: dict[str, dict[str, Route]] = {}
         self._trie: dict[Any, Any] = {}
         self._regex: list[tuple[int, str, re.Pattern[str], tuple[str, ...], Route]] = []
         self._count = 0  # registration index shared by the dynamic tiers
+        self._all: list[Route] = []  # registration order, for introspection
 
     def add(self, route: Route) -> None:
         static, regex, names = compile_pathname(route.pattern)
@@ -93,6 +94,7 @@ class Router:
             if route.method in methods:
                 raise ValueError(f"duplicate route: {route.method} {route.pattern}")
             methods[route.method] = route
+            self._all.append(route)
             return
         if regex is None:  # pragma: no cover - compile_pathname guarantees one of the two
             raise AssertionError("dynamic pattern compiled to neither static nor regex")
@@ -101,11 +103,13 @@ class Router:
         segments = _plain_segments(route.pattern)
         if segments is not None:
             self._trie_add(segments, route, index)
+            self._all.append(route)
             return
         for _, method, _, _, existing in self._regex:
             if method == route.method and existing.pattern == route.pattern:
                 raise ValueError(f"duplicate route: {route.method} {route.pattern}")
         self._regex.append((index, route.method, regex, names, route))
+        self._all.append(route)
 
     def _trie_add(self, segments: list[str], route: Route, index: int) -> None:
         node = self._trie

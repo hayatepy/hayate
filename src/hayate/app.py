@@ -73,6 +73,17 @@ class Hayate:
         self._on_stop: list[Callable[[], Any]] = []
         self._asgi: Callable[..., Awaitable[None]] | None = None
 
+    @property
+    def routes(self) -> tuple[Route, ...]:
+        """Every registered route in registration order (read-only).
+
+        The introspection surface for tooling (OpenAPI generation, route
+        listings): each ``Route`` exposes ``method``, ``pattern``,
+        ``handler``, and ``middleware``. Mutating the tuple does not
+        affect routing.
+        """
+        return tuple(self._router._all)
+
     # -- route registration --------------------------------------------------
 
     def on(

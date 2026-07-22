@@ -10,13 +10,14 @@ from .formdata import File, FormData
 from .headers import Headers
 from .request import HayateRequest, Request
 from .response import Response
+from .router import Route
 from .sse import SSEMessage
 from .url import URL, URLSearchParams
 from .urlpattern import URLPattern, URLPatternResult
 from .validator import validator
 from .websocket import WebSocket, WebSocketClosed
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 __all__ = [
     "URL",
@@ -37,6 +38,7 @@ __all__ = [
     "Next",
     "Request",
     "Response",
+    "Route",
     "SSEMessage",
     "URLPattern",
     "URLPatternResult",

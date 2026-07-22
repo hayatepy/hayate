@@ -491,6 +491,7 @@ v1 まで**やらない**と明示するもの:
 | **v0.4** | Workers WebSocket(WebSocketPair ブリッジ — 同一 `@app.ws()` ハンドラ)/ Durable Object マウント(`@to_durable_object`、Hono のコンストラクタ内クロージャと同型)/ FFI proxy の決定的ライフサイクル(FinalizationRegistry 非依存)/ Cloudflare 本番デプロイ — **すべて完了** | 本番 wss で WS 全経路 ✅ / DO ストレージが本番で永続 ✅ / 3,200 req 負荷で RSS フラット(35.4→35.9 MB)✅ / 本番 SSE TTFB 53ms vs 総時間 1.55s ✅(2026-07-22、research §5 に全実測値) |
 | **v0.5–0.6** | `workers.forward()`(プラットフォーム応答素通し — WS が外側アプリを貫通して DO へ)/ セグメント trie ルータ / WHATWG IPv4/IPv6 正規化 + %2e dot-segment — **すべて完了** | 本番 wss で WS-through-outer ✅ / ルート数非依存 0.95µs・many-routes(64) 3.83x ✅ / **URL 準拠ラチェット 202 → 246/306(66% → 80.4%)** ✅(§14.4 と conformance.md に全数値) |
 | **v0.7** | `rate_limit` middleware(draft-ietf-httpapi-ratelimit-headers-11 の `RateLimit`/`RateLimit-Policy` + 429/`Retry-After`。key は必須 callable — クライアント同定は信頼境界の判断でフレームワークは既定を持たない。store は protocol 注入、同梱はメモリ fixed-window)+ `parse_cookies`/`serialize_set_cookie` 公開昇格(上記未決 1)— **完了(2026-07-22)** | エコシステム駆動の証拠: rate_limit は hayate-auth §9(ブルートフォース対策の必須構成)、cookies 昇格は auth v0.1 ドッグフーディングの実利用が根拠。テスト 274(rate_limit 9 本追加)✅ |
+| **v0.8** | `app.routes` + `Route` の公開(登録順・読み取り専用の introspection 面。Router 内部の分散格納とは独立の登録簿 `_all` を追加 — 加算的で性能影響なし)— **完了(2026-07-23)** | エコシステム駆動の証拠: hayate-openapi の生成器がルートの唯一の情報源として利用(openapi DESIGN §3.1)。Hono の `app.routes` と同形。却下: private 属性を歩く案(凍結監査に載らない)。テスト 276 ✅ |
 | **v1.0** | 安定宣言: 公開 API 凍結(SemVer 遵守、破壊的変更は 2.0 のみ、非推奨化は 1 マイナー版前に告知)。OpenAPI 生成などの新機能は 1.x でも証拠駆動の門を通す | 下の「v1.0 受け入れ基準」5 項目をすべて満たすこと |
 
 **v1.0 受け入れ基準**(2026-07-22 策定):

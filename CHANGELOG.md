@@ -2,7 +2,15 @@
 
 All notable changes to hayate are documented here.
 
-## [0.7.0] - 2026-07-22
+## [0.8.0] - 2026-07-23
+
+### Added
+
+- **`app.routes` and the `Route` type are public.** A read-only,
+  registration-ordered tuple of every route (`method`, `pattern`,
+  `handler`, `middleware`) — the introspection surface tooling needs,
+  and the same shape Hono exposes. Driven by hayate-openapi, whose
+  generator walks it as its single source of route truth.
 
 ### Added
 

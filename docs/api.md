@@ -8,6 +8,8 @@ URL / URLPattern standards; spelling follows PEP 8 (`searchParams` →
 
 ::: hayate.Hayate
 
+::: hayate.Route
+
 ## Context
 
 ::: hayate.Context
@@ -16,7 +18,9 @@ URL / URLPattern standards; spelling follows PEP 8 (`searchParams` →
 
 ::: hayate.Request
 
-::: hayate.HayateRequest
+::: hayate.Hayate
+
+::: hayate.RouteRequest
 
 ## Responses
 
