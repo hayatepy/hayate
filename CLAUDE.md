@@ -76,6 +76,15 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
 - **GitHub `macos-13` (Intel) runners are retired**; Intel wheels are
   cross-compiled from `macos-latest` (`x86_64-apple-darwin`).
 - ASGI guarantees lowercase header names; `Headers._from_wire` relies on it.
+- **workerd registers Durable Object classes by `cls.__name__`**, not by
+  the entry-module attribute name (workerd `introspection.py`). With
+  `@to_durable_object` the factory's name is the class name and must
+  match wrangler.toml `class_name`; a unit test pins this.
+- **Workers websocket binary frames arrive as `Blob` by default** (async
+  readers only) — the adapter sets `binaryType = "arraybuffer"` on
+  accept. A bare `ArrayBuffer` proxy is *not* converted by `to_py()`
+  (TypedArray views are); use `to_bytes()` (JsBuffer API) — `_js_bytes`
+  centralizes this.
 - **ty evaluated 2026-07-22 (0.0.62): not adopted.** 23 diagnostics, mostly
   false positives on the Fetch-standard `bytes()` method name and on
   guarded platform imports (`js`, `workers`, `pyodide`, `compression`).
@@ -84,15 +93,25 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
 
 ## Current state / next steps (as of 2026-07-22)
 
-- Published: **hayate 0.3.2** and **hayate-accel 0.1.0** on PyPI; docs
+- Published: **hayate 0.4.0** and **hayate-accel 0.1.0** on PyPI; docs
   site live; repository public under the `hayatepy` org (maintainer:
   Yusuke Hayashi, MIT).
-- v0.1–v0.3 milestone acceptance criteria are all met. The Workers FFI
-  **streaming and AbortSignal bridges are verified on a local workerd**
-  (2026-07-22, hayate 0.3.2): SSE time-to-first-byte 3 ms vs 1.5 s
-  total (true incremental delivery), request bodies cross as streams,
-  and mid-stream client disconnects leave the server healthy. Numbers
-  and workerd/SDK source references are in research §5.
-- Open engineering work: research §5 remaining items (Durable Object
-  mount, WebSocket on Workers, production deploy, abort-proxy lifetime
-  observation) and DESIGN §18 v1.0 criteria.
+- **research §5 is fully verified — every item closed**, on a local
+  workerd *and* in production (`pywrangler deploy`, account-owned URL
+  recorded in research §5): websocket over `WebSocketPair` (same
+  `@app.ws()` handler as ASGI, text/binary/clean-close over wss),
+  `@to_durable_object` mounts with persistent per-name storage,
+  production SSE TTFB 53 ms vs 1.55 s total, and the deterministic FFI
+  proxy lifecycle held RSS flat over 3,200 requests (35.4 → 35.9 MB,
+  zero errors). All numbers and the SDK/workerd source references live
+  in research §5.
+- v0.1–v0.4 milestone acceptance criteria are all met. **v1.0
+  acceptance criteria are now defined in DESIGN §18** (conformance
+  ratchets, reproducible 3-runtime verification, benchmark gate,
+  SECURITY.md + support policy — done, and a ≥3-month external-usage
+  window from the 2026-07-22 0.3.0 release, so v1.0 is decidable
+  2026-10 at the earliest).
+- Open engineering work: keep criteria 1–4 green on each release; watch
+  issues/feedback for the criterion-5 window; platform extensions
+  (WebSocket hibernation API, RPC entrypoints) stay out until evidence
+  demands them.

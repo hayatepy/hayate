@@ -453,9 +453,18 @@ v1 まで**やらない**と明示するもの:
 |---|---|---|
 | **v0.1 コア** | Headers → URL/URLSearchParams → URLPattern → Request/Response → Context/Router/App → ASGI アダプタ → testing → 初期ミドルウェア(logger, cors, etag, basic_auth, compress) | TODO API がテスト付きで書ける。wpt サブセット合格。Starlette 比ベンチ公開 |
 | **v0.2** | SSE / WebSocket / secure_headers / 署名 cookie / body_limit / timeout / 静的ファイル(Range, 304, 416)/ cache(マイクロキャッシュ + Cache-Control/Age)— **すべて実装済み** | リアルタイムチャットのサンプルが動く ✅(examples/chat.py + tests/test_chat_example.py) |
-| **v0.3** | validator フック(実装済み — callable プロトコルにより msgspec / pydantic が**アダプタパッケージなしで直結**)/ Workers アダプタ / Lambda アダプタ / ドキュメントサイト(https://hayatepy.github.io/hayate/ — MkDocs Material + Pyodide プレイグラウンド + llms.txt)— **すべて完了** | 同一アプリが uvicorn と Workers で無変更動作 ✅(2026-07-22、ローカル workerd で実証。実機で発見した workers-py ラッパー形状の差異は 0.3.1 で修正。残: 本番デプロイと、実装済みストリーミング/AbortSignal ブリッジの実機検証 — research §5) |
-| v1.0 | API 凍結、OpenAPI 等は証拠駆動で判断 | — |
+| **v0.3** | validator フック(実装済み — callable プロトコルにより msgspec / pydantic が**アダプタパッケージなしで直結**)/ Workers アダプタ / Lambda アダプタ / ドキュメントサイト(https://hayatepy.github.io/hayate/ — MkDocs Material + Pyodide プレイグラウンド + llms.txt)— **すべて完了** | 同一アプリが uvicorn と Workers で無変更動作 ✅(2026-07-22、ローカル workerd で実証。実機で発見した workers-py ラッパー形状の差異は 0.3.1 で修正) |
+| **v0.4** | Workers WebSocket(WebSocketPair ブリッジ — 同一 `@app.ws()` ハンドラ)/ Durable Object マウント(`@to_durable_object`、Hono のコンストラクタ内クロージャと同型)/ FFI proxy の決定的ライフサイクル(FinalizationRegistry 非依存)/ Cloudflare 本番デプロイ — **すべて完了** | 本番 wss で WS 全経路 ✅ / DO ストレージが本番で永続 ✅ / 3,200 req 負荷で RSS フラット(35.4→35.9 MB)✅ / 本番 SSE TTFB 53ms vs 総時間 1.55s ✅(2026-07-22、research §5 に全実測値) |
+| **v1.0** | 安定宣言: 公開 API 凍結(SemVer 遵守、破壊的変更は 2.0 のみ、非推奨化は 1 マイナー版前に告知)。OpenAPI 生成などの新機能は 1.x でも証拠駆動の門を通す | 下の「v1.0 受け入れ基準」5 項目をすべて満たすこと |
+
+**v1.0 受け入れ基準**(2026-07-22 策定):
+
+1. **準拠ラチェット維持**: wpt スイートで URLPattern in-scope fail 0 / URL ≥ 202/306 を維持(引き上げは IDNA 等の実装時のみ、引き下げは不可)。docs/conformance.md がリリースごとに最新
+2. **3 ランタイム実証の再現性**: uvicorn / Cloudflare Workers(本番)/ AWS Lambda で同一アプリが無変更動作することを、examples + research §5 の手順でリリースごとに再検証できる(WebSocket・SSE・DO を含む)
+3. **性能基準**: Starlette 比の幾何平均 ≥ 1.0 をリリース前計測で維持し、docs/benchmarks.md を更新(計測なしのリリースはしない)
+4. **運用文書**: SECURITY.md(脆弱性報告窓口)とサポート方針(Python 3.12+、Pyodide 現行系への追随)を公開。全公開 API に docstring + ガイド + リファレンスが揃っている
+5. **外部利用の実績**: 0.x 公開から 3 か月以上の外部利用期間を置き、Issue / フィードバック対応を経て API に破壊的変更の必要が出ていないことを確認してから宣言する(時期起点: 2026-07-22 の 0.3.0 公開)
 
 ### 未決事項(要判断)
 
-現時点でなし。次の判断ポイントは v0.1 完成時の「公開タイミング」(§17 の PyPI 名確保と連動)。
+現時点でなし。次の判断ポイントは **v1.0 宣言のタイミング** — 上記受け入れ基準 5(外部利用 3 か月 + フィードバック実績)が時間を要する項目で、最短 2026-10 以降。それまでは 0.x で基準 1–4 を満たし続ける。

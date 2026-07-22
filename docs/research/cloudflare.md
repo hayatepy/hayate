@@ -90,7 +90,7 @@ Default = to_workers(app)   # WorkerEntrypoint サブクラスを生成
 6. **Agents SDK は JS のみ**
 7. **Pyodide の Python バージョンは選べない**(compatibility date で間接指定)→ hayate の 3.12+ 要件は Pyodide 現行(3.12/3.13 系)と整合
 
-## 5. Workers 実機検証リスト(2026-07-22 更新: ローカル workerd で初回実機検証を実施)
+## 5. Workers 実機検証リスト(2026-07-22 更新: 全項目検証完了 — ローカル workerd + Cloudflare 本番)
 
 検証環境: `examples/workers/` + `pywrangler dev`(workers-py 1.15 / wrangler、ローカル workerd)。
 GET / ルートパラメータ / 404 `application/problem+json` / 405 + `Allow` がすべて期待どおり動作。
@@ -99,10 +99,10 @@ GET / ルートパラメータ / 404 `application/problem+json` / 405 + `Allow` 
 - [x] 実ランタイムの FFI 形状 — **workerd は workers-py の Python Request ラッパー(`bytes()` / `headers.items()`)を渡す**。raw JsProxy(`arrayBuffer()` / `entries()`)とは別形状。両対応に修正(0.3.1)し回帰テストで固定。モックだけでは検出不能だった
 - [x] `pywrangler` との相性 — pywrangler は pylock.toml(PyPI 解決)から `python_modules/` に vendor するため、`tool.uv.sources` の path 依存は**反映されない**。ローカル変更の実機検証は PyPI リリース経由が確実
 - [x] JS ReadableStream ↔ `AsyncIterable[bytes]` ブリッジ — **実機検証済み(hayate 0.3.2、2026-07-22)**。`/events`(SSE、0.5s 間隔 ×3)で **TTFB 3ms / 総時間 1.51s** を計測 — バッファリングなら両者がほぼ一致するため、逐次配信の実証。`/stream`(チャンク応答)と `/echo`(リクエストボディの FFI 越し受信)も期待どおり。実装メモ: レスポンス側は `ReadableStream.from()` + チャンクを `to_js` で `Uint8Array` 化(`from` は workerd では compat flag なしの常時有効 — `readable.h` の `JSG_STATIC_METHOD(from)` で確認)。workers SDK の `Response` は `RESPONSE_ACCEPTED_TYPES` に `"ReadableStream"` を含むため body に直接渡せる。リクエスト側は `getReader()` ループ。部品が無い環境ではバッファリングへフォールバック
-- [x] JS AbortSignal → hayate AbortSignal ブリッジ — **配線を実機確認(0.3.2)**: SSE を途中切断してもサーバーは健全(直後のリクエストに 200)・ログにエラーなし。ラッパー Request は `signal` を持たず、生 JS Request を保持する `js_object` 経由でのみ到達できる(SDK ソースで確認)。リスナーは `create_proxy` で保持(暗黙変換だと呼び出し終了時に破棄される)。**残観察**: リクエストごとの proxy が FinalizationRegistry で回収されるか(長時間運用でのリーク有無)
-- [ ] DO の fetch に hayate app をマウントするパターンの成立性
-- [ ] WebSocket upgrade の API 形状
-- [ ] Cloudflare 本番へのデプロイ(要アカウント・`pywrangler deploy`)
+- [x] JS AbortSignal → hayate AbortSignal ブリッジ — **配線を実機確認(0.3.2)**: SSE を途中切断してもサーバーは健全(直後のリクエストに 200)・ログにエラーなし。ラッパー Request は `signal` を持たず、生 JS Request を保持する `js_object` 経由でのみ到達できる(SDK ソースで確認)。リスナーは `create_proxy` で保持(暗黙変換だと呼び出し終了時に破棄される)。**解決(0.4.0)**: FinalizationRegistry(エンジンは実行を保証しない)には頼らず、リクエスト終了時に決定的に破棄する設計へ変更 — abort リスナーは `removeEventListener` + `destroy()`、応答 generator の proxy は完了翌 tick で `destroy()`、WS リスナー 3 種は接続終了時に破棄。実測: 3,200 リクエスト(SSE 途中切断 400・WS 接続サイクル 400 含む)で workerd RSS **35.4 → 35.9 MB**・ログエラー 0 — 成長傾向なし
+- [x] DO の fetch に hayate app をマウントするパターンの成立性 — **実機検証済み(hayate 0.4.0、2026-07-22、ローカル + 本番)**。`@to_durable_object` デコレータ(`factory(ctx, env) -> Hayate`、Hono のコンストラクタ内クロージャキャプチャと同型)で成立。**罠**: workerd はエントリモジュールの属性名ではなく **`cls.__name__` で DO クラスを登録**する(workerd `introspection.py` の `collect_entrypoint_classes` が `{"className": attr.__name__}` を返す)ため、factory 名 = wrangler.toml の `class_name` にする必要がある(`to_workers` が動いていたのは内部クラス名がたまたま `Default` だったから)。呼び出し側は `env.BINDING.getByName(name)` → `stub.fetch(url)`(SDK の `_DurableObjectNamespaceWrapper` → `_FetcherWrapper`)。無料プランは `new_sqlite_classes` マイグレーションが必須。名前ごとの独立カウンタが本番でも永続することを確認(デプロイ直後、新規オブジェクトの初回タッチで一過性の Cloudflare error 1042 を 1 回観測 — 再試行で解消、以後再現せず)
+- [x] WebSocket upgrade の API 形状 — **実機検証済み(0.4.0、ローカル + 本番 wss)**。`client, server = WebSocketPair.new().object_values()` → `server.accept()` → `workers.Response(None, status=101, web_socket=client)`(SDK が `web_socket` kwarg をネイティブサポート — `_create_options` が `webSocket` に転記)。ハンドラは ASGI と完全同一の `@app.ws()` / `WebSocket` API のまま: JS イベントを asyncio.Queue で ASGI 形式メッセージにブリッジする receive/send シムを渡すだけ。**罠 2 つ**: (1) workerd のバイナリフレームは既定で **`Blob`**(同期読み出し不可)— accept 直後に `binaryType = "arraybuffer"` を設定して解決(WHATWG の settable 属性)。(2) ArrayBuffer proxy は TypedArray と違い **`to_py()` で変換されない** — JsBuffer API の `to_bytes()` を優先(SDK 自身も `request.py` で同じ手法)。テキスト/バイナリ echo・サーバー起点クローズ(1000)・ハンドラ例外時 1011 を本番 wss で確認。DO 内の WS ルートも同一コードパス(共通 `_handle_fetch`)で動作。hibernation API(`state.acceptWebSocket` + `webSocketMessage`)は標準外のプラットフォーム拡張のため未使用 — 必要になったら証拠駆動で検討
+- [x] Cloudflare 本番へのデプロイ — **完了(2026-07-22、`pywrangler deploy`、hayate 0.4.0 を PyPI から vendor)**: https://hayate-example.yusuke8h.workers.dev。Worker Startup Time 940 ms、cold start 実測 ~1.6 s、warm SSE **TTFB 53 ms / 総時間 1.55 s**(本番エッジでも真の逐次配信)。GET / ルートパラメータ / 404 problem+json / 405 + Allow / POST echo / SSE / WebSocket(wss)/ DO カウンタ永続、すべて期待どおり
 
 ## 6. 情報源
 

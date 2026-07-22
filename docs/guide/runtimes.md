@@ -31,10 +31,53 @@ Default = to_workers(app)
 - `c.wait_until` forwards to the platform `ctx.waitUntil`.
 - Bodies stream across the FFI boundary (JS `ReadableStream` in both
   directions, with a buffered fallback on runtimes that lack the pieces),
-  and the JS abort signal is mirrored onto `request.signal`. Verified on
-  a local workerd: SSE time-to-first-byte 3 ms against 1.5 s total — true
+  and the JS abort signal is mirrored onto `request.signal`. Verified in
+  production: SSE time-to-first-byte 53 ms against 1.55 s total — true
   incremental delivery, not buffering. Details in the
   [research log](https://github.com/hayatepy/hayate/blob/main/docs/research/cloudflare.md).
+- `@app.ws()` routes are served through `WebSocketPair`: the same handler
+  that runs on ASGI answers `Upgrade: websocket` requests with `101` and
+  drives the server socket (text, bytes, clean close — verified in
+  production over `wss://`). Every per-request FFI proxy is destroyed
+  deterministically when the request ends — no reliance on garbage
+  collection.
+
+### Durable Objects
+
+Mount an app per object with `to_durable_object` — build it in the
+factory so route closures capture the object's storage (the same idiom
+Hono uses in the class constructor). The factory's **name becomes the
+exported class name** and must match `class_name` in wrangler.toml:
+
+```python title="entry.py"
+from hayate.adapters.workers import to_durable_object
+
+@to_durable_object
+def Counter(ctx, env):
+    app = Hayate()
+
+    @app.get("/counter/:name")
+    async def count(c: Context):
+        n = int((await ctx.storage.get("n")) or 0) + 1
+        await ctx.storage.put("n", n)
+        return c.json({"count": n})
+
+    return app
+```
+
+```toml title="wrangler.toml"
+[[durable_objects.bindings]]
+name = "COUNTER"
+class_name = "Counter"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Counter"]
+```
+
+Reach it from a route via the binding:
+`stub = c.env.COUNTER.getByName(name)` then `await stub.fetch(url)`.
+Websocket routes work inside the object too.
 
 A ready-to-deploy project lives at
 [`examples/workers/`](https://github.com/hayatepy/hayate/tree/main/examples/workers).

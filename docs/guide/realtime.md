@@ -36,6 +36,9 @@ async def chat(c: Context, ws: WebSocket):
 The full runnable sample lives at
 [`examples/chat.py`](https://github.com/hayatepy/hayate/blob/main/examples/chat.py).
 
+The same handler runs on ASGI servers and on Cloudflare Workers
+(including inside a Durable Object) — see [Runtimes](runtimes.md).
+
 ## Server-Sent Events
 
 `c.event_stream()` turns an async iterable of messages into a
