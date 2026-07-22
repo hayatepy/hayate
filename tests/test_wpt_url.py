@@ -16,7 +16,7 @@ from pathlib import Path
 
 from hayate import URL
 
-_DATA = json.loads((Path(__file__).parent / "wpt" / "urltestdata.json").read_text())
+_DATA = json.loads((Path(__file__).parent / "wpt" / "urltestdata.json").read_text("utf-8"))
 _CASES = [case for case in _DATA if isinstance(case, dict)]
 _SPECIAL = ("http", "https", "ws", "wss", "ftp")
 _COMPONENTS = (

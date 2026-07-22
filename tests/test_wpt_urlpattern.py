@@ -22,7 +22,7 @@ import pytest
 
 from hayate import URLPattern
 
-_DATA = json.loads((Path(__file__).parent / "wpt" / "urlpatterntestdata.json").read_text())
+_DATA = json.loads((Path(__file__).parent / "wpt" / "urlpatterntestdata.json").read_text("utf-8"))
 
 # Ratchet floor — raise deliberately when the supported subset grows.
 # 2026-07-22: 54 pass, 79 unsupported-syntax (mostly {} groups and +/*
