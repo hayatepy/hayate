@@ -311,9 +311,13 @@ class URL:
             hostname, _, port = hostport.partition(":")
             hostname = hostname.lower()
             if not hostname.isascii():
-                # Silent mojibake would be worse than an explicit error:
-                # IDNA/punycode is not implemented in v0.1.
-                raise ValueError(f"non-ASCII host (IDNA not implemented): {url!r}")
+                # Silent mojibake would be worse than an explicit error.
+                # The rejection doubles as the demand meter for IDNA:
+                # the linked issue collects real use cases (DESIGN §14.4).
+                raise ValueError(
+                    f"non-ASCII host (IDNA not implemented — "
+                    f"needed? comment at hayatepy/hayate#2): {url!r}"
+                )
             if _FORBIDDEN_HOST_RE.search(hostname):
                 raise ValueError(f"forbidden host code point in URL: {url!r}")
         if not hostname:
