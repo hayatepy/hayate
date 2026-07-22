@@ -1,0 +1,19 @@
+# Keeps the SHA-pinned actions, the uv lockfile, and the accelerator's
+# cargo dependencies fresh. Grouped weekly to stay low-noise.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: cargo
+    directory: /accel
+    schedule:
+      interval: weekly
