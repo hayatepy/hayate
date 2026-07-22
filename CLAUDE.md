@@ -85,6 +85,21 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
   accept. A bare `ArrayBuffer` proxy is *not* converted by `to_py()`
   (TypedArray views are); use `to_bytes()` (JsBuffer API) — `_js_bytes`
   centralizes this.
+- **pywrangler is broken on Windows out of the box** (found 2026-07-22,
+  hayate-auth KDF spike; details in hayate-auth `docs/research/kdf.md`).
+  Two independent causes: (1) this machine's global uv.toml
+  (`python-downloads = "never"`, `python-preference = "only-system"`)
+  blocks the emscripten interpreter download — prefix commands with
+  `UV_PYTHON_DOWNLOADS=automatic UV_PYTHON_PREFERENCE=managed`;
+  (2) uv cannot inspect the emscripten venv's `Scripts/python.exe`
+  (trampoline fails; on non-C: drives the pyvenv.cfg `home` drive letter
+  is also wrong), so workers-py's vendor install **silently falls back
+  to the project .venv and reports success** while `python_modules/`
+  stays empty → workerd dies with `ModuleNotFoundError`. Workaround for
+  pure-wheel deps: `uv pip install --python .venv --target
+  python_modules --no-build -r pylock.toml --preview-features pylock`,
+  touch `python_modules/.synced` and `.venv-workers/.synced`, then
+  `pywrangler dev` (sync skips, wrangler starts). Run from a C: path.
 - **ty evaluated 2026-07-22 (0.0.62): not adopted.** 23 diagnostics, mostly
   false positives on the Fetch-standard `bytes()` method name and on
   guarded platform imports (`js`, `workers`, `pyodide`, `compression`).
