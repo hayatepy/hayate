@@ -2,6 +2,39 @@
 
 All notable changes to hayate are documented here.
 
+## [0.4.1] - 2026-07-22
+
+### Changed
+
+- **Workers adapter: fewer and thinner FFI crossings** (measured on a
+  local workerd; behavior unchanged, DESIGN §14.4 records the survey
+  behind these):
+  - The request URL is split, not re-parsed — the platform already
+    validated it (2.49 µs → 0.25 µs per request).
+  - Request headers are taken as-is (`Headers._from_trusted_pairs`): JS
+    `Headers` iteration already yields lowercase names.
+  - Bodyless requests (null `body` per Fetch) skip the buffered body
+    read — previously every GET paid one async FFI round-trip.
+  - Response headers cross in one call (`js.Headers.new(pairs)`)
+    instead of one `append()` proxy round-trip per header.
+- **Workers adapter: Fetch null-body statuses** (101/103/204/205/304)
+  drop their body at translation, matching the ASGI adapter —
+  `js.Response` throws on a body for these statuses.
+- **hayate-accel 0.2.0: multipart boundary scanning in Rust.** The
+  splitter uses SIMD substring search (`memchr::memmem`) and copies
+  each payload once; `parse_multipart` on a 10.5 MB body drops 5.7 ms →
+  0.5 ms (11x). Semantic parsing stays in the single pure-Python path;
+  parity between the two splitters is pinned by tests.
+
+### Added
+
+- `SSEMessage` is exported (the type `c.event_stream()` consumes).
+- Docstrings on every exported name (public-API audit, DESIGN §18).
+- A monthly report-only `wpt refresh` workflow: reruns the conformance
+  suites against the *latest* upstream wpt data and opens an issue on
+  drift — pinned ratchets prevent regression but cannot detect new spec
+  tests.
+
 ## [0.4.0] - 2026-07-22
 
 ### Added

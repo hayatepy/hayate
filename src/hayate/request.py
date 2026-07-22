@@ -62,6 +62,8 @@ class _TeeSource:
 
 
 class Request(Body):
+    """Fetch ``Request``: URL, method, immutable headers, one-shot body, abort signal."""
+
     __slots__ = ("_signal", "headers", "method", "url")
 
     def __init__(

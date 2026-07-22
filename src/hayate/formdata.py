@@ -36,6 +36,8 @@ class File:
 
 
 class FormData:
+    """Fetch ``FormData``: ordered ``(name, value)`` pairs; values are ``str`` or ``File``."""
+
     __slots__ = ("_pairs",)
 
     def __init__(self) -> None:
@@ -85,10 +87,14 @@ def parse_header_params(value: str) -> dict[str, str]:
     return params
 
 
-def parse_multipart(body: bytes, boundary: str) -> FormData:
-    """Parse a buffered ``multipart/form-data`` body (RFC 7578)."""
-    form = FormData()
-    delimiter = b"--" + boundary.encode("latin-1")
+def _py_sections(body: bytes, delimiter: bytes) -> list[tuple[bytes, bytes]]:
+    """Split a multipart body into (header block, payload) section pairs.
+
+    Only the byte scanning lives here; all semantic parsing stays in
+    ``parse_multipart`` so the accelerated splitter below cannot diverge
+    in meaning — parity between the two splitters is pinned by tests.
+    """
+    sections: list[tuple[bytes, bytes]] = []
     for section in body.split(delimiter)[1:]:
         if section.startswith(b"--"):
             break  # closing delimiter
@@ -96,7 +102,20 @@ def parse_multipart(body: bytes, boundary: str) -> FormData:
         head, sep, payload = section.partition(b"\r\n\r\n")
         if not sep:
             continue
-        payload = payload.removesuffix(b"\r\n")
+        sections.append((head, payload.removesuffix(b"\r\n")))
+    return sections
+
+
+try:  # Tier 2: SIMD boundary scanning, single-copy payloads (hayate-accel).
+    from hayate_accel import multipart_sections as _sections
+except ImportError:
+    _sections = _py_sections
+
+
+def parse_multipart(body: bytes, boundary: str) -> FormData:
+    """Parse a buffered ``multipart/form-data`` body (RFC 7578)."""
+    form = FormData()
+    for head, payload in _sections(body, b"--" + boundary.encode("latin-1")):
         headers: dict[str, str] = {}
         for line in head.split(b"\r\n"):
             name, _, value = line.decode("latin-1").partition(":")

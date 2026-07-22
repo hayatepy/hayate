@@ -57,6 +57,8 @@ def _check_middleware(fn: Any) -> None:
 
 
 class Hayate:
+    """The application: routing, middleware, and the runtime-agnostic ``fetch()`` core."""
+
     def __init__(self, *, env: Any = None, debug: bool = False) -> None:
         self._router = Router()
         self._middleware: list[tuple[URLPattern | None, Middleware]] = []

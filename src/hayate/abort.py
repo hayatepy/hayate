@@ -19,6 +19,8 @@ class AbortError(Exception):
 
 
 class AbortSignal:
+    """Fetch ``AbortSignal``: observable cancellation state for a request."""
+
     __slots__ = ("_aborted", "_callbacks", "_reason")
 
     def __init__(self) -> None:

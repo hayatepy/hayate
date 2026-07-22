@@ -36,6 +36,12 @@ _TARGETS = ("json", "form", "query")
 
 
 def validator(target: ValidationTarget, validate: Callable[[Any], Any]) -> Middleware:
+    """Middleware that validates a request target with any callable.
+
+    ``msgspec.convert`` and pydantic's ``TypeAdapter(...).validate_python``
+    plug in directly. Handlers read the result via ``c.req.valid(target)``.
+    """
+
     if target not in _TARGETS:
         raise ValueError(f"unknown validation target {target!r}; expected one of {_TARGETS}")
 

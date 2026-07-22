@@ -108,6 +108,8 @@ def static_files(
     strip_prefix: str = "",
     index: str = "index.html",
 ) -> Middleware:
+    """Serve files from a directory: single ``Range``, 304 revalidation, traversal-safe."""
+
     root_path = Path(root).resolve()
 
     async def static_files_middleware(c: Context, next_: Next) -> None:

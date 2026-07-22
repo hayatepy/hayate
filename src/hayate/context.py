@@ -52,6 +52,8 @@ class ExecutionContext:
 
 
 class Context:
+    """The one object handlers and middleware receive: request, env, and response helpers."""
+
     __slots__ = ("_exec", "_header_ops", "_res", "_vars", "env", "req")
 
     def __init__(self, req: HayateRequest, env: Any, exec_ctx: ExecutionContext | None) -> None:

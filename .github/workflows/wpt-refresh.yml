@@ -1,0 +1,81 @@
+# Monthly report-only check against the *latest* wpt data.
+#
+# The vendored suites in tests/wpt/ are pinned (ratchets never regress),
+# but pinned data cannot detect new spec tests — this job re-fetches the
+# upstream files, reruns the two conformance suites, and opens an issue
+# when the latest data no longer passes. It never gates CI.
+name: wpt refresh
+
+on:
+  schedule:
+    - cron: "0 6 1 * *" # monthly, 1st 06:00 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Fetch latest wpt data
+        run: |
+          set -euo pipefail
+          fetch() {
+            sha=$(curl -sf "https://api.github.com/repos/web-platform-tests/wpt/commits?path=$1/$2&per_page=1" \
+              | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['sha'])")
+            curl -sf -o "tests/wpt/$2" "https://raw.githubusercontent.com/web-platform-tests/wpt/${sha}/$1/$2"
+            echo "$2 <- ${sha}" >> latest-shas.txt
+          }
+          fetch urlpattern/resources urlpatterntestdata.json
+          fetch url/resources urltestdata.json
+          cat latest-shas.txt
+      - name: Run conformance suites against latest data
+        id: wpt
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          uv run pytest tests/test_wpt_url.py tests/test_wpt_urlpattern.py -q -s \
+            | tee wpt-report.txt
+      - name: Summarize
+        env:
+          OUTCOME: ${{ steps.wpt.outcome }}
+        run: |
+          {
+            echo "## wpt refresh: ${OUTCOME}"
+            echo '```'
+            cat latest-shas.txt
+            tail -40 wpt-report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Open an issue on drift
+        if: steps.wpt.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          title="wpt refresh: latest upstream data no longer passes"
+          body_file=issue-body.md
+          {
+            echo "The monthly report-only run against the latest wpt data failed."
+            echo "Re-vendor per tests/wpt/README.md, adjust the documented subset,"
+            echo "and re-baseline the ratchets deliberately."
+            echo
+            echo '```'
+            cat latest-shas.txt
+            tail -60 wpt-report.txt
+            echo '```'
+          } > "$body_file"
+          existing=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file "$body_file"
+          else
+            gh issue create --title "$title" --body-file "$body_file"
+          fi

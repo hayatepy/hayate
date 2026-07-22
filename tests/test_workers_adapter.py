@@ -18,14 +18,15 @@ from hayate import Context, Hayate
 
 
 class FakeJsHeadersClass:
-    """Stands in for ``js.Headers`` (JsProxy constructor style: ``.new()``)."""
+    """Stands in for ``js.Headers``: the constructor takes an init sequence
+    of pairs (the adapter crosses the whole header list in one call)."""
 
-    def __init__(self):
-        self.pairs: list[tuple[str, str]] = []
+    def __init__(self, pairs=None):
+        self.pairs: list[tuple[str, str]] = [tuple(pair) for pair in pairs] if pairs else []
 
     @classmethod
-    def new(cls):
-        return cls()
+    def new(cls, pairs=None):
+        return cls(pairs)
 
     def append(self, name, value):
         self.pairs.append((name, value))
@@ -287,6 +288,20 @@ async def test_fetch_roundtrip(workers_runtime):
     assert ("content-type", "application/json") in js_response.headers.pairs
 
 
+class FakeLegacyPyRequest:
+    """A wrapper shape that does not forward ``body`` at all — the adapter
+    must take the buffered fallback and read via ``bytes()``."""
+
+    def __init__(self, url, method="GET", headers=(), body=b""):
+        self.url = url
+        self.method = method
+        self.headers = FakePyRequestHeaders(headers)
+        self._body = body
+
+    async def bytes(self):
+        return self._body
+
+
 async def test_workers_py_wrapper_shape(workers_runtime):
     """Regression: workerd hands us the workers-py wrapper, not a JS proxy."""
     app = Hayate()
@@ -296,7 +311,7 @@ async def test_workers_py_wrapper_shape(workers_runtime):
         return c.json({"got": await c.req.json()})
 
     js_response = await _entry(app).fetch(
-        FakePyRequest(
+        FakeLegacyPyRequest(
             "https://edge.example/echo",
             method="POST",
             headers=[("content-type", "application/json")],
@@ -468,6 +483,67 @@ async def test_already_aborted_signal_is_mirrored(workers_runtime):
 
     js_response = await _entry(app).fetch(request)
     assert json.loads(js_response.body) == {"aborted": True, "reason": "boom"}
+
+
+async def test_bodyless_requests_skip_the_buffered_read(workers_runtime):
+    """Fetch: a null ``body`` means nothing to read — no FFI crossing."""
+    app = Hayate()
+
+    @app.get("/")
+    async def root(c: Context):
+        return c.text("ok")
+
+    raw = FakeJsRequest("https://edge.example/")
+
+    async def fail_read():
+        raise AssertionError("a bodyless request must not be read via arrayBuffer()")
+
+    raw.arrayBuffer = fail_read
+
+    class ExplodingBytesPyRequest(FakePyRequest):
+        async def bytes(self):
+            raise AssertionError("a bodyless request must not be read via bytes()")
+
+    wrapper = ExplodingBytesPyRequest(
+        "https://edge.example/",
+        js_object=types.SimpleNamespace(body=None, signal=None),
+    )
+
+    assert (await _entry(app).fetch(raw)).status == 200
+    assert (await _entry(app).fetch(wrapper)).status == 200
+
+
+async def test_null_body_statuses_cross_without_a_body(workers_runtime):
+    """Fetch null-body statuses (204/304/...) must not carry a body —
+    ``js.Response`` would throw on them."""
+    app = Hayate()
+
+    @app.get("/cached")
+    async def cached(c: Context):
+        return c.body(b"stale bytes a middleware left behind", status=304)
+
+    js_response = await _entry(app).fetch(FakeJsRequest("https://edge.example/cached"))
+    assert js_response.status == 304
+    assert js_response.body is None
+
+
+def test_trusted_url_split_matches_the_full_parser():
+    from hayate import URL
+    from hayate.adapters.workers import _url_from_trusted
+
+    hrefs = [
+        "https://edge.example/echo/hayate?x=1&y=%20z",
+        "http://localhost:8787/",
+        "https://edge.example",
+        "https://edge.example:8443/a/b/../c?q",
+        "https://user:pw@edge.example/keeps-working",  # falls back to the parser
+        "https://edge.example/path#frag",  # fragments never arrive; fallback
+    ]
+    components = ("protocol", "hostname", "port", "pathname", "search", "hash")
+    for href in hrefs:
+        fast, full = _url_from_trusted(href), URL(href)
+        for component in components:
+            assert getattr(fast, component) == getattr(full, component), (href, component)
 
 
 async def test_abort_listener_is_released_after_a_buffered_response(workers_runtime):

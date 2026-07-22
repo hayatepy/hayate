@@ -14,6 +14,8 @@ _KEEP_ON_304 = ("cache-control", "content-location", "date", "etag", "expires", 
 
 
 def etag(*, weak: bool = True) -> Middleware:
+    """``ETag`` generation and ``If-None-Match`` 304 revalidation (RFC 9110)."""
+
     async def etag_middleware(c: Context, next_: Next) -> None:
         await next_()
         res = c.res

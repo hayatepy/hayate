@@ -20,6 +20,11 @@ _REDIRECT_STATUSES = (301, 302, 303, 307, 308)
 
 
 class Response(Body):
+    """Fetch ``Response``: status, headers, and a one-shot body.
+
+    Adapters translate it to whatever each runtime speaks.
+    """
+
     __slots__ = ("_background", "headers", "status")
 
     def __init__(

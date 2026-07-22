@@ -64,6 +64,7 @@ from ..context import Context, ExecutionContext
 from ..headers import Headers
 from ..request import HayateRequest, Request
 from ..router import WEBSOCKET_METHOD
+from ..url import URL
 from ..websocket import WebSocket, WebSocketClosed
 
 if TYPE_CHECKING:
@@ -128,6 +129,9 @@ def _once(*callbacks: Callable[[], None] | None) -> Callable[[], None]:
     return run
 
 
+_MISSING = object()
+
+
 def _js_headers_to_pairs(js_headers: Any) -> list[tuple[str, str]]:
     # Raw JS Headers proxies iterate via entries(); the workers-py Python
     # wrapper is a Mapping with items(). Support both shapes.
@@ -135,6 +139,24 @@ def _js_headers_to_pairs(js_headers: Any) -> list[tuple[str, str]]:
     if entries is not None:
         return [(str(entry[0]), str(entry[1])) for entry in entries()]
     return [(str(name), str(value)) for name, value in js_headers.items()]
+
+
+def _url_from_trusted(href: str) -> URL:
+    """Split a platform-validated absolute URL without re-validation.
+
+    The runtime hands the adapter an already-parsed, re-serialized
+    request URL, so the full WHATWG parse (validation, percent-encoding
+    probes) would only redo its work — the component split is ~10x
+    cheaper (measured). Anything surprising falls back to the parser.
+    """
+    scheme, sep, rest = href.partition("://")
+    if not sep or not scheme or "#" in rest:
+        return URL(href)  # not a served request URL; take the strict path
+    authority, slash, path_query = rest.partition("/")
+    if "@" in authority or not authority:
+        return URL(href)  # userinfo never appears in served URLs
+    path, _, query = path_query.partition("?")
+    return URL._from_server(scheme, authority, slash + path if slash else "/", query)
 
 
 def _probe(js_request: Any, name: str) -> Any:
@@ -151,10 +173,22 @@ def _probe(js_request: Any, name: str) -> Any:
     return None if js_object is None else getattr(js_object, name, None)
 
 
-def _js_body_stream(js_request: Any) -> Any:
-    """The request's JS ReadableStream, or None to fall back to buffering."""
-    body = _probe(js_request, "body")
-    return body if body is not None and hasattr(body, "getReader") else None
+def _body_source(js_request: Any) -> Any:
+    """The request's body: None (null body), a value, or ``_MISSING``.
+
+    Distinguishing "the shape exposes ``body`` and it is null" from "the
+    shape has no ``body`` at all" lets bodyless requests skip the
+    buffered FFI read entirely — per Fetch, a null ``body`` *is* the
+    statement that there is nothing to read.
+    """
+    value = getattr(js_request, "body", _MISSING)
+    if value is _MISSING or value is None:
+        js_object = getattr(js_request, "js_object", None)
+        if js_object is not None:
+            inner = getattr(js_object, "body", _MISSING)
+            if inner is not _MISSING:
+                return inner
+    return value
 
 
 def _js_bytes(value: Any) -> bytes:
@@ -224,13 +258,20 @@ def _bridge_abort_signal(js_request: Any) -> tuple[AbortSignal | None, Callable[
 
 
 async def _to_hayate_request(js_request: Any) -> tuple[Request, Callable[[], None] | None]:
-    stream = _js_body_stream(js_request)
-    body = _iter_js_stream(stream) if stream is not None else await _read_body(js_request)
+    source = _body_source(js_request)
+    if source is None:
+        body: Any = None  # Fetch null body: nothing to read, skip the crossing
+    elif source is not _MISSING and hasattr(source, "getReader"):
+        body = _iter_js_stream(source)
+    else:
+        body = await _read_body(js_request)
     signal, release = _bridge_abort_signal(js_request)
     request = Request(
-        str(js_request.url),
+        _url_from_trusted(str(js_request.url)),
         method=str(js_request.method),
-        headers=Headers(_js_headers_to_pairs(js_request.headers), guard="immutable"),
+        headers=Headers._from_trusted_pairs(
+            _js_headers_to_pairs(js_request.headers), guard="immutable"
+        ),
         body=body,
         signal=signal,
     )
@@ -278,13 +319,19 @@ def _js_stream_from_body(
         return None
 
 
+# Statuses whose responses must not carry a body (Fetch "null body status").
+_NULL_BODY_STATUSES = frozenset((101, 103, 204, 205, 304))
+
+
 async def _to_workers_response(
     response: Response, runtime: _Runtime, on_done: Callable[[], None]
 ) -> Any:
-    js_headers = runtime.headers_cls.new()
-    for name, value in response.headers.raw():
-        js_headers.append(name, value)
-    body = response.body
+    # One crossing for the whole header list — the JS Headers constructor
+    # takes a sequence of pairs, so per-header append() calls (N proxy
+    # round-trips) are unnecessary.
+    pairs = response.headers.raw()
+    js_headers = runtime.headers_cls.new(pairs if _to_js is None else _to_js(pairs))
+    body = None if response.status in _NULL_BODY_STATUSES else response.body
     if body is not None and not isinstance(body, bytes):
         stream = _js_stream_from_body(body, runtime.readable_stream_cls, on_done)
         if stream is not None:

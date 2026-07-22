@@ -26,6 +26,8 @@ _BAD_VALUE_CHARS = ("\x00", "\r", "\n")
 
 
 class Headers:
+    """Fetch ``Headers``: case-insensitive multimap with guard semantics."""
+
     __slots__ = ("_guard", "_pairs", "_raw")
 
     def __init__(
@@ -57,6 +59,24 @@ class Headers:
         headers = cls.__new__(cls)
         headers._raw = raw
         headers._pairs = []
+        headers._guard = guard
+        return headers
+
+    @classmethod
+    def _from_trusted_pairs(
+        cls,
+        pairs: list[tuple[str, str]],
+        guard: Literal["none", "immutable"] = "none",
+    ) -> Headers:
+        """Adapter fast path: platform-normalized str pairs, unvalidated.
+
+        For pairs that come out of another Fetch ``Headers`` object (JS
+        ``Headers`` iteration yields lowercase names), so validation and
+        lowercasing would only redo the platform's work.
+        """
+        headers = cls.__new__(cls)
+        headers._raw = None
+        headers._pairs = pairs
         headers._guard = guard
         return headers
 

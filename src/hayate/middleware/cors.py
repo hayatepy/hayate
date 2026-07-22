@@ -21,6 +21,8 @@ def cors(
     credentials: bool = False,
     max_age: int | None = None,
 ) -> Middleware:
+    """Cross-Origin Resource Sharing response headers, including preflight handling."""
+
     def resolve_origin(request_origin: str) -> str | None:
         if callable(origin):
             return origin(request_origin)

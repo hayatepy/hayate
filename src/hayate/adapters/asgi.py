@@ -56,6 +56,8 @@ async def _call_hook(hook: Callable[[], Any]) -> None:
 
 
 class ASGIAdapter:
+    """Translates ASGI events to ``app.fetch()``; ``Hayate`` instantiates it for you."""
+
     __slots__ = ("_app",)
 
     def __init__(self, app: Hayate) -> None:

@@ -18,6 +18,8 @@ type _Entry = tuple[float, float, int, list[tuple[str, str]], bytes | None]
 
 
 def cache(*, max_age: int, private: bool = False, max_entries: int = 1024) -> Middleware:
+    """In-memory micro-cache with ``Cache-Control`` / ``Age`` semantics (RFC 9111)."""
+
     store: dict[str, _Entry] = {}
     directive = f"{'private' if private else 'public'}, max-age={max_age}"
 

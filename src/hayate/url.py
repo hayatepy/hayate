@@ -136,6 +136,8 @@ def _remove_dot_segments(path: str) -> str:
 
 
 class URLSearchParams:
+    """WHATWG ``URLSearchParams`` over the query string."""
+
     __slots__ = ("_pairs",)
 
     def __init__(
@@ -204,6 +206,8 @@ class URLSearchParams:
 
 
 class URL:
+    """WHATWG ``URL`` — the documented subset measured in docs/conformance.md."""
+
     __slots__ = (
         "_hash",
         "_hostname",

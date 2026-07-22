@@ -55,7 +55,12 @@ frameworks add on top.
   encoder behaviorally identical to
   ``json.dumps(..., ensure_ascii=False, separators=(",", ":"))`` for
   supported types; anything else raises ``TypeError`` and falls back to
-  the stdlib. Build locally:
+  the stdlib. Since 0.2.0 it also accelerates multipart parsing: the
+  boundary scan uses SIMD substring search (``memchr::memmem``) and
+  copies each payload once — ``parse_multipart`` on a 10.5 MB body with
+  two file parts drops from 5.7 ms to 0.5 ms (**11x**, Apple Silicon).
+  Semantic parsing stays in the pure-Python path; the two splitters are
+  pinned identical by parity tests. Build locally:
 
   ```sh
   uv run --with maturin maturin build --release -m accel/Cargo.toml -o dist-accel

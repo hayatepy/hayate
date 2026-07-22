@@ -18,6 +18,8 @@ def secure_headers(
     referrer_policy: str | None = "no-referrer",
     permissions_policy: str | None = None,
 ) -> Middleware:
+    """Security response headers with sensible defaults."""
+
     pairs = [
         (name, value)
         for name, value in (

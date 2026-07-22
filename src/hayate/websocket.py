@@ -22,6 +22,12 @@ class WebSocketClosed(Exception):
 
 
 class WebSocket:
+    """A server-side websocket connection.
+
+    ``send`` / ``receive`` / ``close``, plus async iteration over
+    incoming messages.
+    """
+
     __slots__ = ("_accepted", "_closed", "_receive", "_send")
 
     def __init__(

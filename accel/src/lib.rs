@@ -4,9 +4,10 @@
 //! everything it accepts, and a `TypeError` for everything else so the
 //! caller can fall back. Semantics live in Python; this is only speed.
 
+use memchr::memmem;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
+use pyo3::types::{PyBool, PyBytes, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
 
 fn write_json_string(out: &mut String, value: &str) {
     out.push('"');
@@ -121,8 +122,56 @@ fn json_dumps(value: &Bound<'_, PyAny>) -> PyResult<String> {
     Ok(out)
 }
 
+/// Multipart section splitting matching `hayate.formdata._py_sections`
+/// exactly: sections after each delimiter, stop at the closing `--`
+/// marker, strip one leading CRLF, split head/payload at the first blank
+/// line, strip one trailing CRLF from the payload. Semantic parsing
+/// (dispositions, File construction) stays in Python — this only trades
+/// `bytes.split`'s section copies for SIMD scanning (memchr) plus a
+/// single copy per head/payload.
+#[pyfunction]
+fn multipart_sections<'py>(
+    py: Python<'py>,
+    body: &[u8],
+    delimiter: &[u8],
+) -> PyResult<Vec<(Bound<'py, PyBytes>, Bound<'py, PyBytes>)>> {
+    let mut sections = Vec::new();
+    if delimiter.is_empty() {
+        // bytes.split would raise; the caller always passes b"--" + boundary.
+        return Err(PyTypeError::new_err("empty multipart delimiter"));
+    }
+    let finder = memmem::Finder::new(delimiter);
+    let starts: Vec<usize> = finder.find_iter(body).map(|pos| pos + delimiter.len()).collect();
+    let blank = memmem::Finder::new(b"\r\n\r\n");
+    for (index, &start) in starts.iter().enumerate() {
+        let end = if index + 1 < starts.len() {
+            starts[index + 1] - delimiter.len()
+        } else {
+            body.len()
+        };
+        let mut section = &body[start..end];
+        if section.starts_with(b"--") {
+            break; // closing delimiter
+        }
+        if section.starts_with(b"\r\n") {
+            section = &section[2..];
+        }
+        let Some(sep) = blank.find(section) else {
+            continue;
+        };
+        let head = &section[..sep];
+        let mut payload = &section[sep + 4..];
+        if payload.ends_with(b"\r\n") {
+            payload = &payload[..payload.len() - 2];
+        }
+        sections.push((PyBytes::new(py, head), PyBytes::new(py, payload)));
+    }
+    Ok(sections)
+}
+
 #[pymodule]
 fn hayate_accel(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(json_dumps, m)?)?;
+    m.add_function(wrap_pyfunction!(multipart_sections, m)?)?;
     Ok(())
 }

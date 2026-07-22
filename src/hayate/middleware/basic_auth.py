@@ -11,6 +11,8 @@ from ..exceptions import HTTPException
 
 
 def basic_auth(*, username: str, password: str, realm: str = "Restricted") -> Middleware:
+    """HTTP Basic Authentication (RFC 7617)."""
+
     expected_user = username.encode("utf-8")
     expected_password = password.encode("utf-8")
 
