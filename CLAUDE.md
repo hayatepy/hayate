@@ -37,7 +37,7 @@ the user-facing surface; WSGI/ASGI are adapter details.
 ## Commands
 
 ```sh
-uv run pytest -q                  # 245 passing on 3.14 (263 with accel); ~80 skips are *counted* wpt out-of-scope cases
+uv run pytest -q                  # 245 passing on 3.14 (264 with accel); ~80 skips are *counted* wpt out-of-scope cases
 uv run ruff check --fix src tests benchmarks && uv run ruff format src tests benchmarks
 uv run --group bench python benchmarks/bench.py       # vs Starlette; "floor" = raw ASGI fn
 uv sync --group docs && uv run mkdocs build --strict  # site: https://hayatepy.github.io/hayate/
@@ -72,6 +72,7 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
   exists *only* on `js_object`. `workers.Response` accepts a
   `ReadableStream` body (`RESPONSE_ACCEPTED_TYPES`).
 - **pyo3 must stay ≥ 0.26**: 0.23 crashes at runtime on Python 3.14.
+  Currently on 0.29 (0.28 renamed `downcast` → `cast`).
 - **GitHub `macos-13` (Intel) runners are retired**; Intel wheels are
   cross-compiled from `macos-latest` (`x86_64-apple-darwin`).
 - ASGI guarantees lowercase header names; `Headers._from_wire` relies on it.

@@ -26,6 +26,8 @@ All notable changes to hayate are documented here.
 - Build backend: hatchling → `uv_build`. Wheel contents verified
   identical (modules, `py.typed`, bundled LICENSE now via explicit PEP
   639 `license-files`); the sdist is the lean src-layout shape.
+- Accelerator: pyo3 0.26 → 0.29 (`downcast` → `cast`), Rust edition
+  2024. Behavioral identity re-verified against the stdlib path.
 
 ### Fixed
 

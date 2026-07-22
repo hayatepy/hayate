@@ -34,15 +34,15 @@ fn write_value(out: &mut String, value: &Bound<'_, PyAny>) -> PyResult<()> {
         return Ok(());
     }
     // bool first: it is a subclass of int.
-    if let Ok(b) = value.downcast::<PyBool>() {
+    if let Ok(b) = value.cast::<PyBool>() {
         out.push_str(if b.is_true() { "true" } else { "false" });
         return Ok(());
     }
-    if let Ok(s) = value.downcast::<PyString>() {
+    if let Ok(s) = value.cast::<PyString>() {
         write_json_string(out, s.to_str()?);
         return Ok(());
     }
-    if value.downcast::<PyInt>().is_ok() {
+    if value.cast::<PyInt>().is_ok() {
         match value.extract::<i64>() {
             Ok(n) => {
                 out.push_str(&n.to_string());
@@ -52,7 +52,7 @@ fn write_value(out: &mut String, value: &Bound<'_, PyAny>) -> PyResult<()> {
             Err(_) => return Err(PyTypeError::new_err("int out of accelerator range")),
         }
     }
-    if value.downcast::<PyFloat>().is_ok() {
+    if value.cast::<PyFloat>().is_ok() {
         let f: f64 = value.extract()?;
         // Rust's Display never uses exponent notation, so extreme
         // magnitudes (and NaN/Infinity) go through the stdlib fallback
@@ -67,7 +67,7 @@ fn write_value(out: &mut String, value: &Bound<'_, PyAny>) -> PyResult<()> {
         }
         return Ok(());
     }
-    if let Ok(list) = value.downcast::<PyList>() {
+    if let Ok(list) = value.cast::<PyList>() {
         out.push('[');
         for (index, item) in list.iter().enumerate() {
             if index > 0 {
@@ -78,7 +78,7 @@ fn write_value(out: &mut String, value: &Bound<'_, PyAny>) -> PyResult<()> {
         out.push(']');
         return Ok(());
     }
-    if let Ok(tuple) = value.downcast::<PyTuple>() {
+    if let Ok(tuple) = value.cast::<PyTuple>() {
         out.push('[');
         for (index, item) in tuple.iter().enumerate() {
             if index > 0 {
@@ -89,12 +89,12 @@ fn write_value(out: &mut String, value: &Bound<'_, PyAny>) -> PyResult<()> {
         out.push(']');
         return Ok(());
     }
-    if let Ok(dict) = value.downcast::<PyDict>() {
+    if let Ok(dict) = value.cast::<PyDict>() {
         out.push('{');
         let mut first = true;
         for (key, item) in dict.iter() {
             let key_str = key
-                .downcast::<PyString>()
+                .cast::<PyString>()
                 .map_err(|_| PyTypeError::new_err("dict keys must be str for the accelerator"))?
                 .to_str()?
                 .to_owned();
