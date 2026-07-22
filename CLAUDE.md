@@ -93,9 +93,17 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
 
 ## Current state / next steps (as of 2026-07-22)
 
-- Published: **hayate 0.5.0** and **hayate-accel 0.2.0** on PyPI; docs
+- Published: **hayate 0.6.0** and **hayate-accel 0.2.0** on PyPI; docs
   site live; repository public under the `hayatepy` org (maintainer:
   Yusuke Hayashi, MIT).
+- 0.6.0: **segment-trie router** (static dict → trie → regex tail;
+  0.95 µs flat at any route count, many-routes(64) 3.83x Starlette;
+  registration order preserved by index — tests/test_router.py pins
+  it) and **WHATWG IPv4/IPv6 canonicalization + %2e dot-segments**,
+  which raised the URL conformance ratchet **202 → 246/306 (80.4%)**
+  with zero dependencies. The remaining URL gap is the demand-gated
+  IDNA pipeline: the rejection error and docs point at issue #2, which
+  collects use cases; ~310 KiB UTS-46 tables is the known cost.
 - 0.5.0 added **`workers.forward(c, fetcher)`** — platform-response
   passthrough. Because nothing is rebuilt, a websocket upgrade passes
   *through* the outer app into a Durable Object's own `@app.ws()`
@@ -103,8 +111,9 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
   closed the boundary-impedance gap recorded in DESIGN §14.4. Also:
   measured micro-optimizations (wire-encode memo 114→41ns/pair,
   `Headers.get` fast path, shared empty params) and measured
-  *rejections* (header interning, per-method route indexes) — every
-  number is in §14.4 so the questions stay settled.
+  *rejections* (header interning, flat-alternation router 9x worse,
+  per-method route indexes) — every number is in §14.4 so the
+  questions stay settled.
 - 0.4.1 thinned the Workers FFI boundary (trusted URL split, trusted
   header pairs, null-body skip, one-crossing response headers) and
   added the Rust multipart splitter (SIMD memmem, 11x on a 10.5 MB
