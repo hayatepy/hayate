@@ -11,7 +11,7 @@
 - ルーティング構文は独自 DSL ではなく **WHATWG URLPattern 標準**を採用(Hono の `/:id` 構文は URLPattern のサブセットなのでそのまま動く)。
 - コアは**ゼロ依存**(標準ライブラリのみ)、async-first、PEP 695 世代の型付け。
 - バリデーション・テンプレート・ORM・DI はコアに入れない。Hono 同様、薄いフックと公式ミドルウェアで対応する。
-- **命名**: hayate(疾風)。Hono(炎)と同じ「自然現象の日本語一語」の系譜で、haya-inc の haya(速)を含む。PyPI 空き確認済み(2026-07-22 時点)。
+- **命名**: hayate(疾風)。Hono(炎)と同じ「自然現象の日本語一語」の系譜。PyPI 名 `hayate` は 0.3.0 で取得。
 
 ```python
 from hayate import Hayate, Context
@@ -441,7 +441,8 @@ v1 まで**やらない**と明示するもの:
 
 | 項目 | 決定 |
 |---|---|
-| 名前 | **hayate**(疾風)。配布名 = import 名 = `hayate`、アプリクラスは `Hayate`。GitHub リポジトリも `haya-inc/para` → `haya-inc/hayate` へのリネームを推奨 |
+| 名前 | **hayate**(疾風)。配布名 = import 名 = `hayate`、アプリクラスは `Hayate` |
+| 体制 | **個人メンテナ(Yusuke Hayashi)+ 専用 GitHub org `hayatepy`**(Hono の honojs と同型、2026-07-22 決定)。リポジトリは `hayatepy/hayate`(haya-inc から移管)。ライセンスは MIT、copyright は個人名義 |
 | ドキュメント言語 | **英語先行**(公開ドキュメント・README・docstring・コード内コメント)。内部設計メモは日本語可 |
 | 公開戦略 | **private で開始**。v0.1 完成時に公開(PyPI 名確保を兼ねる)を判断 |
 | 最低 Python | **3.12**(PEP 695 対応と採用の広さのバランス。Pyodide 現行の 3.12/3.13 系とも整合) |

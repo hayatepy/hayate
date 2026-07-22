@@ -23,7 +23,7 @@ jobs:
 
   # PyPI Trusted Publishing (OIDC). Requires the "hayate" project (or a
   # pending publisher) on PyPI configured with:
-  #   owner: haya-inc, repo: hayate, workflow: release.yml, environment: pypi
+  #   owner: hayatepy, repo: hayate, workflow: release.yml, environment: pypi
   publish:
     needs: build
     runs-on: ubuntu-latest

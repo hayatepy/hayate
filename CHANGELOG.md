@@ -8,6 +8,7 @@ First public release. hayate is a web-standards-first Python web
 framework inspired by Hono: the Fetch API model (Request / Response /
 Headers / URL / URLPattern) is the user-facing surface, and Python-local
 protocols (WSGI/ASGI) are demoted to adapter-level details.
+Maintained by Yusuke Hayashi under the `hayatepy` organization.
 
 ### Core
 

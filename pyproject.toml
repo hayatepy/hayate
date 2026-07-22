@@ -9,7 +9,7 @@ description = "Web-standards-first Python web framework: Fetch API semantics, ze
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
-authors = [{ name = "haya-inc" }]
+authors = [{ name = "Yusuke Hayashi" }]
 keywords = ["web", "framework", "asgi", "fetch", "urlpattern", "web-standards", "hono"]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -23,8 +23,8 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Repository = "https://github.com/haya-inc/hayate"
-Changelog = "https://github.com/haya-inc/hayate/blob/main/CHANGELOG.md"
+Repository = "https://github.com/hayatepy/hayate"
+Changelog = "https://github.com/hayatepy/hayate/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = [
