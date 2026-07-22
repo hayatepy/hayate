@@ -1,0 +1,71 @@
+# Middleware
+
+Koa/Hono-style onion composition: code before `await next_()` runs on the
+way in, code after runs on the way out.
+
+```python
+import time
+
+@app.use
+async def server_timing(c, next_):
+    start = time.perf_counter()
+    await next_()
+    dur = (time.perf_counter() - start) * 1000
+    c.header("server-timing", f"app;dur={dur:.1f}")
+```
+
+Scope middleware with a URLPattern, or attach it to a single route:
+
+```python
+app.use("/admin/*", require_admin)
+
+@app.post("/books", validator("json", BookIn.validate))
+async def create(c): ...
+```
+
+Middleware runs even when no route matches, so CORS headers apply to 404/405
+responses too. Returning a `Response` from middleware short-circuits the
+chain.
+
+## Built-ins (all zero-dependency)
+
+```python
+from hayate.middleware import (
+    basic_auth, body_limit, cache, compress, cors, etag,
+    logger, secure_headers, static_files, timeout,
+)
+```
+
+| Middleware | What it does |
+|---|---|
+| `logger()` | `METHOD /path -> status (ms)` via `logging` |
+| `cors(origin=...)` | Fetch-standard CORS incl. preflight |
+| `etag()` | weak ETags + `If-None-Match` -> 304 (RFC 9110) |
+| `compress()` | gzip everywhere, zstd on Python 3.14+ |
+| `basic_auth(username=..., password=...)` | RFC 7617, timing-safe |
+| `body_limit(max_size=...)` | 413 on declared, buffered, or streamed bodies |
+| `timeout(seconds=...)` | 504 via `asyncio.timeout` |
+| `secure_headers()` | CSP/HSTS/nosniff/frame/referrer, composed at startup |
+| `cache(max_age=...)` | in-process GET micro-cache + `Cache-Control`/`Age` (RFC 9111) |
+| `static_files(root=...)` | files with ETag/304, single Range 206/416, traversal-safe |
+
+Static assets, Hono-style:
+
+```python
+app.use("/assets/*", static_files(root="public", strip_prefix="/assets"))
+```
+
+## Writing your own
+
+A middleware is `async def mw(c, next_)`; a factory returning one is the
+idiomatic packaging:
+
+```python
+def request_id() -> Middleware:
+    async def request_id_middleware(c, next_):
+        rid = c.req.header("x-request-id") or new_id()
+        c.set("request_id", rid)
+        await next_()
+        c.header("x-request-id", rid)
+    return request_id_middleware
+```

@@ -2,6 +2,22 @@
 
 All notable changes to hayate are documented here.
 
+## [0.3.1] - 2026-07-22
+
+### Fixed
+
+- **Workers adapter**: on workerd the fetch handler receives workers-py's
+  Python `Request` wrapper (readers: `bytes()` / `headers.items()`), not a
+  raw JS proxy (`arrayBuffer()` / `headers.entries()`). The adapter now
+  supports both shapes. Found by running `examples/workers/` on a local
+  workerd; a regression test pins the wrapper shape.
+
+### Added
+
+- Documentation site (MkDocs Material + mkdocstrings) with an in-browser
+  Pyodide playground and `llms.txt`: <https://hayatepy.github.io/hayate/>
+- `examples/workers/` — a ready-to-run Cloudflare Python Workers project.
+
 ## [0.3.0] - 2026-07-22
 
 First public release. hayate is a web-standards-first Python web

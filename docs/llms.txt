@@ -1,0 +1,51 @@
+# hayate
+
+> Web-standards-first Python web framework inspired by Hono. The Fetch API
+> model (Request / Response / Headers / URL / URLPattern per WHATWG) is the
+> user-facing surface; WSGI/ASGI are adapter details. Zero-dependency core,
+> Python 3.12+, async-first. One app runs on ASGI servers, Cloudflare Python
+> Workers, and AWS Lambda. Errors are RFC 9457 application/problem+json.
+
+Key facts for code generation:
+- App: `from hayate import Hayate; app = Hayate()`
+- Routes: `@app.get("/books/:id")` (WHATWG URLPattern syntax; also post/put/
+  delete/patch/options/head, `@app.on(method, path)`, `@app.ws(path)`)
+- Handlers: `async def handler(c)` receiving a Context; return a Response
+  via `c.json(data, status)` / `c.text()` / `c.html()` / `c.body()` /
+  `c.redirect()`, or raise `HTTPException(status, title=..., detail=...)`
+- Request data: `c.req.param("id")`, `c.req.query("q")`, `await c.req.json()`,
+  `await c.req.form_data()`, `c.req.cookies`, `c.req.header("name")`
+- Middleware: `async def mw(c, next_)` registered with `app.use(mw)` or
+  `app.use("/scope/*", mw)`; built-ins in `hayate.middleware` (logger, cors,
+  etag, compress, basic_auth, body_limit, timeout, secure_headers, cache,
+  static_files)
+- Validation: `validator("json"|"form"|"query", callable)` route middleware +
+  `c.req.valid(target)`; msgspec/pydantic callables plug in directly
+- WebSocket: `@app.ws("/ws/:room")` with `async def handler(c, ws)`;
+  `async for message in ws`, `await ws.send(data)`
+- SSE: `return c.event_stream(async_iterable)` (str or dict messages)
+- Background work: `c.wait_until(coro)` (Workers ctx.waitUntil semantics)
+- Testing: `res = await app.request("/path", method="POST", json={...})`,
+  then `res.status`, `await res.json()` — no server or test client
+- Runtimes: ASGI (`uvicorn main:app`), Workers
+  (`Default = to_workers(app)` from `hayate.adapters.workers`), Lambda
+  (`handler = to_lambda(app)` from `hayate.adapters.aws`)
+
+## Docs
+
+- [Home](https://hayatepy.github.io/hayate/): overview and install
+- [Getting started](https://hayatepy.github.io/hayate/guide/getting-started/): a complete TODO API with tests
+- [Routing](https://hayatepy.github.io/hayate/guide/routing/): URLPattern syntax and matching rules
+- [Context and responses](https://hayatepy.github.io/hayate/guide/context/): c.req, response helpers, errors, cookies, wait_until
+- [Middleware](https://hayatepy.github.io/hayate/guide/middleware/): onion model and the built-ins
+- [Realtime](https://hayatepy.github.io/hayate/guide/realtime/): WebSocket and Server-Sent Events
+- [Validation](https://hayatepy.github.io/hayate/guide/validation/): the validator hook with msgspec/pydantic
+- [Runtimes](https://hayatepy.github.io/hayate/guide/runtimes/): ASGI, Cloudflare Workers, AWS Lambda
+- [Testing](https://hayatepy.github.io/hayate/guide/testing/): app.request() patterns
+- [API reference](https://hayatepy.github.io/hayate/api/)
+
+## Optional
+
+- [Conformance](https://hayatepy.github.io/hayate/conformance/): measured wpt pass rates and documented subsets
+- [Benchmarks](https://hayatepy.github.io/hayate/benchmarks/): methodology and numbers vs Starlette
+- [Source](https://github.com/hayatepy/hayate): MIT, maintained by Yusuke Hayashi

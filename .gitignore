@@ -8,3 +8,9 @@ dist-accel/
 *.egg-info/
 accel/target/
 Cargo.lock
+site/
+.wrangler/
+examples/workers/python_modules/
+examples/workers/.venv-workers/
+examples/workers/pylock.toml
+examples/workers/uv.lock

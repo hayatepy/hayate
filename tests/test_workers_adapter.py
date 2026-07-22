@@ -76,6 +76,31 @@ class FakeCtx:
         self.waited.append(promise)
 
 
+class FakePyRequestHeaders:
+    """workers-py wrapper shape: a Mapping with ``items()``."""
+
+    def __init__(self, pairs):
+        self._pairs = pairs
+
+    def items(self):
+        return list(self._pairs)
+
+
+class FakePyRequest:
+    """workers-py's Python Request wrapper, as observed on workerd (2026-07):
+    the body reader is ``bytes()`` and headers expose ``items()`` —
+    neither ``arrayBuffer()`` nor ``entries()`` exists."""
+
+    def __init__(self, url, method="GET", headers=(), body=b""):
+        self.url = url
+        self.method = method
+        self.headers = FakePyRequestHeaders(headers)
+        self._body = body
+
+    async def bytes(self):
+        return self._body
+
+
 async def test_fetch_roundtrip(workers_runtime):
     from hayate.adapters.workers import to_workers
 
@@ -105,6 +130,32 @@ async def test_fetch_roundtrip(workers_runtime):
         "binding": "bound",
     }
     assert ("content-type", "application/json") in js_response.headers.pairs
+
+
+async def test_workers_py_wrapper_shape(workers_runtime):
+    """Regression: workerd hands us the workers-py wrapper, not a JS proxy."""
+    from hayate.adapters.workers import to_workers
+
+    app = Hayate()
+
+    @app.post("/echo")
+    async def echo(c: Context):
+        return c.json({"got": await c.req.json()})
+
+    entry = to_workers(app)()
+    entry.env = None
+    entry.ctx = FakeCtx()
+
+    js_response = await entry.fetch(
+        FakePyRequest(
+            "https://edge.example/echo",
+            method="POST",
+            headers=[("content-type", "application/json")],
+            body=b'{"k": 1}',
+        )
+    )
+    assert js_response.status == 200
+    assert json.loads(js_response.body) == {"got": {"k": 1}}
 
 
 async def test_get_has_null_body_and_problem_details_work(workers_runtime):

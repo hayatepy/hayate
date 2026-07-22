@@ -1,0 +1,67 @@
+site_name: hayate
+site_description: "Web-standards-first Python web framework: the Fetch API model, zero dependencies, one app for ASGI / Cloudflare Workers / AWS Lambda"
+site_url: https://hayatepy.github.io/hayate/
+repo_url: https://github.com/hayatepy/hayate
+repo_name: hayatepy/hayate
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: false
+            heading_level: 3
+            members_order: source
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+
+exclude_docs: |
+  research/
+
+nav:
+  - Home: index.md
+  - Guide:
+      - Getting started: guide/getting-started.md
+      - Routing: guide/routing.md
+      - Context and responses: guide/context.md
+      - Middleware: guide/middleware.md
+      - Realtime: guide/realtime.md
+      - Validation: guide/validation.md
+      - Runtimes: guide/runtimes.md
+      - Testing: guide/testing.md
+  - Playground: playground.md
+  - API reference: api.md
+  - Conformance: conformance.md
+  - Benchmarks: benchmarks.md

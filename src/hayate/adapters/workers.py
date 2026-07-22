@@ -35,20 +35,39 @@ if TYPE_CHECKING:
 
 
 def _js_headers_to_pairs(js_headers: Any) -> list[tuple[str, str]]:
-    return [(str(entry[0]), str(entry[1])) for entry in js_headers.entries()]
+    # Raw JS Headers proxies iterate via entries(); the workers-py Python
+    # wrapper is a Mapping with items(). Support both shapes.
+    entries = getattr(js_headers, "entries", None)
+    if entries is not None:
+        return [(str(entry[0]), str(entry[1])) for entry in entries()]
+    return [(str(name), str(value)) for name, value in js_headers.items()]
+
+
+async def _read_body(js_request: Any) -> bytes | None:
+    """Read the request body across both runtime shapes.
+
+    On workerd the handler receives workers-py's Python Request wrapper
+    (reader: ``await request.bytes()``), not a raw JS proxy (reader:
+    ``await request.arrayBuffer()``) — verified on workerd, 2026-07.
+    Reading unconditionally is safe: bodyless requests yield b"".
+    """
+    reader = getattr(js_request, "arrayBuffer", None)
+    if reader is None:
+        reader = getattr(js_request, "bytes", None)
+    if reader is None:
+        return None
+    data = await reader()
+    if hasattr(data, "to_py"):
+        data = data.to_py()
+    return bytes(data) or None
 
 
 async def _to_hayate_request(js_request: Any) -> Request:
-    body: bytes | None = None
-    if js_request.body is not None:
-        buffer = await js_request.arrayBuffer()
-        data = buffer.to_py() if hasattr(buffer, "to_py") else buffer
-        body = bytes(data) or None
     return Request(
         str(js_request.url),
         method=str(js_request.method),
         headers=Headers(_js_headers_to_pairs(js_request.headers), guard="immutable"),
-        body=body,
+        body=await _read_body(js_request),
     )
 
 
