@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync
+      - run: uv run ruff check src tests benchmarks
+      - run: uv run ruff format --check src tests benchmarks
+      - run: uv run pytest -q
+
+  # Free-threaded build: the core must stay free of global mutable state.
+  test-free-threaded:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14t"
+      - run: uv sync
+      - run: uv run pytest -q
+
+  # Tier 2 accelerator: build the Rust wheel and verify behavioral identity.
+  accel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync
+      - run: uv run --with maturin maturin build --release -m accel/Cargo.toml -o dist-accel
+      - run: uv pip install dist-accel/*.whl
+      - run: uv run --no-sync pytest -q

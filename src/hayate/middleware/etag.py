@@ -7,18 +7,10 @@ import hashlib
 from ..context import Context, Middleware, Next
 from ..headers import Headers
 from ..response import Response
+from ._internal import etag_matches
 
 # Headers a 304 should carry when present (RFC 9110 §15.4.5).
 _KEEP_ON_304 = ("cache-control", "content-location", "date", "etag", "expires", "vary")
-
-
-def _matches(if_none_match: str, tag: str) -> bool:
-    if if_none_match.strip() == "*":
-        return True
-    normalized = tag.removeprefix("W/")
-    return any(
-        candidate.strip().removeprefix("W/") == normalized for candidate in if_none_match.split(",")
-    )
 
 
 def etag(*, weak: bool = True) -> Middleware:
@@ -37,7 +29,7 @@ def etag(*, weak: bool = True) -> Middleware:
             tag = f'W/"{digest}"' if weak else f'"{digest}"'
             res.headers.set("etag", tag)
         if_none_match = c.req.header("if-none-match")
-        if if_none_match is not None and _matches(if_none_match, tag):
+        if if_none_match is not None and etag_matches(if_none_match, tag):
             headers = Headers()
             for name in _KEEP_ON_304:
                 value = res.headers.get(name)

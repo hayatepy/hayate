@@ -4,20 +4,24 @@ an ``async def middleware(c, next)``.
 
 from .basic_auth import basic_auth
 from .body_limit import body_limit
+from .cache import cache
 from .compress import compress
 from .cors import cors
 from .etag import etag
 from .logger import logger
 from .secure_headers import secure_headers
+from .static_files import static_files
 from .timeout import timeout
 
 __all__ = [
     "basic_auth",
     "body_limit",
+    "cache",
     "compress",
     "cors",
     "etag",
     "logger",
     "secure_headers",
+    "static_files",
     "timeout",
 ]
