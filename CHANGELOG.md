@@ -21,6 +21,12 @@ All notable changes to hayate are documented here.
 - `examples/workers/`: `/stream`, `/events` (SSE), and `/echo` routes
   for on-workerd verification of the bridges.
 
+### Changed
+
+- Build backend: hatchling → `uv_build`. Wheel contents verified
+  identical (modules, `py.typed`, bundled LICENSE now via explicit PEP
+  639 `license-files`); the sdist is the lean src-layout shape.
+
 ### Fixed
 
 - wpt data files are read as UTF-8 explicitly; test collection no longer
