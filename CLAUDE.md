@@ -76,6 +76,11 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
 - **GitHub `macos-13` (Intel) runners are retired**; Intel wheels are
   cross-compiled from `macos-latest` (`x86_64-apple-darwin`).
 - ASGI guarantees lowercase header names; `Headers._from_wire` relies on it.
+- **ty evaluated 2026-07-22 (0.0.62): not adopted.** 23 diagnostics, mostly
+  false positives on the Fetch-standard `bytes()` method name and on
+  guarded platform imports (`js`, `workers`, `pyodide`, `compression`).
+  The standard surface is not renamed to satisfy a 0.0.x checker;
+  revisit at ty 1.0 (a few argument-type findings may be real).
 
 ## Current state / next steps (as of 2026-07-22)
 
