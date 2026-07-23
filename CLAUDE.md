@@ -111,6 +111,14 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
   anything env-dependent lazily on first request. (Found 2026-07-23,
   hayate-auth AS production deploy; details in hayate-auth
   `docs/research/authorization-server.md` §5.)
+- **Deployed Python Workers cap request CPU with their own limiter**
+  (`introspection.CpuLimitExceeded`, plan-scaled: ~2 s on Free) that
+  local workerd does not have — heavy request-time imports (the mcp/
+  pydantic chain, ~3 s CPU) die on Free but pass on Workers Paid's
+  default budget. Global-scope imports of that chain fail deploy
+  validation regardless of plan ("Top-level await is unsettled"), so
+  lazy import + Paid is the production shape. Watch the account too:
+  `wrangler whoami`'s account must be the one whose plan you bought.
 - **ty evaluated 2026-07-22 (0.0.62): not adopted.** 23 diagnostics, mostly
   false positives on the Fetch-standard `bytes()` method name and on
   guarded platform imports (`js`, `workers`, `pyodide`, `compression`).
