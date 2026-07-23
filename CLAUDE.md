@@ -100,6 +100,8 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
   python_modules --no-build -r pylock.toml --preview-features pylock`,
   touch `python_modules/.synced` and `.venv-workers/.synced`, then
   `pywrangler dev` (sync skips, wrangler starts). Run from a C: path.
+  Re-confirmed on workers-py 1.15.0 (2026-07-23, hayate-auth AS spike):
+  the silent fallback persists; the same workaround still applies.
 - **ty evaluated 2026-07-22 (0.0.62): not adopted.** 23 diagnostics, mostly
   false positives on the Fetch-standard `bytes()` method name and on
   guarded platform imports (`js`, `workers`, `pyodide`, `compression`).
