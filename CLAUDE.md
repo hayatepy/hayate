@@ -102,6 +102,15 @@ cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
   `pywrangler dev` (sync skips, wrangler starts). Run from a C: path.
   Re-confirmed on workers-py 1.15.0 (2026-07-23, hayate-auth AS spike):
   the silent fallback persists; the same workaround still applies.
+- **`pywrangler deploy` bundles `.venv`/`.venv-workers` into the Worker**
+  (thousands of modules, blows the size limit). Deploy from a clean dir
+  holding only entry.py + wrangler.toml + python_modules, via plain
+  `npx wrangler deploy`. Also: the deploy-time validator runs global
+  scope with NO bindings/vars attached — module-level `env.DB` fails
+  validation (`AttributeError`) even though local dev allows it; build
+  anything env-dependent lazily on first request. (Found 2026-07-23,
+  hayate-auth AS production deploy; details in hayate-auth
+  `docs/research/authorization-server.md` §5.)
 - **ty evaluated 2026-07-22 (0.0.62): not adopted.** 23 diagnostics, mostly
   false positives on the Fetch-standard `bytes()` method name and on
   guarded platform imports (`js`, `workers`, `pyodide`, `compression`).
