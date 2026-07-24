@@ -89,8 +89,9 @@ class ASGIAdapter:
             elif name == b"transfer-encoding":
                 expects_body = True
         if expects_body:
-            signal: AbortSignal | None = AbortSignal()
-            body: Any = _request_body(receive, signal)
+            active_signal = AbortSignal()
+            signal: AbortSignal | None = active_signal
+            body: Any = _request_body(receive, active_signal)
         else:
             # No content-length / transfer-encoding means no request body
             # (RFC 9112) — a null body per Fetch; skip stream and signal.

@@ -2,6 +2,23 @@
 
 All notable changes to hayate are documented here.
 
+## [0.9.0] - 2026-07-24
+
+### Added
+
+- Add context-aware CORS origin resolution through
+  `cors(origin_resolver=...)`, including async resolvers, so runtime bindings
+  can supply per-request allowlists without replacing the middleware.
+- Add strict public typing fixtures and type-preserving generic signatures
+  for route decorators, hooks, and middleware registration.
+
+### Changed
+
+- Mark the distribution as typed and run strict mypy validation in CI.
+- Tighten internal typing across the ASGI, Workers, response, WebSocket,
+  static-file, compression, cache, form-data, and JSON paths without changing
+  their runtime contracts.
+
 ## [0.8.1] - 2026-07-24
 
 ### Changed

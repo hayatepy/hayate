@@ -57,6 +57,7 @@ import asyncio
 import contextlib
 import logging
 from collections.abc import AsyncIterable, AsyncIterator, Callable
+from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 from ..abort import AbortSignal
@@ -74,8 +75,9 @@ if TYPE_CHECKING:
 _logger = logging.getLogger("hayate.workers")
 
 try:  # Pyodide-only; under CPython (tests) the helpers run without them.
-    from pyodide.ffi import create_proxy as _create_proxy
-    from pyodide.ffi import to_js as _to_js
+    _ffi = import_module("pyodide.ffi")
+    _create_proxy = _ffi.create_proxy
+    _to_js = _ffi.to_js
 except ImportError:
     _create_proxy = None
     _to_js = None
@@ -91,21 +93,18 @@ class _Runtime:
     __slots__ = ("headers_cls", "readable_stream_cls", "response_cls", "websocket_pair_cls")
 
     def __init__(self) -> None:
-        from js import Headers as headers_cls
-        from workers import Response as response_cls
-
-        self.headers_cls = headers_cls
-        self.response_cls = response_cls
+        js_module = import_module("js")
+        workers_module = import_module("workers")
+        self.headers_cls = js_module.Headers
+        self.response_cls = workers_module.Response
         try:
-            from js import ReadableStream as readable_stream_cls
-        except ImportError:  # a runtime without streams: responses are buffered
-            readable_stream_cls = None
-        self.readable_stream_cls = readable_stream_cls
+            self.readable_stream_cls = js_module.ReadableStream
+        except AttributeError:  # a runtime without streams: responses are buffered
+            self.readable_stream_cls = None
         try:
-            from js import WebSocketPair as websocket_pair_cls
-        except ImportError:  # a runtime without WebSocketPair: no upgrades
-            websocket_pair_cls = None
-        self.websocket_pair_cls = websocket_pair_cls
+            self.websocket_pair_cls = js_module.WebSocketPair
+        except AttributeError:  # a runtime without WebSocketPair: no upgrades
+            self.websocket_pair_cls = None
 
 
 def _proxy(obj: Any) -> Any:
@@ -200,7 +199,7 @@ def _js_bytes(value: Any) -> bytes:
     """
     to_bytes = getattr(value, "to_bytes", None)
     if to_bytes is not None:
-        return to_bytes()
+        return bytes(to_bytes())
     if hasattr(value, "to_py"):
         value = value.to_py()
     return bytes(value)
@@ -377,6 +376,7 @@ class _PassthroughResponse(Response):
     """A platform response that must cross the boundary untouched."""
 
     __slots__ = ("platform_response",)
+    platform_response: Any
 
 
 async def forward(c: Context, fetcher: Any) -> Response:
@@ -527,11 +527,11 @@ async def _handle_fetch(
 
 def to_workers(app: Hayate) -> type:
     """Build the Workers entrypoint class: ``Default = to_workers(app)``."""
-    from workers import WorkerEntrypoint
+    WorkerEntrypoint = import_module("workers").WorkerEntrypoint
 
     runtime = _Runtime()
 
-    class Default(WorkerEntrypoint):
+    class Default(WorkerEntrypoint):  # type: ignore[misc,valid-type]
         async def fetch(self, request: Any) -> Any:
             return await _handle_fetch(app, request, self.ctx, self.env, runtime)
 
@@ -557,11 +557,11 @@ def to_durable_object(factory: Callable[[Any, Any], Hayate]) -> type:
             ...
             return app
     """
-    from workers import DurableObject
+    DurableObject = import_module("workers").DurableObject
 
     runtime = _Runtime()
 
-    class HayateDurableObject(DurableObject):
+    class HayateDurableObject(DurableObject):  # type: ignore[misc,valid-type]
         def __init__(self, ctx: Any, env: Any) -> None:
             super().__init__(ctx, env)
             self._app = factory(ctx, env)

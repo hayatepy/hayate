@@ -12,6 +12,7 @@ Divergences from Fetch (documented):
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from typing import Any
 
 from .body import Body, BodyInit
 from .headers import Headers
@@ -37,7 +38,7 @@ class Response(Body):
             raise ValueError(f"status must be in 100-599, got {status}")
         # Internal contract: an ExecutionContext with pending wait_until()
         # work, drained by the adapter (or app.request) after delivery.
-        self._background = None
+        self._background: Any = None
         self.status = status
         self.headers = Headers(headers)
         # Per Fetch: a text body implies text/plain;charset=UTF-8 unless set.

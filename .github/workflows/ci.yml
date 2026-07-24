@@ -30,6 +30,7 @@ jobs:
       - run: uv sync
       - run: uv run ruff check src tests benchmarks
       - run: uv run ruff format --check src tests benchmarks
+      - run: uv run mypy src typing_tests
       - run: uv run pytest -q
 
   # Free-threaded build: the core must stay free of global mutable state.

@@ -51,6 +51,19 @@ async def test_show_book():
     assert (await res.json())["id"] == "1"
 ```
 
+Runtime-bound CORS allowlists can inspect the request context:
+
+```python
+from hayate.middleware import cors
+
+app = Hayate(env={"CORS_ORIGINS": {"https://app.example.com"}})
+
+def allowed_origin(c, request_origin):
+    return request_origin if request_origin in c.env["CORS_ORIGINS"] else None
+
+app.use(cors(origin_resolver=allowed_origin, credentials=True))
+```
+
 ## Conformance and performance, measured
 
 - Standards conformance runs against vendored [web-platform-tests](https://github.com/web-platform-tests/wpt)
@@ -62,7 +75,7 @@ async def test_show_book():
 
 ## Status
 
-Alpha (0.8.x): the surface tracks [DESIGN.md](DESIGN.md) (Japanese) and may still move
+Alpha (0.9.x): the surface tracks [DESIGN.md](DESIGN.md) (Japanese) and may still move
 before 1.0. Changes are recorded in [CHANGELOG.md](CHANGELOG.md); platform research
 lives in [docs/research/](docs/research/).
 

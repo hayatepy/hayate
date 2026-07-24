@@ -39,7 +39,7 @@ from hayate.middleware import (
 | Middleware | What it does |
 |---|---|
 | `logger()` | `METHOD /path -> status (ms)` via `logging` |
-| `cors(origin=...)` | Fetch-standard CORS incl. preflight |
+| `cors(origin=..., origin_resolver=...)` | Fetch-standard CORS incl. preflight; resolver can inspect `c.env` |
 | `etag()` | weak ETags + `If-None-Match` -> 304 (RFC 9110) |
 | `compress()` | gzip everywhere, zstd on Python 3.14+ |
 | `basic_auth(username=..., password=...)` | RFC 7617, timing-safe |
@@ -67,6 +67,17 @@ app.use("/api/auth/*", rate_limit(
     limit=10, window=60,
     key=lambda c: c.req.header("cf-connecting-ip"),
 ))
+```
+
+Workers applications can resolve a CORS allowlist from a request-bound
+environment without replacing the middleware:
+
+```python
+def from_env(c, request_origin):
+    allowed = c.env["CORS_ORIGINS"]
+    return request_origin if request_origin in allowed else None
+
+app.use(cors(origin_resolver=from_env, credentials=True))
 ```
 
 ## Writing your own

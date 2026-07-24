@@ -76,6 +76,56 @@ async def test_cors_credentials_echoes_origin_instead_of_wildcard():
     assert "origin" in (res.headers.get("vary") or "").lower()
 
 
+async def test_cors_context_resolver_reads_runtime_env_for_simple_and_preflight():
+    app = Hayate(env={"CORS_ORIGINS": {"https://folio.example"}})
+
+    def from_env(c: Context, request_origin: str) -> str | None:
+        return request_origin if request_origin in c.env["CORS_ORIGINS"] else None
+
+    app.use(cors(origin_resolver=from_env))
+
+    @app.get("/data")
+    async def data(c: Context):
+        return c.text("ok")
+
+    allowed = await app.request("/data", headers={"origin": "https://folio.example"})
+    assert allowed.headers.get("access-control-allow-origin") == "https://folio.example"
+
+    denied = await app.request("/data", headers={"origin": "https://evil.example"})
+    assert denied.headers.get("access-control-allow-origin") is None
+
+    preflight = await app.request(
+        "/data",
+        method="OPTIONS",
+        headers={
+            "origin": "https://folio.example",
+            "access-control-request-method": "GET",
+        },
+    )
+    assert preflight.status == 204
+    assert preflight.headers.get("access-control-allow-origin") == "https://folio.example"
+
+
+async def test_cors_context_resolver_may_be_async():
+    async def resolve(c: Context, request_origin: str) -> str | None:
+        return request_origin if c.env else None
+
+    app = Hayate(env=True)
+    app.use(cors(origin_resolver=resolve))
+
+    @app.get("/")
+    async def home(c: Context):
+        return c.text("ok")
+
+    res = await app.request("/", headers={"origin": "https://folio.example"})
+    assert res.headers.get("access-control-allow-origin") == "https://folio.example"
+
+
+def test_cors_rejects_two_origin_configuration_sources():
+    with pytest.raises(ValueError):
+        cors(origin="https://fixed.example", origin_resolver=lambda c, origin: origin)
+
+
 # -- etag ---------------------------------------------------------------------
 
 

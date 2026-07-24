@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+import inspect
+from collections.abc import Awaitable, Callable, Sequence
 
 from ..context import Context, Middleware, Next
 from ..headers import Headers
@@ -10,18 +11,26 @@ from ..response import Response
 from ._internal import append_vary
 
 type OriginOption = str | Sequence[str] | Callable[[str], str | None]
+type ContextOriginResolver = Callable[[Context, str], str | None | Awaitable[str | None]]
 
 
 def cors(
     *,
     origin: OriginOption = "*",
+    origin_resolver: ContextOriginResolver | None = None,
     allow_methods: Sequence[str] = ("GET", "HEAD", "PUT", "POST", "DELETE", "PATCH"),
     allow_headers: Sequence[str] = (),
     expose_headers: Sequence[str] = (),
     credentials: bool = False,
     max_age: int | None = None,
 ) -> Middleware:
-    """Cross-Origin Resource Sharing response headers, including preflight handling."""
+    """Cross-Origin Resource Sharing response headers, including preflight.
+
+    ``origin_resolver`` receives the request Context, so Workers applications
+    can resolve allowlists from ``c.env`` without replacing this middleware.
+    """
+    if origin_resolver is not None and origin != "*":
+        raise ValueError("pass either origin or origin_resolver, not both")
 
     def resolve_origin(request_origin: str) -> str | None:
         if callable(origin):
@@ -38,7 +47,11 @@ def cors(
         if request_origin is None:
             await next_()
             return
-        allow_origin = resolve_origin(request_origin)
+        if origin_resolver is None:
+            allow_origin = resolve_origin(request_origin)
+        else:
+            resolved = origin_resolver(c, request_origin)
+            allow_origin = await resolved if inspect.isawaitable(resolved) else resolved
 
         is_preflight = (
             c.req.method == "OPTIONS" and c.req.header("access-control-request-method") is not None
