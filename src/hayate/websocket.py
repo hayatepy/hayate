@@ -56,7 +56,9 @@ class WebSocket:
         kind = message["type"]
         if kind == "websocket.receive":
             text = message.get("text")
-            return text if text is not None else message.get("bytes", b"")
+            if isinstance(text, str):
+                return text
+            return bytes(message.get("bytes", b""))
         if kind == "websocket.disconnect":
             self._closed = True
             raise WebSocketClosed(message.get("code", 1005))

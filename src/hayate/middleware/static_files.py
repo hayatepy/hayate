@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import mimetypes
 from pathlib import Path
+from typing import Literal
 from urllib.parse import unquote
 
 from ..context import Context, Middleware, Next
@@ -25,10 +26,10 @@ from ..response import Response
 from ._internal import etag_matches
 
 # _parse_range outcome for a syntactically valid but unsatisfiable range.
-_UNSATISFIABLE = "unsatisfiable"
+_UNSATISFIABLE: Literal["unsatisfiable"] = "unsatisfiable"
 
 
-def _parse_range(header: str, size: int) -> tuple[int, int] | str | None:
+def _parse_range(header: str, size: int) -> tuple[int, int] | Literal["unsatisfiable"] | None:
     """Parse a single-range ``Range`` header.
 
     Returns an inclusive ``(start, end)``, ``_UNSATISFIABLE`` (-> 416),

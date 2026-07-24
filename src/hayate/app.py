@@ -14,7 +14,7 @@ import logging
 import traceback
 from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, overload
 
 from .context import Context, ErrorHandler, ExecutionContext, Handler, HeadersArg, Middleware
 from .exceptions import HTTPException, problem
@@ -56,6 +56,11 @@ def _check_middleware(fn: Any) -> None:
         raise TypeError("middleware must be async: async def middleware(c, next)")
 
 
+def _check_error_handler(fn: Any) -> None:
+    if not inspect.iscoroutinefunction(fn):
+        raise TypeError("error handler must be async: async def handler(err, c)")
+
+
 class Hayate:
     """The application: routing, middleware, and the runtime-agnostic ``fetch()`` core."""
 
@@ -86,45 +91,47 @@ class Hayate:
 
     # -- route registration --------------------------------------------------
 
-    def on(
+    def on[F: Callable[..., Any]](
         self, method: str, path: str, *middleware: Middleware
-    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    ) -> Callable[[F], F]:
         upper = method.upper()
         for mw in middleware:
             _check_middleware(mw)
 
-        def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+        def decorator(fn: F) -> F:
             handler = _ensure_async_handler(fn)
             self._router.add(Route(upper, path, handler, tuple(middleware)))
             return fn
 
         return decorator
 
-    def get(self, path: str, *middleware: Middleware):
+    def get[F: Callable[..., Any]](self, path: str, *middleware: Middleware) -> Callable[[F], F]:
         return self.on("GET", path, *middleware)
 
-    def post(self, path: str, *middleware: Middleware):
+    def post[F: Callable[..., Any]](self, path: str, *middleware: Middleware) -> Callable[[F], F]:
         return self.on("POST", path, *middleware)
 
-    def put(self, path: str, *middleware: Middleware):
+    def put[F: Callable[..., Any]](self, path: str, *middleware: Middleware) -> Callable[[F], F]:
         return self.on("PUT", path, *middleware)
 
-    def delete(self, path: str, *middleware: Middleware):
+    def delete[F: Callable[..., Any]](self, path: str, *middleware: Middleware) -> Callable[[F], F]:
         return self.on("DELETE", path, *middleware)
 
-    def patch(self, path: str, *middleware: Middleware):
+    def patch[F: Callable[..., Any]](self, path: str, *middleware: Middleware) -> Callable[[F], F]:
         return self.on("PATCH", path, *middleware)
 
-    def options(self, path: str, *middleware: Middleware):
+    def options[F: Callable[..., Any]](
+        self, path: str, *middleware: Middleware
+    ) -> Callable[[F], F]:
         return self.on("OPTIONS", path, *middleware)
 
-    def head(self, path: str, *middleware: Middleware):
+    def head[F: Callable[..., Any]](self, path: str, *middleware: Middleware) -> Callable[[F], F]:
         return self.on("HEAD", path, *middleware)
 
-    def ws(self, path: str):
+    def ws[F: Callable[..., Any]](self, path: str) -> Callable[[F], F]:
         """Register a WebSocket route: ``async def handler(c, ws)``."""
 
-        def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+        def decorator(fn: F) -> F:
             if not inspect.iscoroutinefunction(fn):
                 raise TypeError("websocket handlers must be async")
             self._router.add(Route(WEBSOCKET_METHOD, path, fn, ()))
@@ -134,7 +141,18 @@ class Hayate:
 
     # -- middleware ------------------------------------------------------------
 
-    def use(self, arg: str | Middleware, middleware: Middleware | None = None):
+    @overload
+    def use[M: Middleware](self, arg: M, middleware: None = None) -> M: ...
+
+    @overload
+    def use[M: Middleware](self, arg: str, middleware: M) -> M: ...
+
+    @overload
+    def use[M: Middleware](self, arg: str, middleware: None = None) -> Callable[[M], M]: ...
+
+    def use(
+        self, arg: str | Middleware, middleware: Middleware | None = None
+    ) -> Middleware | Callable[[Middleware], Middleware]:
         """Register middleware, optionally scoped to a URLPattern.
 
         Forms: ``app.use(mw)``, ``@app.use``, ``app.use("/admin/*", mw)``,
@@ -166,21 +184,20 @@ class Hayate:
 
     # -- hooks -------------------------------------------------------------------
 
-    def not_found(self, fn: Callable[..., Any]) -> Callable[..., Any]:
+    def not_found[F: Callable[..., Any]](self, fn: F) -> F:
         self._not_found_handler = _ensure_async_handler(fn)
         return fn
 
-    def on_error(self, fn: ErrorHandler) -> ErrorHandler:
-        if not inspect.iscoroutinefunction(fn):
-            raise TypeError("error handler must be async: async def handler(err, c)")
+    def on_error[F: ErrorHandler](self, fn: F) -> F:
+        _check_error_handler(fn)
         self._error_handler = fn
         return fn
 
-    def on_start(self, fn: Callable[[], Any]) -> Callable[[], Any]:
+    def on_start[F: Callable[[], Any]](self, fn: F) -> F:
         self._on_start.append(fn)
         return fn
 
-    def on_stop(self, fn: Callable[[], Any]) -> Callable[[], Any]:
+    def on_stop[F: Callable[[], Any]](self, fn: F) -> F:
         self._on_stop.append(fn)
         return fn
 

@@ -32,9 +32,9 @@ def cache(*, max_age: int, private: bool = False, max_entries: int = 1024) -> Mi
         now = time.monotonic()
         entry = store.get(key)
         if entry is not None:
-            expires_at, stored_at, status, header_pairs, body = entry
+            expires_at, stored_at, status, header_pairs, cached_body = entry
             if expires_at > now:
-                response = Response(body, status, headers=header_pairs)
+                response = Response(cached_body, status, headers=header_pairs)
                 response.headers.set("age", str(int(now - stored_at)))
                 c.res = response
                 return
@@ -44,12 +44,19 @@ def cache(*, max_age: int, private: bool = False, max_entries: int = 1024) -> Mi
         res = c.res
         if res is None or res.status != 200:
             return
-        body = res.body
-        if not (body is None or isinstance(body, bytes)):
+        response_body = res.body
+        if not (response_body is None or isinstance(response_body, bytes)):
             return  # streams are not buffered just to cache them
+        assert response_body is None or isinstance(response_body, bytes)
         res.headers.set("cache-control", directive)
         if len(store) >= max_entries:
             store.pop(next(iter(store)))
-        store[key] = (now + max_age, now, res.status, res.headers.raw(), body)
+        store[key] = (
+            now + max_age,
+            now,
+            res.status,
+            res.headers.raw(),
+            response_body,
+        )
 
     return cache_middleware

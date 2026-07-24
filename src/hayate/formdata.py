@@ -9,6 +9,7 @@ with the ``body_limit`` middleware.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from importlib import import_module
 
 
 class File:
@@ -107,7 +108,7 @@ def _py_sections(body: bytes, delimiter: bytes) -> list[tuple[bytes, bytes]]:
 
 
 try:  # Tier 2: SIMD boundary scanning, single-copy payloads (hayate-accel).
-    from hayate_accel import multipart_sections as _sections
+    _sections = import_module("hayate_accel").multipart_sections
 except ImportError:
     _sections = _py_sections
 

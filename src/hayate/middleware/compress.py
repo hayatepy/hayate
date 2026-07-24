@@ -3,15 +3,23 @@
 from __future__ import annotations
 
 import gzip
+import sys
+from typing import TYPE_CHECKING, Any
 
 from ..context import Context, Middleware, Next
 from ..response import Response
 from ._internal import append_vary
 
-try:  # Python 3.14+
-    from compression import zstd as _zstd
-except ImportError:  # pragma: no cover - depends on the running Python
-    _zstd = None  # type: ignore[assignment]
+if TYPE_CHECKING:
+    if sys.version_info >= (3, 14):
+        from compression import zstd as _zstd
+    else:
+        _zstd: Any = None
+else:
+    try:  # Python 3.14+
+        from compression import zstd as _zstd
+    except ImportError:  # pragma: no cover - depends on the running Python
+        _zstd = None
 
 _COMPRESSIBLE_EXACT = {
     "application/json",

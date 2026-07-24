@@ -9,6 +9,7 @@ rejects falls back to the stdlib encoder.
 from __future__ import annotations
 
 import json as _json
+from importlib import import_module
 
 
 def _stdlib_dumps(data: object) -> str:
@@ -16,13 +17,13 @@ def _stdlib_dumps(data: object) -> str:
 
 
 try:
-    from hayate_accel import json_dumps as _accel_dumps
+    _accel_dumps = import_module("hayate_accel").json_dumps
 except ImportError:
     dumps_compact = _stdlib_dumps
 else:
 
     def dumps_compact(data: object) -> str:
         try:
-            return _accel_dumps(data)
+            return str(_accel_dumps(data))
         except TypeError:
             return _stdlib_dumps(data)
