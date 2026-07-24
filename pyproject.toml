@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "hayate"
-version = "0.8.0"
+version = "0.8.1"
 description = "Web-standards-first Python web framework: Fetch API semantics, zero dependencies, runtime-agnostic core"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -25,6 +25,7 @@ dependencies = []
 
 [project.urls]
 Repository = "https://github.com/hayatepy/hayate"
+Documentation = "https://hayatepy.github.io/hayate/"
 Changelog = "https://github.com/hayatepy/hayate/blob/main/CHANGELOG.md"
 
 [dependency-groups]
