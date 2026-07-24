@@ -27,7 +27,7 @@ jobs:
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           python-version: ${{ matrix.python }}
-      - run: uv sync
+      - run: uv sync --locked
       - run: uv run ruff check src tests benchmarks
       - run: uv run ruff format --check src tests benchmarks
       - run: uv run mypy src typing_tests
@@ -44,8 +44,26 @@ jobs:
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           python-version: "3.14t"
-      - run: uv sync
+      - run: uv sync --locked
       - run: uv run pytest -q
+
+  # Build the local wheel and its pure-Python dependency into a real
+  # Cloudflare workerd process. Unit fakes cannot prove Pyodide packaging.
+  workerd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version: "24"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.13"
+      - run: uv sync --locked
+      - run: bash scripts/check_workerd.sh
 
   # Tier 2 accelerator: build the Rust wheel and verify behavioral identity.
   accel:
@@ -61,12 +79,25 @@ jobs:
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           python-version: "3.12"
-      - run: uv sync
+      - run: uv sync --locked
       - run: uv run --with maturin maturin build --release -m accel/Cargo.toml -o dist-accel
       - run: uv pip install dist-accel/*.whl
       - run: uv run --no-sync pytest -q
 
   # Supply-chain audit of these workflows (https://docs.zizmor.sh).
+  audit-dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.12"
+      - run: uv sync --locked
+      - run: uv run --with pip-audit==2.10.0 pip-audit
+
   lint-workflows:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -75,6 +106,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-      - run: uvx zizmor .github/workflows
+      - run: uvx zizmor==1.28.0 .github/workflows
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

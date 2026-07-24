@@ -2,6 +2,29 @@
 
 All notable changes to hayate are documented here.
 
+## [0.10.0] - 2026-07-24
+
+### Added
+
+- Complete the WHATWG special-host pipeline with strict percent decoding and
+  non-transitional UTS-46 domain-to-ASCII processing. Internationalized,
+  mapped, and percent-encoded hosts now canonicalize exactly like the pinned
+  web-platform-tests vectors.
+
+### Changed
+
+- Raise the in-scope URL conformance ratchet from 246/306 (80.4%) to
+  306/306 (100%), including the final path percent-encode edge case.
+- Add the focused, pure-Python `uts46` package as the core's only runtime
+  dependency; it has no transitive runtime dependencies and is portable to
+  Pyodide/Cloudflare Workers.
+- Correct README benchmark summaries to the measured 1.27x simple-route and
+  3.83x 64-route results.
+- Add model-based invariant tests for URL, search parameters, headers,
+  cookies, and routing.
+- Audit locked dependencies on every change and publish an SPDX SBOM plus
+  GitHub build and SBOM attestations with each release.
+
 ## [0.9.0] - 2026-07-24
 
 ### Added

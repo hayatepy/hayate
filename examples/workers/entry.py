@@ -8,7 +8,7 @@ Deploy (from this directory, wrangler + Python Workers beta):
 
 import asyncio
 
-from hayate import Context, Hayate
+from hayate import URL, Context, Hayate
 from hayate.adapters.workers import forward, to_durable_object, to_workers
 
 app = Hayate()
@@ -28,6 +28,12 @@ async def hello(c: Context):
 @app.get("/hello/:name")
 async def greet(c: Context):
     return c.json({"hello": c.req.param("name")})
+
+
+@app.get("/canonicalize")
+async def canonicalize(c: Context):
+    """Exercise the pure-Python UTS-46 dependency inside workerd."""
+    return c.json({"hostname": URL("https://日本語.example/").hostname})
 
 
 # Verification routes for the FFI streaming bridge (research §5): on a

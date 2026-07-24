@@ -3,11 +3,10 @@
 Implements the URL Standard's component model and
 ``application/x-www-form-urlencoded`` parsing/serialization.
 
-Documented subset for v0.1 (conformance is measured, not assumed —
+Documented subset (conformance is measured, not assumed —
 see DESIGN.md §13.2):
 
 - Only URLs with an authority (``scheme://host/...``) are supported.
-- No IDNA/punycode processing; hostnames are lowercased as-is.
 - Percent-encoding in paths is preserved, not re-normalized.
 - ``URL`` is read-only; component setters may come later.
 - ``url.search_params`` is a parsed snapshot; mutating it does not write
@@ -18,7 +17,10 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Iterator, Mapping
-from urllib.parse import unquote
+from urllib.parse import unquote, unquote_to_bytes
+
+from uts46 import Uts46Error
+from uts46.whatwg import domain_to_ascii
 
 _SCHEME_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-."
 _DEFAULT_PORTS = {"http": "80", "https": "443", "ws": "80", "wss": "443", "ftp": "21"}
@@ -35,7 +37,7 @@ _C0_AND_SPACE = "".join(chr(i) for i in range(0x21))
 _FRAGMENT_ENCODE = frozenset(' "<>`')
 _QUERY_ENCODE = frozenset(' "#<>')
 _QUERY_ENCODE_SPECIAL = _QUERY_ENCODE | {"'"}
-_PATH_ENCODE = _QUERY_ENCODE | frozenset("?`{}")
+_PATH_ENCODE = _QUERY_ENCODE | frozenset("?^`{}")
 _USERINFO_ENCODE = _PATH_ENCODE | frozenset("/:;=@[\\]^|")
 _FORBIDDEN_HOST_CHARS = frozenset("\x00\t\n\r #/:<>?@[\\]^|")
 
@@ -197,6 +199,22 @@ def _canonicalize_ipv4(hostname: str, url: str) -> str:
     for i, n in enumerate(numbers[:-1]):
         address += n << (8 * (3 - i))
     return ".".join(str((address >> (8 * (3 - i))) & 0xFF) for i in range(4))
+
+
+def _canonicalize_domain(hostname: str, url: str) -> str:
+    """WHATWG special-host percent decode and non-transitional UTS-46."""
+    try:
+        decoded = unquote_to_bytes(hostname).decode("utf-8")
+        if "%" in decoded:
+            raise ValueError("invalid percent escape in domain")
+        # WHATWG deliberately preserves ASCII A-labels even when their
+        # punycode payload is not valid IDNA.  UTS-46 mapping is needed only
+        # once the percent-decoded domain actually contains Unicode.
+        if decoded.isascii():
+            return decoded.lower()
+        return domain_to_ascii(decoded, be_strict=False)
+    except (UnicodeDecodeError, Uts46Error) as exc:
+        raise ValueError(f"invalid domain host in URL: {url!r}") from exc
 
 
 def _canonicalize_ipv6(inner: str, url: str) -> str:
@@ -484,15 +502,7 @@ class URL:
             port = portpart[1:] if portpart else ""
         else:
             hostname, _, port = hostport.partition(":")
-            hostname = hostname.lower()
-            if not hostname.isascii():
-                # Silent mojibake would be worse than an explicit error.
-                # The rejection doubles as the demand meter for IDNA:
-                # the linked issue collects real use cases (DESIGN §14.4).
-                raise ValueError(
-                    f"non-ASCII host (IDNA not implemented — "
-                    f"needed? comment at hayatepy/hayate#2): {url!r}"
-                )
+            hostname = _canonicalize_domain(hostname, url) if is_special else hostname.lower()
             if _FORBIDDEN_HOST_RE.search(hostname):
                 raise ValueError(f"forbidden host code point in URL: {url!r}")
             if _ends_in_number(hostname):

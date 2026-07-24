@@ -25,9 +25,9 @@ async def show_book(c):
   Fetch and URL semantics. Routing syntax is the WHATWG URLPattern standard
   (`/books/:id`), not a custom DSL. Errors are RFC 9457 `application/problem+json`.
   Learn MDN, and you know hayate.
-- **Zero dependencies** — the core is standard library only. It runs anywhere
-  CPython runs, including Pyodide (try it in the [playground](playground.md) —
-  the framework runs in your browser).
+- **Minimal, portable core** — one pure-Python Unicode standards dependency.
+  It runs anywhere CPython runs, including Pyodide (try it in the
+  [playground](playground.md) — the framework runs in your browser).
 - **One app, three runtimes** — the core is a pure `fetch(Request) -> Response`
   function. ASGI servers, Cloudflare Python Workers, and AWS Lambda are thin
   adapters. See [Runtimes](guide/runtimes.md).
