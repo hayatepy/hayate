@@ -2,6 +2,17 @@
 
 All notable changes to hayate are documented here.
 
+## [0.8.1] - 2026-07-24
+
+### Changed
+
+- Correct the public status and ecosystem documentation for the current 0.8
+  line.
+- Harden releases: publishing now requires an immutable `v*` tag whose name
+  matches `project.version`, and a successful PyPI publish creates the
+  corresponding GitHub Release.
+- Add the documentation URL to package metadata.
+
 ## [0.8.0] - 2026-07-23
 
 ### Added
@@ -11,6 +22,8 @@ All notable changes to hayate are documented here.
   `handler`, `middleware`) — the introspection surface tooling needs,
   and the same shape Hono exposes. Driven by hayate-openapi, whose
   generator walks it as its single source of route truth.
+
+## [0.7.0] - 2026-07-23
 
 ### Added
 
@@ -28,6 +41,8 @@ All notable changes to hayate are documented here.
   `hayate.cookies` module for session cookies; RFC 6265bis
   serialization belongs to the framework, so they are now exported,
   documented, and part of the freeze-audit surface (DESIGN §18).
+
+## [0.6.0] - 2026-07-22
 
 ### Changed
 

@@ -62,9 +62,17 @@ async def test_show_book():
 
 ## Status
 
-Alpha (0.3.x): the surface tracks [DESIGN.md](DESIGN.md) (Japanese) and may still move
+Alpha (0.8.x): the surface tracks [DESIGN.md](DESIGN.md) (Japanese) and may still move
 before 1.0. Changes are recorded in [CHANGELOG.md](CHANGELOG.md); platform research
 lives in [docs/research/](docs/research/).
+
+The wider ecosystem adds
+[authentication](https://github.com/hayatepy/hayate-auth),
+[MCP](https://github.com/hayatepy/hayate-mcp),
+[OpenAPI](https://github.com/hayatepy/hayate-openapi), and a portable
+[client-side fetch](https://github.com/hayatepy/hayate-fetch). See the
+[hayatepy organization profile](https://github.com/hayatepy) for the current
+compatibility matrix.
 
 ## License
 
