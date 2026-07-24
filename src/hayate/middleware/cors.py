@@ -11,7 +11,7 @@ from ..response import Response
 from ._internal import append_vary
 
 type OriginOption = str | Sequence[str] | Callable[[str], str | None]
-type ContextOriginResolver = Callable[[Context, str], str | None | Awaitable[str | None]]
+type ContextOriginResolver = Callable[[Context, str], str | Awaitable[str | None] | None]
 
 
 def cors(
