@@ -8,7 +8,8 @@ demoted to adapter-level implementation details.
 
 - **Standards-first** — `Request` / `Response` / `Headers` / `URL` follow WHATWG Fetch and URL
   semantics. Routing syntax is the WHATWG URLPattern standard (`/books/:id`), not a custom DSL.
-- **Zero dependencies** — standard library only. Runs anywhere CPython (or Pyodide) runs.
+- **Minimal, portable core** — one pure-Python Unicode standards dependency;
+  runs anywhere CPython or Pyodide runs.
 - **Runtime-agnostic** — the app core is a pure `fetch(Request) -> Response` function.
   ASGI servers, Cloudflare Python Workers, and AWS Lambda are thin adapters.
 - **Async-first, typed** — Python 3.12+.
@@ -69,13 +70,13 @@ app.use(cors(origin_resolver=allowed_origin, credentials=True))
 - Standards conformance runs against vendored [web-platform-tests](https://github.com/web-platform-tests/wpt)
   vectors on every `pytest` run, with ratcheted pass counts —
   see [docs/conformance.md](docs/conformance.md).
-- Framework overhead is benchmarked against Starlette (1.2x on simple
-  routes, 1.9x at 64 routes; optional Rust accelerator included) — see
+- Framework overhead is benchmarked against Starlette (1.27x on simple
+  routes, 3.83x at 64 routes; optional Rust accelerator included) — see
   [docs/benchmarks.md](docs/benchmarks.md).
 
 ## Status
 
-Alpha (0.9.x): the surface tracks [DESIGN.md](DESIGN.md) (Japanese) and may still move
+Alpha (0.10.x): the surface tracks [DESIGN.md](DESIGN.md) (Japanese) and may still move
 before 1.0. Changes are recorded in [CHANGELOG.md](CHANGELOG.md); platform research
 lives in [docs/research/](docs/research/).
 

@@ -1,6 +1,6 @@
 # Playground
 
-hayate's core is zero-dependency pure Python, so it runs under
+hayate and its single standards dependency are pure Python, so they run under
 [Pyodide](https://pyodide.org) — **this page installs the real `hayate`
 wheel from PyPI into your browser and runs it**. No server anywhere.
 
@@ -69,6 +69,6 @@ btn.addEventListener("click", async () => {
 
 !!! note "Why this works"
     The playground is not a demo build. `micropip.install("hayate")` fetches
-    the same `py3-none-any` wheel from PyPI that servers use — possible only
-    because the core has zero dependencies. The same property is what makes
-    hayate run on Cloudflare Python Workers.
+    the same `py3-none-any` wheel from PyPI that servers use; `micropip`
+    resolves its single pure-Python UTS-46 dependency too. That portable wheel
+    set is also what makes hayate run on Cloudflare Python Workers.

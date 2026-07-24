@@ -1,7 +1,7 @@
 # 調査: Cloudflare 最新機能 × hayate(2026-07-22)
 
 > 目的: Hono が Cloudflare エコシステムで享受している統合を、Python(hayate)でどこまで再現できるかを確認する。
-> 結論を先に: **できる。しかも hayate の設計(ゼロ依存・fetch 直結)は Python Workers の制約下でむしろ優位に働く。** ただしベータ由来の条件がいくつかある(§4)。
+> 結論を先に: **できる。しかも hayate の設計(最小 pure-Python 依存・fetch 直結)は Python Workers の制約下でむしろ優位に働く。** ただしベータ由来の条件がいくつかある(§4)。
 
 ## 1. Python Workers の現状(2026 年時点)
 
@@ -37,9 +37,9 @@ class Default(WorkerEntrypoint):
 
 ## 3. hayate 設計への含意
 
-### 3.1 ゼロ依存が Workers で最強の武器になる
+### 3.1 最小 pure-Python 依存が Workers で武器になる
 
-- バンドルに入るのは hayate の wheel 1 個。スナップショットのサイズ・復元時間・128MB メモリ制限のすべてに効く。
+- バンドルに入るのは hayate と約190 KiB・推移依存なしの `uts46`。スナップショットのサイズ・復元時間・128MB メモリ制限への影響を限定する。
 - Cloudflare 公式推奨の FastAPI スタック(fastapi + pydantic + starlette)と比べ、依存グラフが桁違いに小さい。**「Workers 上で最軽量の Python フレームワーク」**のポジションが空いている。
 
 ### 3.2 fetch 直結の構造的優位
@@ -83,7 +83,7 @@ Default = to_workers(app)   # WorkerEntrypoint サブクラスを生成
 ## 4. できないこと・条件付きのこと(制約リスト)
 
 1. **ベータ**: `python_workers` フラグ必須。SLA なし。本番採用は顧客要件次第で判断
-2. **パッケージ制約**: pure Python + Pyodide ビルド済みのみ。ユーザーアプリの依存選定に影響(hayate コア自体はゼロ依存なので無影響)
+2. **パッケージ制約**: pure Python + Pyodide ビルド済みのみ。ユーザーアプリの依存選定に影響(hayate の唯一の依存 `uts46` は pure Python)
 3. **メモリ 128MB** を Pyodide ランタイムと共有
 4. **cold start ~1 秒級**: 10 倍改善後もレイテンシ敏感な用途では JS(Hono)に分がある
 5. **生 TCP / socket 不可**: DB 直結は Hyperdrive / D1 / HTTP 系 API 経由(native TCP binding はロードマップ言及あり)

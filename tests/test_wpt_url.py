@@ -3,11 +3,9 @@
 Vendored data: tests/wpt/urltestdata.json (see tests/wpt/README.md).
 
 Scope: absolute special-scheme URLs (http/https/ws/wss/ftp) with no
-base-URL resolution. The suite is a ratchet: the pass count may only
-grow. Known gaps are counted as failures rather than hidden — since
-0.6.0 they are almost entirely the host percent-decode → IDNA/UTS-46
-pipeline (demand-gated: hayatepy/hayate#2); IPv4/IPv6 canonicalization
-and dot-segment normalization are implemented.
+base-URL resolution. The complete 306-case scope is a hard ratchet:
+percent-decode → UTS-46, IPv4/IPv6 canonicalization, path encoding,
+and dot-segment normalization are all implemented.
 """
 
 import json
@@ -33,10 +31,9 @@ _COMPONENTS = (
 _SCHEME_RE = re.compile(r"^[\x00-\x20]*([A-Za-z][A-Za-z0-9+.\-]*):")
 
 # Ratchet floor — raise deliberately when conformance improves.
-# 2026-07-22 (0.6.0): 246/306 in-scope (80.4%) after WHATWG IPv4/IPv6
-# canonicalization and %2e-aware dot-segment removal. Remaining gap:
-# the host percent-decode -> IDNA/UTS-46 pipeline (hayatepy/hayate#2).
-MIN_PASS = 246
+# 2026-07-24 (0.10.0): 306/306 in-scope (100%) after the complete special-host
+# percent-decode -> non-transitional UTS-46 pipeline and path "^" encoding.
+MIN_PASS = 306
 
 
 def _sniff_scheme(raw: str) -> str | None:

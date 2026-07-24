@@ -5,7 +5,7 @@ claim against vendored [web-platform-tests](https://github.com/web-platform-test
 data on every test run (see `tests/wpt/README.md` for provenance). The
 numbers below are enforced as ratchets in CI: they may only go up.
 
-Last measured: 2026-07-22, wpt data pinned per `tests/wpt/README.md`.
+Last measured: 2026-07-24, wpt data pinned per `tests/wpt/README.md`.
 
 ## URLPattern (`hayate.URLPattern`)
 
@@ -34,7 +34,7 @@ base-URL resolution.
 |---|---|
 | wpt cases total | 891 |
 | In scope (special-scheme, no base) | 306 |
-| Pass | **202 (66.0%)** |
+| Pass | **306 (100.0%)** |
 
 Implemented per spec: input preprocessing (C0/space trim, tab/newline
 removal), backslash tolerance for special schemes, default-port
@@ -46,13 +46,12 @@ Implemented in 0.6.0 (raised the ratchet 202 → 246 of 306, 66% →
 rejection), IPv6 parsing with RFC 5952 `::`-compressed serialization,
 and `%2e`-aware dot-segment removal including multi-slash edge cases.
 
-Known gaps (counted as failures, not hidden): the remaining ~60 cases
-are almost entirely the host percent-decode → UTS-46 `domain_to_ascii`
-pipeline — non-ASCII hosts raise `ValueError` instead of converting
-(explicit error over silent mojibake). Full support costs ~310 KiB of
-UTS-46 tables, so it waits for demand — if you need it, comment on
-[hayatepy/hayate#2](https://github.com/hayatepy/hayate/issues/2),
-which the error message also points at.
+Implemented in 0.10.0 (raised the ratchet 246 → 306 of 306, 80.4% →
+100%): special-host percent decoding with strict UTF-8, non-transitional
+UTS-46 `domain_to_ascii`, ASCII invalid-A-label preservation required by
+WHATWG, forbidden-percent rejection, and the complete path encode set.
+The dependency is the focused, pure-Python `uts46` package and adds no
+transitive runtime packages.
 
 ## Headers / Fetch semantics
 
