@@ -12,6 +12,8 @@ site/
 .wrangler/
 node_modules/
 .benchmark/
+/benchmarks/competitive/load/oha
+/benchmarks/competitive/load/oha.exe
 examples/workers/python_modules/
 examples/workers/.venv-workers/
 examples/workers/pylock.toml

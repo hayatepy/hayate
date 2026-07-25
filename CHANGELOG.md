@@ -14,6 +14,9 @@ All notable changes to hayate are documented here.
 - Add PR smoke verification plus monthly and manually dispatchable full
   benchmark automation. Reports include the Git commit, machine and tool
   metadata, resolved transitive versions, and every raw sample.
+- Use checksum-pinned official oha release binaries as the load generator,
+  avoiding a vulnerable transitive dependency in autocannon's current
+  `hyperid`/`uuid` chain.
 
 ## [0.10.0] - 2026-07-24
 

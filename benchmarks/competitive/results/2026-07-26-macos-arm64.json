@@ -3,6 +3,7 @@
     "cold_start_rounds": 7,
     "connections": 50,
     "duration_seconds": 10,
+    "load_generator": "oha 1.15.0 / HTTP/1.1",
     "node_transport": "@hono/node-server 2.0.11 / HTTP/1.1",
     "python_transport": "uvicorn 0.51.0 / asyncio / h11 / lifespan off",
     "throughput_rounds": 3
@@ -35,6 +36,7 @@
         "production_packages": 6,
         "production_payload_bytes": 24584929,
         "production_payload_gzip_bytes": 5270653,
+        "runtime_version": "CPython 3.14.6",
         "versions": {
           "asgiref": "3.12.1",
           "click": "8.4.2",
@@ -45,174 +47,174 @@
         }
       },
       "startup": {
-        "app_import_ms": 132.018,
-        "cold_start_ms": 168.248,
+        "app_import_ms": 124.326,
+        "cold_start_ms": 160.479,
         "samples": {
           "app_import_ms": [
-            126.593,
-            124.762,
-            132.018,
-            132.329,
-            149.398,
-            130.86,
-            164.107
+            130.09,
+            124.074,
+            145.972,
+            137.18,
+            113.323,
+            124.326,
+            115.594
           ],
           "cold_start_ms": [
-            167.503,
-            179.132,
-            171.229,
-            169.781,
-            165.948,
-            168.248,
-            163.104
+            160.479,
+            154.318,
+            169.362,
+            161.996,
+            152.695,
+            162.879,
+            157.997
           ],
           "server_ready_ms": [
-            166.218,
-            177.663,
-            169.82,
-            168.447,
-            164.502,
-            167.058,
-            161.668
+            159.341,
+            153.062,
+            168.051,
+            160.742,
+            151.441,
+            161.327,
+            156.793
           ]
         },
-        "server_ready_ms": 167.058
+        "server_ready_ms": 159.341
       },
       "throughput": {
-        "geometric_mean_requests_per_second": 2740.5,
+        "geometric_mean_requests_per_second": 2572.3,
         "scenarios": {
           "dynamic-json": {
-            "latency_p50_ms": 17.0,
-            "latency_p99_ms": 34.0,
-            "requests_per_second": 2765.6,
+            "latency_p50_ms": 18.47,
+            "latency_p99_ms": 40.696,
+            "requests_per_second": 2547.7,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 17.0,
-                "latency_p99_ms": 37.0,
+                "latency_p50_ms": 18.758292,
+                "latency_p99_ms": 40.695958,
                 "non_2xx": 0.0,
-                "requests_per_second": 2760.2,
-                "throughput_bytes_per_second": 480230.4,
+                "requests_per_second": 2547.723075518015,
+                "throughput_bytes_per_second": 76431.69226554045,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 17.0,
-                "latency_p99_ms": 34.0,
+                "latency_p50_ms": 18.470457999999997,
+                "latency_p99_ms": 44.773125,
                 "non_2xx": 0.0,
-                "requests_per_second": 2765.6,
-                "throughput_bytes_per_second": 481075.2,
+                "requests_per_second": 2496.521762765715,
+                "throughput_bytes_per_second": 74895.65288297144,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 17.0,
-                "latency_p99_ms": 34.0,
+                "latency_p50_ms": 17.585832999999997,
+                "latency_p99_ms": 40.195,
                 "non_2xx": 0.0,
-                "requests_per_second": 2788.2,
-                "throughput_bytes_per_second": 485017.6,
+                "requests_per_second": 2710.1225742456486,
+                "throughput_bytes_per_second": 81303.67722736945,
                 "timeouts": 0.0
               }
             ]
           },
           "json-echo": {
-            "latency_p50_ms": 17.0,
-            "latency_p99_ms": 36.0,
-            "requests_per_second": 2725.2,
+            "latency_p50_ms": 18.323,
+            "latency_p99_ms": 40.133,
+            "requests_per_second": 2605.3,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 18.0,
-                "latency_p99_ms": 38.0,
+                "latency_p50_ms": 18.743625,
+                "latency_p99_ms": 40.84379199999999,
                 "non_2xx": 0.0,
-                "requests_per_second": 2562.0,
-                "throughput_bytes_per_second": 445670.4,
+                "requests_per_second": 2521.4257468838186,
+                "throughput_bytes_per_second": 75642.77240651456,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 17.0,
-                "latency_p99_ms": 34.0,
+                "latency_p50_ms": 18.323,
+                "latency_p99_ms": 40.132708,
                 "non_2xx": 0.0,
-                "requests_per_second": 2782.8,
-                "throughput_bytes_per_second": 484096.0,
+                "requests_per_second": 2605.2574978900784,
+                "throughput_bytes_per_second": 78157.72493670236,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 17.0,
-                "latency_p99_ms": 36.0,
+                "latency_p50_ms": 17.53575,
+                "latency_p99_ms": 36.914042,
                 "non_2xx": 0.0,
-                "requests_per_second": 2725.2,
-                "throughput_bytes_per_second": 474086.4,
+                "requests_per_second": 2737.980447705016,
+                "throughput_bytes_per_second": 82139.41343115049,
                 "timeouts": 0.0
               }
             ]
           },
           "many-routes-64": {
-            "latency_p50_ms": 18.0,
-            "latency_p99_ms": 39.0,
-            "requests_per_second": 2605.4,
+            "latency_p50_ms": 19.238,
+            "latency_p99_ms": 47.811,
+            "requests_per_second": 2447.3,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 19.0,
-                "latency_p99_ms": 44.0,
+                "latency_p50_ms": 20.022125000000003,
+                "latency_p99_ms": 51.499875,
                 "non_2xx": 0.0,
-                "requests_per_second": 2445.91,
-                "throughput_bytes_per_second": 376587.64,
+                "requests_per_second": 2333.301682060412,
+                "throughput_bytes_per_second": 4666.603364120824,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 18.0,
-                "latency_p99_ms": 39.0,
+                "latency_p50_ms": 19.2385,
+                "latency_p99_ms": 47.811042,
                 "non_2xx": 0.0,
-                "requests_per_second": 2605.4,
-                "throughput_bytes_per_second": 401177.6,
+                "requests_per_second": 2447.319066005208,
+                "throughput_bytes_per_second": 4894.638132010416,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 18.0,
-                "latency_p99_ms": 38.0,
+                "latency_p50_ms": 17.193625,
+                "latency_p99_ms": 45.9995,
                 "non_2xx": 0.0,
-                "requests_per_second": 2607.0,
-                "throughput_bytes_per_second": 401433.6,
+                "requests_per_second": 2706.1139617871363,
+                "throughput_bytes_per_second": 5412.227923574273,
                 "timeouts": 0.0
               }
             ]
           },
           "static-text": {
-            "latency_p50_ms": 16.0,
-            "latency_p99_ms": 33.0,
-            "requests_per_second": 2872.6,
+            "latency_p50_ms": 17.555,
+            "latency_p99_ms": 40.028,
+            "requests_per_second": 2695.2,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 16.0,
-                "latency_p99_ms": 34.0,
+                "latency_p50_ms": 19.190667,
+                "latency_p99_ms": 40.9135,
                 "non_2xx": 0.0,
-                "requests_per_second": 2898.4,
-                "throughput_bytes_per_second": 454937.6,
+                "requests_per_second": 2473.001438877366,
+                "throughput_bytes_per_second": 12365.007194386832,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 16.0,
-                "latency_p99_ms": 33.0,
+                "latency_p50_ms": 17.554667,
+                "latency_p99_ms": 40.027792,
                 "non_2xx": 0.0,
-                "requests_per_second": 2843.2,
-                "throughput_bytes_per_second": 446310.4,
+                "requests_per_second": 2695.15348099002,
+                "throughput_bytes_per_second": 13475.7674049501,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 16.0,
-                "latency_p99_ms": 33.0,
+                "latency_p50_ms": 16.944042,
+                "latency_p99_ms": 36.925792,
                 "non_2xx": 0.0,
-                "requests_per_second": 2872.6,
-                "throughput_bytes_per_second": 450918.4,
+                "requests_per_second": 2806.1489773168,
+                "throughput_bytes_per_second": 14030.744886584,
                 "timeouts": 0.0
               }
             ]
@@ -247,6 +249,7 @@
         "production_packages": 13,
         "production_payload_bytes": 9377428,
         "production_payload_gzip_bytes": 2869391,
+        "runtime_version": "CPython 3.14.6",
         "versions": {
           "annotated-doc": "0.0.4",
           "annotated-types": "0.8.0",
@@ -264,174 +267,174 @@
         }
       },
       "startup": {
-        "app_import_ms": 204.211,
-        "cold_start_ms": 244.072,
+        "app_import_ms": 195.1,
+        "cold_start_ms": 230.951,
         "samples": {
           "app_import_ms": [
-            202.926,
-            199.875,
-            204.211,
-            202.595,
-            218.48,
-            209.252,
-            222.862
+            176.314,
+            171.396,
+            195.1,
+            201.207,
+            183.291,
+            196.238,
+            201.551
           ],
           "cold_start_ms": [
-            266.168,
-            260.82,
-            254.86,
-            244.072,
-            243.663,
-            235.169,
-            233.592
+            226.815,
+            225.491,
+            240.519,
+            234.105,
+            236.669,
+            230.951,
+            218.496
           ],
           "server_ready_ms": [
-            264.918,
-            259.853,
-            253.758,
-            242.531,
-            242.691,
-            234.189,
-            232.527
+            225.8,
+            224.547,
+            239.531,
+            232.745,
+            235.674,
+            229.882,
+            217.551
           ]
         },
-        "server_ready_ms": 242.691
+        "server_ready_ms": 229.882
       },
       "throughput": {
-        "geometric_mean_requests_per_second": 9860.9,
+        "geometric_mean_requests_per_second": 9567.2,
         "scenarios": {
           "dynamic-json": {
-            "latency_p50_ms": 4.0,
-            "latency_p99_ms": 5.0,
-            "requests_per_second": 10159.6,
+            "latency_p50_ms": 5.038,
+            "latency_p99_ms": 6.638,
+            "requests_per_second": 9938.3,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 4.0,
-                "latency_p99_ms": 5.0,
+                "latency_p50_ms": 5.040625,
+                "latency_p99_ms": 6.826792,
                 "non_2xx": 0.0,
-                "requests_per_second": 10159.64,
-                "throughput_bytes_per_second": 1574772.37,
+                "requests_per_second": 9938.30781730799,
+                "throughput_bytes_per_second": 298149.2345192397,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 5.0,
-                "latency_p99_ms": 6.0,
+                "latency_p50_ms": 5.037708,
+                "latency_p99_ms": 6.63825,
                 "non_2xx": 0.0,
-                "requests_per_second": 9958.91,
-                "throughput_bytes_per_second": 1543493.82,
+                "requests_per_second": 9930.956607912041,
+                "throughput_bytes_per_second": 297928.69823736127,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 4.0,
-                "latency_p99_ms": 5.0,
+                "latency_p50_ms": 5.023375,
+                "latency_p99_ms": 5.516208,
                 "non_2xx": 0.0,
-                "requests_per_second": 10998.91,
-                "throughput_bytes_per_second": 1704634.19,
+                "requests_per_second": 10036.223708141792,
+                "throughput_bytes_per_second": 301086.7112442538,
                 "timeouts": 0.0
               }
             ]
           },
           "json-echo": {
-            "latency_p50_ms": 5.0,
-            "latency_p99_ms": 6.0,
-            "requests_per_second": 9622.2,
+            "latency_p50_ms": 5.269,
+            "latency_p99_ms": 6.883,
+            "requests_per_second": 9559.9,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 5.0,
-                "latency_p99_ms": 6.0,
+                "latency_p50_ms": 5.192792,
+                "latency_p99_ms": 6.88275,
                 "non_2xx": 0.0,
-                "requests_per_second": 9546.4,
-                "throughput_bytes_per_second": 1479577.6,
+                "requests_per_second": 9671.989889955385,
+                "throughput_bytes_per_second": 290159.69669866154,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 5.0,
-                "latency_p99_ms": 6.0,
+                "latency_p50_ms": 5.377375,
+                "latency_p99_ms": 6.95225,
                 "non_2xx": 0.0,
-                "requests_per_second": 9622.19,
-                "throughput_bytes_per_second": 1491549.1,
+                "requests_per_second": 9333.6388907761,
+                "throughput_bytes_per_second": 280009.16672328295,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 4.0,
-                "latency_p99_ms": 6.0,
+                "latency_p50_ms": 5.2687919999999995,
+                "latency_p99_ms": 6.5887910000000005,
                 "non_2xx": 0.0,
-                "requests_per_second": 10325.46,
-                "throughput_bytes_per_second": 1600372.37,
+                "requests_per_second": 9559.926223937784,
+                "throughput_bytes_per_second": 286797.7867181335,
                 "timeouts": 0.0
               }
             ]
           },
           "many-routes-64": {
-            "latency_p50_ms": 6.0,
-            "latency_p99_ms": 7.0,
-            "requests_per_second": 8084.2,
+            "latency_p50_ms": 6.411,
+            "latency_p99_ms": 11.81,
+            "requests_per_second": 7573.4,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 6.0,
-                "latency_p99_ms": 6.0,
+                "latency_p50_ms": 6.207875,
+                "latency_p99_ms": 9.784167,
                 "non_2xx": 0.0,
-                "requests_per_second": 8084.19,
-                "throughput_bytes_per_second": 1091351.28,
+                "requests_per_second": 7843.868382831973,
+                "throughput_bytes_per_second": 15687.736765663945,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 6.0,
-                "latency_p99_ms": 7.0,
+                "latency_p50_ms": 6.426916,
+                "latency_p99_ms": 11.809583,
                 "non_2xx": 0.0,
-                "requests_per_second": 7957.1,
-                "throughput_bytes_per_second": 1074152.73,
+                "requests_per_second": 7573.4248884212075,
+                "throughput_bytes_per_second": 15146.849776842415,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 5.0,
-                "latency_p99_ms": 7.0,
+                "latency_p50_ms": 6.411458,
+                "latency_p99_ms": 12.50225,
                 "non_2xx": 0.0,
-                "requests_per_second": 8345.82,
-                "throughput_bytes_per_second": 1126632.73,
+                "requests_per_second": 7530.254017299765,
+                "throughput_bytes_per_second": 15060.50803459953,
                 "timeouts": 0.0
               }
             ]
           },
           "static-text": {
-            "latency_p50_ms": 4.0,
-            "latency_p99_ms": 5.0,
-            "requests_per_second": 11964.0,
+            "latency_p50_ms": 4.381,
+            "latency_p99_ms": 5.194,
+            "requests_per_second": 11643.4,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 4.0,
-                "latency_p99_ms": 4.0,
+                "latency_p50_ms": 4.261333,
+                "latency_p99_ms": 5.487667,
                 "non_2xx": 0.0,
-                "requests_per_second": 11964.0,
-                "throughput_bytes_per_second": 1650995.2,
+                "requests_per_second": 11676.35102937219,
+                "throughput_bytes_per_second": 58381.755146860945,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 4.0,
-                "latency_p99_ms": 5.0,
+                "latency_p50_ms": 4.406167,
+                "latency_p99_ms": 5.194459,
                 "non_2xx": 0.0,
-                "requests_per_second": 11936.37,
-                "throughput_bytes_per_second": 1647197.1,
+                "requests_per_second": 11643.388703013688,
+                "throughput_bytes_per_second": 58216.943515068444,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 3.0,
-                "latency_p99_ms": 5.0,
+                "latency_p50_ms": 4.380707999999999,
+                "latency_p99_ms": 4.967458,
                 "non_2xx": 0.0,
-                "requests_per_second": 12487.64,
-                "throughput_bytes_per_second": 1723159.28,
+                "requests_per_second": 11445.842453737025,
+                "throughput_bytes_per_second": 57229.21226868512,
                 "timeouts": 0.0
               }
             ]
@@ -466,6 +469,7 @@
         "production_packages": 5,
         "production_payload_bytes": 1149102,
         "production_payload_gzip_bytes": 286987,
+        "runtime_version": "CPython 3.14.6",
         "versions": {
           "click": "8.4.2",
           "h11": "0.16.0",
@@ -475,174 +479,174 @@
         }
       },
       "startup": {
-        "app_import_ms": 61.118,
-        "cold_start_ms": 130.253,
+        "app_import_ms": 64.435,
+        "cold_start_ms": 116.284,
         "samples": {
           "app_import_ms": [
-            61.118,
-            58.63,
-            60.85,
-            60.237,
-            62.258,
-            72.296,
-            82.092
+            52.488,
+            76.808,
+            58.581,
+            84.265,
+            67.16,
+            64.435,
+            55.651
           ],
           "cold_start_ms": [
-            130.253,
-            125.583,
-            123.829,
-            124.444,
-            133.756,
-            141.35,
-            185.334
+            125.876,
+            115.871,
+            121.286,
+            116.807,
+            115.318,
+            116.284,
+            111.649
           ],
           "server_ready_ms": [
-            126.127,
-            121.762,
-            119.594,
-            120.2,
-            128.84,
-            136.356,
-            179.387
+            121.958,
+            111.96,
+            117.52,
+            113.094,
+            111.958,
+            112.702,
+            108.207
           ]
         },
-        "server_ready_ms": 126.127
+        "server_ready_ms": 112.702
       },
       "throughput": {
-        "geometric_mean_requests_per_second": 14016.3,
+        "geometric_mean_requests_per_second": 13370.7,
         "scenarios": {
           "dynamic-json": {
-            "latency_p50_ms": 3.0,
-            "latency_p99_ms": 4.0,
-            "requests_per_second": 14055.6,
+            "latency_p50_ms": 3.718,
+            "latency_p99_ms": 4.938,
+            "requests_per_second": 13344.5,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 3.0,
-                "latency_p99_ms": 4.0,
+                "latency_p50_ms": 3.67475,
+                "latency_p99_ms": 4.909416,
                 "non_2xx": 0.0,
-                "requests_per_second": 14236.0,
-                "throughput_bytes_per_second": 2206487.28,
+                "requests_per_second": 13675.821636444347,
+                "throughput_bytes_per_second": 410274.6490933304,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 3.0,
-                "latency_p99_ms": 4.0,
+                "latency_p50_ms": 3.717583,
+                "latency_p99_ms": 4.938334,
                 "non_2xx": 0.0,
-                "requests_per_second": 13945.1,
-                "throughput_bytes_per_second": 2161664.0,
+                "requests_per_second": 13344.460492118673,
+                "throughput_bytes_per_second": 400333.8147635602,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 3.0,
-                "latency_p99_ms": 4.0,
+                "latency_p50_ms": 3.73,
+                "latency_p99_ms": 7.988042000000001,
                 "non_2xx": 0.0,
-                "requests_per_second": 14055.64,
-                "throughput_bytes_per_second": 2178606.55,
+                "requests_per_second": 12840.799425231964,
+                "throughput_bytes_per_second": 385223.9827569589,
                 "timeouts": 0.0
               }
             ]
           },
           "json-echo": {
-            "latency_p50_ms": 4.0,
-            "latency_p99_ms": 4.0,
-            "requests_per_second": 12003.3,
+            "latency_p50_ms": 4.367,
+            "latency_p99_ms": 5.779,
+            "requests_per_second": 11464.1,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 4.0,
-                "latency_p99_ms": 4.0,
+                "latency_p50_ms": 3.878625,
+                "latency_p99_ms": 5.022625000000001,
                 "non_2xx": 0.0,
-                "requests_per_second": 12003.28,
-                "throughput_bytes_per_second": 1860561.46,
+                "requests_per_second": 12190.270218260554,
+                "throughput_bytes_per_second": 365708.1065478166,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 4.0,
-                "latency_p99_ms": 4.0,
+                "latency_p50_ms": 4.367375,
+                "latency_p99_ms": 5.779208,
                 "non_2xx": 0.0,
-                "requests_per_second": 12025.1,
-                "throughput_bytes_per_second": 1863912.73,
+                "requests_per_second": 11464.070878615245,
+                "throughput_bytes_per_second": 343922.1263584573,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 4.0,
-                "latency_p99_ms": 5.0,
+                "latency_p50_ms": 4.367583000000001,
+                "latency_p99_ms": 5.9498750000000005,
                 "non_2xx": 0.0,
-                "requests_per_second": 11874.4,
-                "throughput_bytes_per_second": 1840640.0,
+                "requests_per_second": 11330.970438423685,
+                "throughput_bytes_per_second": 339929.11315271055,
                 "timeouts": 0.0
               }
             ]
           },
           "many-routes-64": {
-            "latency_p50_ms": 3.0,
-            "latency_p99_ms": 4.0,
-            "requests_per_second": 14809.8,
+            "latency_p50_ms": 3.493,
+            "latency_p99_ms": 4.32,
+            "requests_per_second": 14181.7,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 3.0,
-                "latency_p99_ms": 3.0,
+                "latency_p50_ms": 3.492541,
+                "latency_p99_ms": 4.227042,
                 "non_2xx": 0.0,
-                "requests_per_second": 14980.8,
-                "throughput_bytes_per_second": 2007347.2,
+                "requests_per_second": 14404.307197925327,
+                "throughput_bytes_per_second": 28808.614395850655,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 3.0,
-                "latency_p99_ms": 4.0,
+                "latency_p50_ms": 3.521792,
+                "latency_p99_ms": 4.32,
                 "non_2xx": 0.0,
-                "requests_per_second": 14809.82,
-                "throughput_bytes_per_second": 1984651.64,
+                "requests_per_second": 14181.679220753762,
+                "throughput_bytes_per_second": 28363.358441507524,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 3.0,
-                "latency_p99_ms": 4.0,
+                "latency_p50_ms": 3.491958,
+                "latency_p99_ms": 6.4615,
                 "non_2xx": 0.0,
-                "requests_per_second": 14757.46,
-                "throughput_bytes_per_second": 1977390.55,
+                "requests_per_second": 13792.773269264175,
+                "throughput_bytes_per_second": 27585.54653852835,
                 "timeouts": 0.0
               }
             ]
           },
           "static-text": {
-            "latency_p50_ms": 3.0,
-            "latency_p99_ms": 3.0,
-            "requests_per_second": 15446.4,
+            "latency_p50_ms": 3.398,
+            "latency_p99_ms": 4.139,
+            "requests_per_second": 14731.7,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 3.0,
-                "latency_p99_ms": 3.0,
+                "latency_p50_ms": 3.335125,
+                "latency_p99_ms": 3.987666,
                 "non_2xx": 0.0,
-                "requests_per_second": 15769.1,
-                "throughput_bytes_per_second": 2160314.19,
+                "requests_per_second": 15098.033256144146,
+                "throughput_bytes_per_second": 75490.16628072073,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 3.0,
-                "latency_p99_ms": 4.0,
+                "latency_p50_ms": 3.398209,
+                "latency_p99_ms": 4.138916,
                 "non_2xx": 0.0,
-                "requests_per_second": 15343.64,
-                "throughput_bytes_per_second": 2101992.73,
+                "requests_per_second": 14731.654473264583,
+                "throughput_bytes_per_second": 73658.27236632291,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 3.0,
-                "latency_p99_ms": 3.0,
+                "latency_p50_ms": 3.408417,
+                "latency_p99_ms": 5.2447919999999995,
                 "non_2xx": 0.0,
-                "requests_per_second": 15446.4,
-                "throughput_bytes_per_second": 2116044.8,
+                "requests_per_second": 14338.82118239649,
+                "throughput_bytes_per_second": 71694.10591198245,
                 "timeouts": 0.0
               }
             ]
@@ -677,180 +681,181 @@
         "production_packages": 2,
         "production_payload_bytes": 1477405,
         "production_payload_gzip_bytes": 288214,
+        "runtime_version": "v26.5.0",
         "versions": {
           "@hono/node-server": "2.0.11",
           "hono": "4.12.32"
         }
       },
       "startup": {
-        "app_import_ms": 56.389,
-        "cold_start_ms": 66.637,
+        "app_import_ms": 57.239,
+        "cold_start_ms": 65.075,
         "samples": {
           "app_import_ms": [
-            57.405,
-            56.693,
-            56.178,
-            55.903,
-            56.384,
-            56.389,
-            56.953
+            59.831,
+            57.352,
+            58.448,
+            57.239,
+            56.265,
+            53.732,
+            53.529
           ],
           "cold_start_ms": [
-            71.099,
-            63.923,
-            66.637,
-            65.28,
-            68.345,
-            66.849,
-            65.01
+            66.196,
+            65.298,
+            66.846,
+            65.075,
+            64.016,
+            61.823,
+            61.891
           ],
           "server_ready_ms": [
-            64.59,
-            58.191,
-            60.867,
-            59.451,
-            62.794,
-            61.278,
-            59.385
+            60.886,
+            60.004,
+            61.058,
+            59.671,
+            58.379,
+            56.602,
+            55.717
           ]
         },
-        "server_ready_ms": 60.867
+        "server_ready_ms": 59.671
       },
       "throughput": {
-        "geometric_mean_requests_per_second": 64794.4,
+        "geometric_mean_requests_per_second": 57904.5,
         "scenarios": {
           "dynamic-json": {
-            "latency_p50_ms": 0.0,
-            "latency_p99_ms": 1.0,
-            "requests_per_second": 64205.1,
+            "latency_p50_ms": 0.82,
+            "latency_p99_ms": 1.761,
+            "requests_per_second": 57883.3,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 0.0,
-                "latency_p99_ms": 1.0,
+                "latency_p50_ms": 0.8195,
+                "latency_p99_ms": 1.712167,
                 "non_2xx": 0.0,
-                "requests_per_second": 61150.4,
-                "throughput_bytes_per_second": 11313152.0,
+                "requests_per_second": 58343.035176270685,
+                "throughput_bytes_per_second": 1750291.0552881206,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 0.0,
-                "latency_p99_ms": 1.0,
+                "latency_p50_ms": 0.836666,
+                "latency_p99_ms": 1.760709,
                 "non_2xx": 0.0,
-                "requests_per_second": 64205.1,
-                "throughput_bytes_per_second": 11876538.19,
+                "requests_per_second": 56720.442036063185,
+                "throughput_bytes_per_second": 1701613.2610818956,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 0.0,
-                "latency_p99_ms": 1.0,
+                "latency_p50_ms": 0.8113750000000001,
+                "latency_p99_ms": 1.861834,
                 "non_2xx": 0.0,
-                "requests_per_second": 64341.82,
-                "throughput_bytes_per_second": 11901858.91,
+                "requests_per_second": 57883.32997531119,
+                "throughput_bytes_per_second": 1736499.8992593358,
                 "timeouts": 0.0
               }
             ]
           },
           "json-echo": {
-            "latency_p50_ms": 0.0,
-            "latency_p99_ms": 1.0,
-            "requests_per_second": 54459.6,
+            "latency_p50_ms": 0.921,
+            "latency_p99_ms": 2.015,
+            "requests_per_second": 50259.8,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 0.0,
-                "latency_p99_ms": 1.0,
+                "latency_p50_ms": 0.9212079999999999,
+                "latency_p99_ms": 2.199291,
                 "non_2xx": 0.0,
-                "requests_per_second": 53872.0,
-                "throughput_bytes_per_second": 9966312.73,
+                "requests_per_second": 49930.990678246286,
+                "throughput_bytes_per_second": 1497929.7203473886,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 0.0,
-                "latency_p99_ms": 1.0,
+                "latency_p50_ms": 0.9380000000000001,
+                "latency_p99_ms": 2.0147500000000003,
                 "non_2xx": 0.0,
-                "requests_per_second": 54459.64,
-                "throughput_bytes_per_second": 10075042.91,
+                "requests_per_second": 50259.77776103445,
+                "throughput_bytes_per_second": 1507793.3328310335,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 0.0,
-                "latency_p99_ms": 1.0,
+                "latency_p50_ms": 0.9021250000000001,
+                "latency_p99_ms": 1.875041,
                 "non_2xx": 0.0,
-                "requests_per_second": 57491.2,
-                "throughput_bytes_per_second": 10638131.2,
+                "requests_per_second": 52759.868991888485,
+                "throughput_bytes_per_second": 1582796.0697566546,
                 "timeouts": 0.0
               }
             ]
           },
           "many-routes-64": {
-            "latency_p50_ms": 0.0,
-            "latency_p99_ms": 1.0,
-            "requests_per_second": 69281.5,
+            "latency_p50_ms": 0.789,
+            "latency_p99_ms": 1.98,
+            "requests_per_second": 60879.8,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 0.0,
-                "latency_p99_ms": 1.0,
+                "latency_p50_ms": 0.7887080000000001,
+                "latency_p99_ms": 2.5687499999999996,
                 "non_2xx": 0.0,
-                "requests_per_second": 67022.55,
-                "throughput_bytes_per_second": 11060317.1,
+                "requests_per_second": 55876.13126758825,
+                "throughput_bytes_per_second": 111752.2625351765,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 0.0,
-                "latency_p99_ms": 1.0,
+                "latency_p50_ms": 0.7895829999999999,
+                "latency_p99_ms": 1.623792,
                 "non_2xx": 0.0,
-                "requests_per_second": 69281.46,
-                "throughput_bytes_per_second": 11431936.0,
+                "requests_per_second": 61248.85684006235,
+                "throughput_bytes_per_second": 122497.7136801247,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 0.0,
-                "latency_p99_ms": 1.0,
+                "latency_p50_ms": 0.759125,
+                "latency_p99_ms": 1.979625,
                 "non_2xx": 0.0,
-                "requests_per_second": 72253.1,
-                "throughput_bytes_per_second": 11921966.55,
+                "requests_per_second": 60879.77705131419,
+                "throughput_bytes_per_second": 121759.55410262838,
                 "timeouts": 0.0
               }
             ]
           },
           "static-text": {
-            "latency_p50_ms": 0.0,
-            "latency_p99_ms": 1.0,
-            "requests_per_second": 72759.3,
+            "latency_p50_ms": 0.743,
+            "latency_p99_ms": 1.564,
+            "requests_per_second": 63475.1,
             "samples": [
               {
                 "errors": 0.0,
-                "latency_p50_ms": 0.0,
-                "latency_p99_ms": 1.0,
+                "latency_p50_ms": 0.742958,
+                "latency_p99_ms": 1.618417,
                 "non_2xx": 0.0,
-                "requests_per_second": 66651.64,
-                "throughput_bytes_per_second": 11195857.46,
+                "requests_per_second": 63475.12346452998,
+                "throughput_bytes_per_second": 317375.6173226499,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 0.0,
-                "latency_p99_ms": 1.0,
+                "latency_p50_ms": 0.7683749999999999,
+                "latency_p99_ms": 1.5635000000000001,
                 "non_2xx": 0.0,
-                "requests_per_second": 72759.28,
-                "throughput_bytes_per_second": 12226560.0,
+                "requests_per_second": 62890.560348262865,
+                "throughput_bytes_per_second": 314452.80174131435,
                 "timeouts": 0.0
               },
               {
                 "errors": 0.0,
-                "latency_p50_ms": 0.0,
-                "latency_p99_ms": 1.0,
+                "latency_p50_ms": 0.714416,
+                "latency_p99_ms": 1.513333,
                 "non_2xx": 0.0,
-                "requests_per_second": 74289.46,
-                "throughput_bytes_per_second": 12480512.0,
+                "requests_per_second": 67198.51588795308,
+                "throughput_bytes_per_second": 335992.57943976537,
                 "timeouts": 0.0
               }
             ]
@@ -859,18 +864,18 @@
       }
     }
   },
-  "git_commit": "b616c49b99a174bf6e259bcfe4be2f69e9d10059",
+  "git_commit": "f3300e23905b312359aaa0308d497af70a25e72c",
   "machine": {
     "architecture": "arm64",
-    "autocannon": "8.0.0",
     "cpu": "Apple M2 Pro",
     "logical_cpus": 12,
     "node": "v26.5.0",
     "npm": "11.17.0",
+    "oha": "oha 1.15.0",
     "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
     "python": "3.14.6",
     "uv": "uv 0.11.28 (Homebrew 2026-07-07 aarch64-apple-darwin)"
   },
-  "measured_at": "2026-07-25T16:48:52.789096+00:00",
+  "measured_at": "2026-07-25T17:25:39.925912+00:00",
   "schema_version": 1
 }

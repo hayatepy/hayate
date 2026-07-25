@@ -26,8 +26,8 @@ python3 benchmarks/competitive/runner.py all \
 ```
 
 Python targets run on the same Uvicorn asyncio + h11 transport. Hono runs on
-its official Node adapter. The load generator is the same pinned autocannon
-installation for every target. Raw JSON records all samples, resolved
+its official Node adapter. The load generator is the same checksum-pinned oha
+1.15.0 binary for every target. Raw JSON records all samples, resolved
 transitive versions, Git commit, CPU, operating system, and configuration.
 
 The 14-point HTTP contract is a common-workload compatibility rate, not a
@@ -42,21 +42,21 @@ used as a hard regression gate because host contention is uncontrolled.
 
 ### Recorded baseline (2026-07-26)
 
-Apple M2 Pro, macOS 26.5.1, arm64, Python 3.14.6, Node 26.5.0;
+Apple M2 Pro, macOS 26.5.1, arm64, CPython 3.14.6, Node 26.5.0;
 50 connections, 10 seconds per scenario, three rotating rounds. The source
-under test is commit `b616c49`; every one of the 48 throughput samples
+under test is commit `f3300e2`; every one of the 48 throughput samples
 completed with zero errors, timeouts, or non-2xx responses.
 
 | Framework | Version | App import | Cold start | Production packages | gzip payload | Throughput geo mean | HTTP contract |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| **hayate** | 0.10.0 | **61.1 ms** | **130.3 ms** | **5** | **280.3 KiB** | **14,016 req/s** | **14/14 (100%)** |
-| FastAPI | 0.140.0 | 204.2 ms | 244.1 ms | 13 | 2,802.1 KiB | 9,861 req/s | 12/14 (85.7%) |
-| Django | 6.0.7 | 132.0 ms | 168.2 ms | 6 | 5,147.1 KiB | 2,740 req/s | 12/14 (85.7%) |
-| Hono | 4.12.32 | **56.4 ms** | **66.6 ms** | **2** | 281.5 KiB | **64,794 req/s** | 12/14 (85.7%) |
+| **hayate** | 0.10.0 | **64.4 ms** | **116.3 ms** | **5** | **280.3 KiB** | **13,371 req/s** | **14/14 (100%)** |
+| FastAPI | 0.140.0 | 195.1 ms | 231.0 ms | 13 | 2,802.1 KiB | 9,567 req/s | 12/14 (85.7%) |
+| Django | 6.0.7 | 124.3 ms | 160.5 ms | 6 | 5,147.1 KiB | 2,572 req/s | 12/14 (85.7%) |
+| Hono | 4.12.32 | **57.2 ms** | **65.1 ms** | **2** | 281.5 KiB | **57,904 req/s** | 12/14 (85.7%) |
 
-On this workload, hayate delivered 1.42x FastAPI's and 5.12x Django's
-throughput. Its cold start was 1.87x faster than FastAPI's and 1.29x faster
-than Django's. Hono remained 4.62x faster in throughput and 1.96x faster at
+On this workload, hayate delivered 1.40x FastAPI's and 5.20x Django's
+throughput. Its cold start was 1.99x faster than FastAPI's and 1.38x faster
+than Django's. Hono remained 4.33x faster in throughput and 1.79x faster at
 cold start. hayate's runtime-excluded compressed payload was approximately
 the same size as Hono's official Node stack, while using three more production
 packages.

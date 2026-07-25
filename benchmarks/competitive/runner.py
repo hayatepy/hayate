@@ -2,8 +2,8 @@
 
 The benchmark deliberately uses isolated, locked production environments.
 Python frameworks share Uvicorn's asyncio + h11 transport; Hono uses its
-official Node.js adapter. Autocannon is the single load generator for every
-framework.
+official Node.js adapter. A checksum-pinned oha binary is the single load
+generator for every framework.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import datetime as dt
+import hashlib
 import http.client
 import json
 import math
@@ -22,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.request
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,6 +35,25 @@ APPS = HERE / "apps"
 LOAD = HERE / "load"
 DEFAULT_OUTPUT = ROOT / ".benchmark" / "competitive" / "latest.json"
 JSON_BODY = '{"message":"hello"}'
+OHA_VERSION = "1.15.0"
+OHA_ASSETS = {
+    ("darwin", "arm64"): (
+        "oha-macos-arm64",
+        "70d7cb7c15ed3d5eb4b7d9a7e76f0a8ee32ba1f18f560acef3b28e8670b89bb0",
+    ),
+    ("darwin", "x86_64"): (
+        "oha-macos-amd64",
+        "fc8ccb4126737aae85cc9fbc6f95b161bf8bbb676bf02d4bb6196ec02c709c36",
+    ),
+    ("linux", "arm64"): (
+        "oha-linux-arm64",
+        "72d5bf4575cede9f9277f93f097b904f893b0f0cd4d92f0869439b05e1403731",
+    ),
+    ("linux", "x86_64"): (
+        "oha-linux-amd64",
+        "86ab7fa2c1df23b3bbc53b73561ffa44a7a38ca08f0e10351df9522a5c4c3c61",
+    ),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +121,7 @@ _PYTHON_PAYLOAD_SCRIPT = r"""
 import importlib.metadata as metadata
 import json
 import os
+import platform
 from pathlib import Path
 import zlib
 
@@ -135,6 +157,7 @@ print(json.dumps({
     "production_packages": len(versions),
     "production_payload_bytes": uncompressed,
     "production_payload_gzip_bytes": compressed,
+    "runtime_version": f"CPython {platform.python_version()}",
     "versions": versions,
 }))
 """
@@ -192,8 +215,44 @@ def setup() -> None:
             )
         else:
             _run_checked(["npm", "ci", "--omit=dev"], cwd=framework.directory)
-    print("setup: autocannon", flush=True)
-    _run_checked(["npm", "ci"], cwd=LOAD)
+    print("setup: oha", flush=True)
+    _install_oha()
+
+
+def _oha_executable() -> Path:
+    return LOAD / ("oha.exe" if os.name == "nt" else "oha")
+
+
+def _oha_asset() -> tuple[str, str]:
+    machine = platform.machine().lower()
+    machine = {"aarch64": "arm64", "amd64": "x86_64"}.get(machine, machine)
+    key = (sys.platform, machine)
+    try:
+        return OHA_ASSETS[key]
+    except KeyError as error:
+        raise RuntimeError(f"oha {OHA_VERSION} has no pinned asset for {key}") from error
+
+
+def _install_oha() -> None:
+    asset, expected_sha256 = _oha_asset()
+    destination = _oha_executable()
+    if destination.exists():
+        actual_sha256 = hashlib.sha256(destination.read_bytes()).hexdigest()
+        if actual_sha256 == expected_sha256:
+            return
+
+    url = f"https://github.com/hatoo/oha/releases/download/v{OHA_VERSION}/{asset}"
+    request = urllib.request.Request(url, headers={"User-Agent": "hayate-benchmark"})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        data = response.read()
+    actual_sha256 = hashlib.sha256(data).hexdigest()
+    if actual_sha256 != expected_sha256:
+        raise RuntimeError(
+            f"oha checksum mismatch: expected {expected_sha256}, got {actual_sha256}"
+        )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(data)
+    destination.chmod(0o755)
 
 
 def _free_port() -> int:
@@ -377,6 +436,7 @@ def _node_payload(framework: Framework) -> dict[str, Any]:
         "production_packages": len(versions),
         "production_payload_bytes": uncompressed,
         "production_payload_gzip_bytes": compressed,
+        "runtime_version": _tool_version(["node", "--version"]),
         "versions": versions,
     }
 
@@ -448,7 +508,7 @@ def verify_contract(framework: Framework) -> dict[str, Any]:
     }
 
 
-def _autocannon(
+def _oha(
     port: int,
     method: str,
     path: str,
@@ -457,21 +517,24 @@ def _autocannon(
     connections: int,
     duration: int,
 ) -> dict[str, float]:
-    executable = LOAD / "node_modules" / ".bin" / "autocannon"
     command = [
-        str(executable),
+        str(_oha_executable()),
+        "--no-tui",
+        "--no-color",
+        "--output-format",
+        "json",
+        "--http-version",
+        "1.1",
+        "--wait-ongoing-requests-after-deadline",
         "-c",
         str(connections),
-        "-d",
-        str(duration),
-        "-p",
-        "1",
-        "-j",
+        "-z",
+        f"{duration}s",
         "-m",
         method,
     ]
     if body is not None:
-        command.extend(["-H", "content-type=application/json", "-b", body])
+        command.extend(["-T", "application/json", "-d", body])
     command.append(f"http://127.0.0.1:{port}{path}")
     result = subprocess.run(
         command,
@@ -482,14 +545,23 @@ def _autocannon(
         timeout=duration + 30,
     )
     report = json.loads(result.stdout)
+    status_codes = report.get("statusCodeDistribution", {})
+    errors = report.get("errorDistribution", {})
+    non_2xx = sum(count for status, count in status_codes.items() if not 200 <= int(status) < 300)
     return {
-        "requests_per_second": float(report["requests"]["average"]),
-        "latency_p50_ms": float(report["latency"]["p50"]),
-        "latency_p99_ms": float(report["latency"]["p99"]),
-        "throughput_bytes_per_second": float(report["throughput"]["average"]),
-        "errors": float(report["errors"]),
-        "timeouts": float(report["timeouts"]),
-        "non_2xx": float(report["non2xx"]),
+        "requests_per_second": float(report["summary"]["requestsPerSec"]),
+        "latency_p50_ms": float(report["latencyPercentiles"]["p50"]) * 1_000,
+        "latency_p99_ms": float(report["latencyPercentiles"]["p99"]) * 1_000,
+        "throughput_bytes_per_second": float(report["summary"]["sizePerSec"]),
+        "errors": float(sum(errors.values())),
+        "timeouts": float(
+            sum(
+                count
+                for error, count in errors.items()
+                if "timeout" in error.lower() or "deadline" in error.lower()
+            )
+        ),
+        "non_2xx": float(non_2xx),
     }
 
 
@@ -527,7 +599,7 @@ def measure_throughput(
                 for scenario_name, method, path, body in scenarios:
                     for _ in range(25):
                         _request(port, method, path, body)
-                    sample = _autocannon(
+                    sample = _oha(
                         port,
                         method,
                         path,
@@ -595,7 +667,7 @@ def _machine_metadata() -> dict[str, Any]:
         "node": _tool_version(["node", "--version"]),
         "npm": _tool_version(["npm", "--version"]),
         "uv": _tool_version(["uv", "--version"]),
-        "autocannon": "8.0.0",
+        "oha": _tool_version([str(_oha_executable()), "--version"]),
     }
 
 
@@ -623,6 +695,7 @@ def measure(args: argparse.Namespace) -> dict[str, Any]:
             "duration_seconds": args.duration,
             "throughput_rounds": args.rounds,
             "cold_start_rounds": args.cold_rounds,
+            "load_generator": f"oha {OHA_VERSION} / HTTP/1.1",
             "python_transport": "uvicorn 0.51.0 / asyncio / h11 / lifespan off",
             "node_transport": "@hono/node-server 2.0.11 / HTTP/1.1",
         },
@@ -656,7 +729,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Measured: `{report['measured_at']}`",
         f"- Machine: {report['machine']['cpu']} / {report['machine']['architecture']} / "
         f"{report['machine']['os']}",
-        f"- Load: autocannon {report['machine']['autocannon']}, "
+        f"- Load: {report['machine']['oha']}, "
         f"{report['configuration']['connections']} connections, "
         f"{report['configuration']['duration_seconds']}s x "
         f"{report['configuration']['throughput_rounds']} rounds",
