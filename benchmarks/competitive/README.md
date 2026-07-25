@@ -4,7 +4,8 @@ This suite runs the same observable workload on hayate, FastAPI, Django,
 and Hono. It measures startup, production dependency count, compressed
 deployment payload, cold start, HTTP throughput, and a shared HTTP
 contract. Every application and load-tool version is pinned by a committed
-`uv.lock` or `package-lock.json`.
+`uv.lock` or `package-lock.json`, or by the release-asset SHA-256 values in
+the runner.
 
 ## Run
 
@@ -13,6 +14,7 @@ Prerequisites:
 - CPython 3.12 or newer
 - [uv](https://docs.astral.sh/uv/)
 - Node.js 24 and npm
+- macOS or Linux on arm64 or x86_64 (the checksum-pinned oha targets)
 
 Run the publication profile:
 
@@ -37,10 +39,6 @@ python3 benchmarks/competitive/runner.py all \
 
 `setup`, `verify`, and `run` subcommands are also available. `run` reuses
 the isolated environments created by `setup`.
-
-The first publication-profile baseline is committed as
-[raw JSON](results/2026-07-26-macos-arm64.json) and a
-[Markdown summary](results/2026-07-26-macos-arm64.md).
 
 ## Common workload
 
@@ -74,10 +72,11 @@ and transport path, not a complete production application.
 - **gzip payload**: a deterministic gzip stream over the workload source and
   every file in the installed production package closure. It is a
   runtime-excluded deployment payload, not a container image size.
-- **Throughput**: median requests/second from pinned autocannon runs over
-  loopback, one HTTP/1.1 request in flight per connection. The summary is the
-  geometric mean of all four scenarios. Framework order and scenario order
-  rotate between rounds.
+- **Throughput**: median requests/second from checksum-pinned oha runs over
+  loopback, one HTTP/1.1 request in flight per connection. Ongoing requests
+  finish after the duration deadline rather than being counted as aborted.
+  The summary is the geometric mean of all four scenarios. Framework order
+  and scenario order rotate between rounds.
 - **HTTP contract**: 14 black-box assertions covering exact workload
   responses plus RFC 9110 method and HEAD behavior. This is not a universal
   Web-standards score. hayate's URL and URLPattern WPT results stay separate
@@ -114,9 +113,10 @@ uv lock --project benchmarks/competitive/apps/fastapi
 uv lock --project benchmarks/competitive/apps/django
 npm install --package-lock-only --ignore-scripts \
   --prefix benchmarks/competitive/apps/hono
-npm install --package-lock-only --ignore-scripts \
-  --prefix benchmarks/competitive/load
 ```
+
+oha is downloaded from its official GitHub Release. Updating it requires
+changing `OHA_VERSION` and every platform asset digest in `runner.py`.
 
 The [monthly GitHub Actions workflow](../../.github/workflows/competitive-benchmark.yml)
 also supports a manual run and uploads both raw JSON and Markdown artifacts.

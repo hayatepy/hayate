@@ -1,8 +1,0 @@
-{
-  "name": "hayate-competitive-benchmark-load",
-  "version": "0.0.0",
-  "private": true,
-  "devDependencies": {
-    "autocannon": "8.0.0"
-  }
-}
