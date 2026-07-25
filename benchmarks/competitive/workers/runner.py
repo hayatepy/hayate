@@ -435,7 +435,10 @@ def _contract_on_port(port: int) -> dict[str, Any]:
     item_status, _, item_body = request(port, "GET", "/items/123")
     echo_status, echo_headers, echo_body = request(port, "POST", "/echo", JSON_BODY)
     missing_status, _, _ = request(port, "GET", "/missing")
-    wrong_status, wrong_headers, _ = request(port, "POST", "/text", JSON_BODY)
+    # Method handling is the assertion here. Giving an unmatched request a
+    # body additionally tests platform-specific unread-stream disposal and
+    # poisoned the next request in Linux workerd's Python runtime.
+    wrong_status, wrong_headers, _ = request(port, "POST", "/text")
     head_status, head_headers, head_body = request(port, "HEAD", "/text")
     cases = {
         "GET text returns 200": text_status == 200,
@@ -465,6 +468,15 @@ def _contract_on_port(port: int) -> dict[str, Any]:
         "total": len(cases),
         "rate_percent": round(passed / len(cases) * 100, 1),
         "cases": cases,
+        "observed": {
+            "text_status": text_status,
+            "text_content_type": text_headers.get("content-type"),
+            "head_status": head_status,
+            "head_content_type": head_headers.get("content-type"),
+            "head_body_bytes": len(head_body),
+            "wrong_method_status": wrong_status,
+            "wrong_method_allow": wrong_headers.get("allow"),
+        },
     }
 
 
@@ -828,6 +840,7 @@ def main() -> None:
             failed_cases = [name for name, passed in result["cases"].items() if not passed]
             if failed_cases:
                 print(f"{target.name} failed cases: {', '.join(failed_cases)}")
+                print(f"{target.name} observed: {json.dumps(result['observed'], sort_keys=True)}")
             hayate_failed = hayate_failed or (
                 target.name == "hayate" and result["passed"] != result["total"]
             )
