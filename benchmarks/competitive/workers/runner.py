@@ -825,6 +825,9 @@ def main() -> None:
                 f"{target.name}: {result['passed']}/{result['total']} "
                 f"({result['rate_percent']:.1f}%)"
             )
+            failed_cases = [name for name, passed in result["cases"].items() if not passed]
+            if failed_cases:
+                print(f"{target.name} failed cases: {', '.join(failed_cases)}")
             hayate_failed = hayate_failed or (
                 target.name == "hayate" and result["passed"] != result["total"]
             )
