@@ -1,17 +1,27 @@
 # Benchmarks
 
-hayate publishes two separate suites:
+hayate publishes four benchmark boundaries:
 
 1. A pinned, end-to-end competitive HTTP benchmark against FastAPI, Django,
    and Hono. It covers startup, cold start, dependency closure, deployment
    payload, throughput, and a shared HTTP contract.
-2. An in-process ASGI dispatch benchmark against Starlette. It isolates
+2. A native Cloudflare Workers benchmark against Hono, with an SDK-only raw
+   Python control. It removes ASGI and runs all targets on the same locked
+   Wrangler/workerd runtime.
+3. An in-process ASGI dispatch benchmark against Starlette. It isolates
    framework overhead by removing sockets and HTTP parsing.
-3. A raw-ASGI transport profile inside the competitive suite. It executes the
+4. A raw-ASGI transport profile inside the competitive suite. It executes the
    same four workloads on hayate's locked Uvicorn/asyncio/h11 environment and
    reports how much of that transport ceiling Hayate reaches.
 
 Do not combine their request rates: they measure different boundaries.
+
+The native Workers methodology and reproduction command live under
+[`benchmarks/competitive/workers/`](https://github.com/hayatepy/hayate/tree/main/benchmarks/competitive/workers).
+Hayate enters through `WorkerEntrypoint.fetch`, so ASGI, Uvicorn, and h11 are
+absent. The raw target separates framework cost from the Python runtime/SDK
+boundary. The local process-start metric is deliberately not labeled as a
+deployed Cloudflare edge cold start.
 
 ## Competitive HTTP benchmark
 

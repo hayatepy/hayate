@@ -20,7 +20,7 @@ jobs:
   verify:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -32,6 +32,7 @@ jobs:
         with:
           python-version: "3.14"
       - run: uv run --no-project python benchmarks/competitive/runner.py verify
+      - run: uv run --no-project python benchmarks/competitive/workers/runner.py verify
 
   measure:
     if: github.event_name != 'pull_request'
@@ -62,4 +63,35 @@ jobs:
           path: |
             benchmark-result.json
             benchmark-result.md
+          if-no-files-found: error
+
+  measure-workers:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.14"
+      - name: Run pinned native Workers benchmark
+        run: |
+          uv run --no-project python benchmarks/competitive/workers/runner.py all \
+            --connections 20 \
+            --duration 10 \
+            --rounds 3 \
+            --cold-rounds 5 \
+            --output workers-benchmark-result.json
+          cat workers-benchmark-result.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: workers-competitive-benchmark-${{ github.run_id }}
+          path: |
+            workers-benchmark-result.json
+            workers-benchmark-result.md
           if-no-files-found: error

@@ -1,0 +1,11 @@
+{
+  "name": "hayate-workers-benchmark-tooling",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "hono": "4.12.32"
+  },
+  "devDependencies": {
+    "wrangler": "4.114.0"
+  }
+}

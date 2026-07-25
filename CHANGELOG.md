@@ -17,6 +17,19 @@ All notable changes to hayate are documented here.
 - Use checksum-pinned official oha release binaries as the load generator,
   avoiding a vulnerable transitive dependency in autocannon's current
   `hyperid`/`uuid` chain.
+- Add a native Cloudflare Workers profile that compares Hayate and Hono on
+  the same locked Wrangler/workerd runtime without ASGI. An SDK-only Python
+  control attributes the runtime boundary. It records upload size, local
+  startup, throughput, latency, CPU, RSS, and the shared HTTP contract.
+
+### Fixed
+
+- Harden the Cloudflare FFI lifecycle under load: GET/HEAD no longer cross a
+  forbidden null body, abort listeners attach only when observed, request
+  stream readers and transient proxies are released deterministically, and
+  response headers are owned by the Workers SDK. Benchmark samples containing
+  transport errors or non-2xx responses are rejected rather than reported as
+  inflated throughput.
 
 ## [0.10.0] - 2026-07-24
 

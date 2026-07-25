@@ -90,12 +90,11 @@ _live_connections: set[asyncio.Task[None]] = set()
 class _Runtime:
     """Handles to the Workers runtime pieces, resolved once per entrypoint."""
 
-    __slots__ = ("headers_cls", "readable_stream_cls", "response_cls", "websocket_pair_cls")
+    __slots__ = ("readable_stream_cls", "response_cls", "websocket_pair_cls")
 
     def __init__(self) -> None:
         js_module = import_module("js")
         workers_module = import_module("workers")
-        self.headers_cls = js_module.Headers
         self.response_cls = workers_module.Response
         try:
             self.readable_stream_cls = js_module.ReadableStream
@@ -112,8 +111,9 @@ def _proxy(obj: Any) -> Any:
 
 
 def _destroy(proxy: Any) -> None:
-    if _create_proxy is not None:
-        proxy.destroy()
+    destroy = getattr(proxy, "destroy", None)
+    if destroy is not None:
+        destroy()
 
 
 def _once(*callbacks: Callable[[], None] | None) -> Callable[[], None]:
@@ -195,24 +195,40 @@ def _js_bytes(value: Any) -> bytes:
 
     ``to_py()`` converts TypedArray views but passes a bare ArrayBuffer
     through unchanged (observed on workerd: websocket ``event.data``), so
-    prefer the JsBuffer API, which covers both.
+    prefer the JsBuffer API, which covers both. A transient ``JsProxy`` is
+    ours once the bytes have crossed, so release its handle immediately.
     """
-    to_bytes = getattr(value, "to_bytes", None)
-    if to_bytes is not None:
-        return bytes(to_bytes())
-    if hasattr(value, "to_py"):
-        value = value.to_py()
-    return bytes(value)
+    original = value
+    try:
+        to_bytes = getattr(value, "to_bytes", None)
+        if to_bytes is not None:
+            return bytes(to_bytes())
+        if hasattr(value, "to_py"):
+            value = value.to_py()
+        return bytes(value)
+    finally:
+        _destroy(original)
 
 
 async def _iter_js_stream(js_stream: Any) -> AsyncIterator[bytes]:
     """Drive a JS ReadableStream reader as an async byte iterator."""
     reader = js_stream.getReader()
-    while True:
-        result = await reader.read()
-        if result.done:
-            return
-        yield _js_bytes(result.value)
+    try:
+        while True:
+            result = await reader.read()
+            try:
+                if result.done:
+                    return
+                yield _js_bytes(result.value)
+            finally:
+                _destroy(result)
+    finally:
+        release = getattr(reader, "releaseLock", None)
+        if release is not None:
+            with contextlib.suppress(Exception):
+                release()
+        _destroy(reader)
+        _destroy(js_stream)
 
 
 async def _read_body(js_request: Any) -> bytes | None:
@@ -221,7 +237,8 @@ async def _read_body(js_request: Any) -> bytes | None:
     On workerd the handler receives workers-py's Python Request wrapper
     (reader: ``await request.bytes()``), not a raw JS proxy (reader:
     ``await request.arrayBuffer()``) — verified on workerd, 2026-07.
-    Reading unconditionally is safe: bodyless requests yield b"".
+    GET and HEAD skip this helper entirely because Fetch forbids a body
+    on those methods.
     """
     reader = getattr(js_request, "arrayBuffer", None)
     if reader is None:
@@ -231,43 +248,98 @@ async def _read_body(js_request: Any) -> bytes | None:
     return _js_bytes(await reader()) or None
 
 
+class _WorkersAbortSignal(AbortSignal):
+    """Attach the cross-FFI listener only if application code observes it."""
+
+    __slots__ = ("_attached", "_js_request", "_js_signal", "_listener", "_released")
+
+    def __init__(self, js_request: Any) -> None:
+        super().__init__()
+        self._js_request = js_request
+        self._js_signal: Any = None
+        self._listener: Any = None
+        self._attached = False
+        self._released = False
+
+    def _ensure_attached(self) -> None:
+        if self._attached or self._released:
+            return
+        self._attached = True
+        js_signal = _probe(self._js_request, "signal")
+        if js_signal is None or not hasattr(js_signal, "addEventListener"):
+            return
+        self._js_signal = js_signal
+
+        def on_abort(*_event: Any) -> None:
+            self._abort(getattr(self._js_signal, "reason", None))
+
+        # An implicitly-converted callable would be destroyed when this call
+        # returns (the classic addEventListener trap) — create_proxy keeps the
+        # listener alive until release() destroys it.
+        listener = _proxy(on_abort)
+        try:
+            self._js_signal.addEventListener("abort", listener)
+        except BaseException:
+            _destroy(listener)
+            raise
+        self._listener = listener
+        if getattr(self._js_signal, "aborted", False):
+            on_abort()  # aborted before the listener was attached
+
+    @property
+    def aborted(self) -> bool:
+        self._ensure_attached()
+        return super().aborted
+
+    @property
+    def reason(self) -> Any:
+        self._ensure_attached()
+        return super().reason
+
+    def add_listener(self, callback: Callable[[], None]) -> None:
+        self._ensure_attached()
+        super().add_listener(callback)
+
+    def raise_if_aborted(self) -> None:
+        self._ensure_attached()
+        super().raise_if_aborted()
+
+    def release(self) -> None:
+        if self._released:
+            return
+        self._released = True
+        if self._listener is None:
+            return
+        self._js_signal.removeEventListener("abort", self._listener)
+        _destroy(self._listener)
+        self._listener = None
+
+
 def _bridge_abort_signal(js_request: Any) -> tuple[AbortSignal | None, Callable[[], None] | None]:
-    """Mirror the JS AbortSignal, returning the signal and its release."""
-    js_signal = _probe(js_request, "signal")
-    if js_signal is None or not hasattr(js_signal, "addEventListener"):
-        return None, None
-    signal = AbortSignal()
-
-    def on_abort(*_event: Any) -> None:
-        signal._abort(getattr(js_signal, "reason", None))
-
-    # An implicitly-converted callable would be destroyed when this call
-    # returns (the classic addEventListener trap) — create_proxy keeps the
-    # listener alive until the release below destroys it.
-    listener = _proxy(on_abort)
-    js_signal.addEventListener("abort", listener)
-    if getattr(js_signal, "aborted", False):
-        on_abort()  # aborted before the listener was attached
-
-    def release() -> None:
-        js_signal.removeEventListener("abort", listener)
-        _destroy(listener)
-
-    return signal, release
+    """Mirror the JS AbortSignal lazily, returning the signal and its release."""
+    signal = _WorkersAbortSignal(js_request)
+    return signal, signal.release
 
 
 async def _to_hayate_request(js_request: Any) -> tuple[Request, Callable[[], None] | None]:
-    source = _body_source(js_request)
-    if source is None:
-        body: Any = None  # Fetch null body: nothing to read, skip the crossing
-    elif source is not _MISSING and hasattr(source, "getReader"):
-        body = _iter_js_stream(source)
+    method = str(js_request.method)
+    if method.upper() in {"GET", "HEAD"}:
+        # Fetch Request construction rejects a body for GET/HEAD. Avoid even
+        # reading the JS ``body`` property: a JS null crossing still creates a
+        # short-lived Pyodide handle and this is the hottest path in a Worker.
+        body: Any = None
     else:
-        body = await _read_body(js_request)
+        source = _body_source(js_request)
+        if source is None:
+            body = None  # Fetch null body: nothing to read, skip the crossing
+        elif source is not _MISSING and hasattr(source, "getReader"):
+            body = _iter_js_stream(source)
+        else:
+            body = await _read_body(js_request)
     signal, release = _bridge_abort_signal(js_request)
     request = Request(
         _url_from_trusted(str(js_request.url)),
-        method=str(js_request.method),
+        method=method,
         headers=Headers._from_trusted_pairs(
             _js_headers_to_pairs(js_request.headers), guard="immutable"
         ),
@@ -329,11 +401,10 @@ async def _to_workers_response(
     if platform_response is not None:  # forward(): return it untouched
         on_done()
         return platform_response
-    # One crossing for the whole header list — the JS Headers constructor
-    # takes a sequence of pairs, so per-header append() calls (N proxy
-    # round-trips) are unnecessary.
+    # Hand the Python sequence to workers.Response. Its SDK owns the
+    # temporary JS Headers lifetime; retaining a Headers JsProxy here grows
+    # Pyodide's proxy table under sustained load.
     pairs = response.headers.raw()
-    js_headers = runtime.headers_cls.new(pairs if _to_js is None else _to_js(pairs))
     body = None if response.status in _NULL_BODY_STATUSES else response.body
     if body is not None and not isinstance(body, bytes):
         stream = _js_stream_from_body(body, runtime.readable_stream_cls, on_done)
@@ -344,13 +415,13 @@ async def _to_workers_response(
             # canceling the stream releases its proxy without touching
             # the underlying body iterable.
             try:
-                return runtime.response_cls(stream, status=response.status, headers=js_headers)
+                return runtime.response_cls(stream, status=response.status, headers=pairs)
             except Exception:
                 with contextlib.suppress(Exception):
                     stream.cancel()
         body = await response.bytes()
     on_done()
-    return runtime.response_cls(body, status=response.status, headers=js_headers)
+    return runtime.response_cls(body, status=response.status, headers=pairs)
 
 
 class _WorkersExecutionContext(ExecutionContext):

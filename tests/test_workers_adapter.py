@@ -36,7 +36,7 @@ class FakeWorkersResponse:
     def __init__(self, body, status=200, headers=None, web_socket=None):
         self.body = body
         self.status = status
-        self.headers = headers
+        self.headers = FakeJsHeadersClass.new(headers) if isinstance(headers, list) else headers
         self.web_socket = web_socket
 
 
@@ -165,15 +165,43 @@ class FakeJsBodyStream:
     def __init__(self, chunks):
         self._chunks = list(chunks)
         self.reads = 0
+        self.releases = 0
+        self.reader_destroys = 0
+        self.stream_destroys = 0
+        self.result_destroys = 0
 
     def getReader(self):
-        return self
+        return FakeJsBodyReader(self)
+
+    def destroy(self):
+        self.stream_destroys += 1
+
+
+class FakeJsReadResult:
+    def __init__(self, owner, *, done, value):
+        self._owner = owner
+        self.done = done
+        self.value = value
+
+    def destroy(self):
+        self._owner.result_destroys += 1
+
+
+class FakeJsBodyReader:
+    def __init__(self, owner):
+        self._owner = owner
 
     async def read(self):
-        self.reads += 1
-        if not self._chunks:
-            return types.SimpleNamespace(done=True, value=None)
-        return types.SimpleNamespace(done=False, value=self._chunks.pop(0))
+        self._owner.reads += 1
+        if not self._owner._chunks:
+            return FakeJsReadResult(self._owner, done=True, value=None)
+        return FakeJsReadResult(self._owner, done=False, value=self._owner._chunks.pop(0))
+
+    def releaseLock(self):
+        self._owner.releases += 1
+
+    def destroy(self):
+        self._owner.reader_destroys += 1
 
 
 class FakeJsAbortSignal:
@@ -181,9 +209,11 @@ class FakeJsAbortSignal:
         self.aborted = aborted
         self.reason = reason
         self.listeners = []
+        self.adds = 0
 
     def addEventListener(self, event, listener):
         assert event == "abort"
+        self.adds += 1
         self.listeners.append(listener)
 
     def removeEventListener(self, event, listener):
@@ -432,6 +462,10 @@ async def test_request_stream_body_is_bridged_not_buffered(workers_runtime):
     js_response = await _entry(app).fetch(request)
     assert json.loads(js_response.body) == {"got": {"k": 1}}
     assert stream.reads == 3  # two chunks + the done signal
+    assert stream.releases == 1
+    assert stream.result_destroys == 3
+    assert stream.reader_destroys == 1
+    assert stream.stream_destroys == 1
 
 
 async def test_wrapper_streams_body_and_bridges_signal_via_js_object(workers_streaming_runtime):
@@ -486,7 +520,7 @@ async def test_already_aborted_signal_is_mirrored(workers_runtime):
 
 
 async def test_bodyless_requests_skip_the_buffered_read(workers_runtime):
-    """Fetch: a null ``body`` means nothing to read — no FFI crossing."""
+    """Fetch GET/HEAD never read ``body`` or use the buffered FFI crossing."""
     app = Hayate()
 
     @app.get("/")
@@ -500,6 +534,15 @@ async def test_bodyless_requests_skip_the_buffered_read(workers_runtime):
 
     raw.arrayBuffer = fail_read
 
+    class ExplodingBodyRequest(FakeJsRequest):
+        @property
+        def body(self):
+            raise AssertionError("GET must not cross the JS body property")
+
+        @body.setter
+        def body(self, value):
+            pass
+
     class ExplodingBytesPyRequest(FakePyRequest):
         async def bytes(self):
             raise AssertionError("a bodyless request must not be read via bytes()")
@@ -510,6 +553,7 @@ async def test_bodyless_requests_skip_the_buffered_read(workers_runtime):
     )
 
     assert (await _entry(app).fetch(raw)).status == 200
+    assert (await _entry(app).fetch(ExplodingBodyRequest("https://edge.example/"))).status == 200
     assert (await _entry(app).fetch(wrapper)).status == 200
 
 
@@ -558,6 +602,7 @@ async def test_abort_listener_is_released_after_a_buffered_response(workers_runt
     request.signal = FakeJsAbortSignal()
 
     await _entry(app).fetch(request)
+    assert request.signal.adds == 0
     assert request.signal.listeners == []
 
 
