@@ -481,7 +481,9 @@ def verify_contract(framework: Framework) -> dict[str, Any]:
         item_status, _, item_body = _request(port, "GET", "/items/123")
         echo_status, echo_headers, echo_body = _request(port, "POST", "/echo", JSON_BODY)
         missing_status, _, _ = _request(port, "GET", "/missing")
-        wrong_status, wrong_headers, _ = _request(port, "POST", "/text", JSON_BODY)
+        # Method handling is the assertion here; an unmatched request body
+        # would additionally test transport-specific unread-stream disposal.
+        wrong_status, wrong_headers, _ = _request(port, "POST", "/text")
         head_status, head_headers, head_body = _request(port, "HEAD", "/text")
 
     expected_item = {"id": "123", "name": "item-123"}

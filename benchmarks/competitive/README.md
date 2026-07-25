@@ -9,6 +9,10 @@ the runner. A fifth throughput-only target implements the workload as raw
 ASGI inside hayate's locked Uvicorn environment so the Python transport
 ceiling and Hayate's share of that ceiling are measured directly.
 
+The separate [native Cloudflare Workers profile](workers/README.md) removes
+ASGI entirely and runs Hayate, an SDK-only Python control, and Hono through
+the same locked Wrangler/workerd runtime.
+
 ## Run
 
 Prerequisites:

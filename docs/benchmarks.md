@@ -1,17 +1,51 @@
 # Benchmarks
 
-hayate publishes two separate suites:
+hayate publishes four benchmark boundaries:
 
 1. A pinned, end-to-end competitive HTTP benchmark against FastAPI, Django,
    and Hono. It covers startup, cold start, dependency closure, deployment
    payload, throughput, and a shared HTTP contract.
-2. An in-process ASGI dispatch benchmark against Starlette. It isolates
+2. A native Cloudflare Workers benchmark against Hono, with an SDK-only raw
+   Python control. It removes ASGI and runs all targets on the same locked
+   Wrangler/workerd runtime.
+3. An in-process ASGI dispatch benchmark against Starlette. It isolates
    framework overhead by removing sockets and HTTP parsing.
-3. A raw-ASGI transport profile inside the competitive suite. It executes the
+4. A raw-ASGI transport profile inside the competitive suite. It executes the
    same four workloads on hayate's locked Uvicorn/asyncio/h11 environment and
    reports how much of that transport ceiling Hayate reaches.
 
 Do not combine their request rates: they measure different boundaries.
+
+The native Workers methodology and reproduction command live under
+[`benchmarks/competitive/workers/`](https://github.com/hayatepy/hayate/tree/main/benchmarks/competitive/workers).
+Hayate enters through `WorkerEntrypoint.fetch`, so ASGI, Uvicorn, and h11 are
+absent. The raw target separates framework cost from the Python runtime/SDK
+boundary. The local process-start metric is deliberately not labeled as a
+deployed Cloudflare edge cold start.
+
+## Native Cloudflare Workers benchmark
+
+The recorded 2026-07-26 baseline used Apple M2 Pro/macOS 26.5.1 arm64,
+CPython 3.14.6, Node 24.18.0, Wrangler 4.114.0, and workerd
+1.20260722.1. It ran 20 connections for 10 seconds per scenario across three
+rotating rounds. All 36 samples and 757,430 requests completed with zero
+errors, timeouts, or non-2xx responses.
+
+| Target | Local first response | gzip upload | Throughput geo mean | CPU s / 1k req | Peak tree RSS | HTTP contract |
+|---|---:|---:|---:|---:|---:|---:|
+| **hayate 0.10.0** | 2,568.5 ms | 354.1 KiB | **1,665 req/s** | 0.9812 | 1,753.3 MiB | **14/14 (100%)** |
+| raw Python SDK 1.6.3 | 3,371.2 ms | 125.2 KiB | 1,829 req/s | 0.9156 | 1,396.0 MiB | **14/14 (100%)** |
+| Hono 4.12.32 | **573.0 ms** | **38.0 KiB** | **2,774 req/s** | **0.5155** | **1,174.0 MiB** | 12/14 (85.7%) |
+
+Hayate reached 91.1% of the framework-free Python runtime/SDK throughput
+ceiling. Hono remained 1.67x faster than Hayate and used less CPU, memory,
+startup time, and upload payload; Hayate preserved the stronger RFC 9110
+method/HEAD contract. These resource figures are for a local Wrangler process
+tree, not a deployed edge isolate.
+
+The full native Workers [raw report](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/workers/results/2026-07-26-macos-arm64.json)
+and [rendered summary](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/workers/results/2026-07-26-macos-arm64.md)
+contain every sample and environment field.
 
 ## Competitive HTTP benchmark
 
