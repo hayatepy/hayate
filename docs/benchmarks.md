@@ -1,9 +1,50 @@
 # Benchmarks
 
-In-process ASGI dispatch benchmark against Starlette — framework
-overhead only (no sockets, no HTTP parsing). Both frameworks are driven
-directly through their ASGI callable with a no-op transport and a fresh
-scope per request.
+hayate publishes two separate suites:
+
+1. A pinned, end-to-end competitive HTTP benchmark against FastAPI, Django,
+   and Hono. It covers startup, cold start, dependency closure, deployment
+   payload, throughput, and a shared HTTP contract.
+2. An in-process ASGI dispatch benchmark against Starlette. It isolates
+   framework overhead by removing sockets and HTTP parsing.
+
+Do not combine their request rates: they measure different boundaries.
+
+## Competitive HTTP benchmark
+
+The implementations, exact dependency locks, methodology, raw-result schema,
+and one-command reproduction instructions live in
+[`benchmarks/competitive/`](https://github.com/hayatepy/hayate/tree/main/benchmarks/competitive).
+The full publication profile is:
+
+```sh
+python3 benchmarks/competitive/runner.py all \
+  --connections 50 \
+  --duration 10 \
+  --rounds 3 \
+  --cold-rounds 7
+```
+
+Python targets run on the same Uvicorn asyncio + h11 transport. Hono runs on
+its official Node adapter. The load generator is the same pinned autocannon
+installation for every target. Raw JSON records all samples, resolved
+transitive versions, Git commit, CPU, operating system, and configuration.
+
+The 14-point HTTP contract is a common-workload compatibility rate, not a
+universal standards score. hayate's WPT-based URL and URLPattern results are
+reported on the [conformance page](conformance.md); unsupported public APIs in
+other frameworks are not converted into artificial zeroes.
+
+The monthly and manually dispatchable
+[Competitive benchmark workflow](https://github.com/hayatepy/hayate/actions/workflows/competitive-benchmark.yml)
+uploads the raw JSON and Markdown summary. Shared-runner measurements are not
+used as a hard regression gate because host contention is uncontrolled.
+
+## In-process ASGI dispatch
+
+This historical benchmark measures hayate against Starlette with no sockets
+or HTTP parsing. Both frameworks are driven directly through their ASGI
+callable with a no-op transport and a fresh scope per request.
 
 Run:
 

@@ -2,6 +2,19 @@
 
 All notable changes to hayate are documented here.
 
+## [Unreleased]
+
+### Added
+
+- Add a locked, same-workload competitive benchmark against FastAPI, Django,
+  and Hono. It records app import, server readiness, cold start, production
+  dependency closure, compressed deployment payload, per-scenario HTTP
+  throughput, and a 14-point common HTTP contract as raw machine-readable
+  samples.
+- Add PR smoke verification plus monthly and manually dispatchable full
+  benchmark automation. Reports include the Git commit, machine and tool
+  metadata, resolved transitive versions, and every raw sample.
+
 ## [0.10.0] - 2026-07-24
 
 ### Added
