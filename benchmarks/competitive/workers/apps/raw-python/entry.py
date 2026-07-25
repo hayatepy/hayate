@@ -1,7 +1,6 @@
 """The common workload using only the official Python Workers SDK."""
 
 import json
-from http import HTTPMethod
 from urllib.parse import urlsplit
 
 from workers import Response, WorkerEntrypoint
@@ -12,7 +11,8 @@ TEXT_HEADERS = {"content-type": "text/plain; charset=UTF-8"}
 
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
-        method = request.method.value if isinstance(request.method, HTTPMethod) else request.method
+        method_value = request.method
+        method = str(getattr(method_value, "value", method_value))
         path = urlsplit(request.url).path
         if method == "HEAD" and path == "/text":
             return Response(None, headers=TEXT_HEADERS)

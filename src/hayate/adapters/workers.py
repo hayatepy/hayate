@@ -322,7 +322,11 @@ def _bridge_abort_signal(js_request: Any) -> tuple[AbortSignal | None, Callable[
 
 
 async def _to_hayate_request(js_request: Any) -> tuple[Request, Callable[[], None] | None]:
-    method = str(js_request.method)
+    method_value = js_request.method
+    # workers-py returns HTTPMethod on some Pyodide builds and a string on
+    # others. ``.value`` is stable across both CPython 3.13/3.14 runtime
+    # shapes; blindly stringifying the enum broke HEAD routing on Linux.
+    method = str(getattr(method_value, "value", method_value))
     if method.upper() in {"GET", "HEAD"}:
         # Fetch Request construction rejects a body for GET/HEAD. Avoid even
         # reading the JS ``body`` property: a JS null crossing still creates a

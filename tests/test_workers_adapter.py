@@ -557,6 +557,26 @@ async def test_bodyless_requests_skip_the_buffered_read(workers_runtime):
     assert (await _entry(app).fetch(wrapper)).status == 200
 
 
+async def test_workers_http_method_enum_shape_is_normalized(workers_runtime):
+    """workers-py returns an enum on some Pyodide builds and a string on others."""
+    app = Hayate()
+
+    @app.get("/")
+    async def root(c: Context):
+        return c.text("ok")
+
+    class EnumLikeGet:
+        value = "GET"
+
+        def __str__(self):
+            return "HTTPMethod.GET"
+
+    request = FakeJsRequest("https://edge.example/")
+    request.method = EnumLikeGet()
+
+    assert (await _entry(app).fetch(request)).status == 200
+
+
 async def test_null_body_statuses_cross_without_a_body(workers_runtime):
     """Fetch null-body statuses (204/304/...) must not carry a body —
     ``js.Response`` would throw on them."""
