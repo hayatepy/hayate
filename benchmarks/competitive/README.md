@@ -5,7 +5,9 @@ and Hono. It measures startup, production dependency count, compressed
 deployment payload, cold start, HTTP throughput, and a shared HTTP
 contract. Every application and load-tool version is pinned by a committed
 `uv.lock` or `package-lock.json`, or by the release-asset SHA-256 values in
-the runner.
+the runner. A fifth throughput-only target implements the workload as raw
+ASGI inside hayate's locked Uvicorn environment so the Python transport
+ceiling and Hayate's share of that ceiling are measured directly.
 
 ## Run
 
@@ -59,6 +61,11 @@ The workload intentionally excludes databases, schema validation,
 templates, and framework-specific middleware. It measures the framework
 and transport path, not a complete production application.
 
+The raw ASGI target performs the same routing, path extraction, JSON parsing,
+and response construction directly against ASGI. It is not included in
+startup, dependency, payload, or HTTP-contract rankings because it is a
+transport floor rather than a user-facing framework.
+
 ## Metric definitions
 
 - **App import**: fresh runtime process creation, framework import, and
@@ -80,7 +87,12 @@ and transport path, not a complete production application.
   loopback, one HTTP/1.1 request in flight per connection. Ongoing requests
   finish after the duration deadline rather than being counted as aborted.
   The summary is the geometric mean of all four scenarios. Framework order
-  and scenario order rotate between rounds.
+  and scenario order rotate between rounds. The raw ASGI target participates
+  in the same rotation.
+- **Hayate/raw efficiency**: Hayate requests/second divided by the raw ASGI
+  target on the same workload and exact Uvicorn/asyncio/h11 environment.
+  This attributes the remaining Python-side gap without conflating it with
+  Node's different transport and runtime.
 - **HTTP contract**: 14 black-box assertions covering exact workload
   responses plus RFC 9110 method and HEAD behavior. This is not a universal
   Web-standards score. hayate's URL and URLPattern WPT results stay separate

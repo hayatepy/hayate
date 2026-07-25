@@ -109,6 +109,14 @@ FRAMEWORKS = (
     Framework("django", "python", APPS / "django", "app", "app:application", "Django"),
     Framework("hono", "node", APPS / "hono", "app.mjs"),
 )
+RAW_ASGI = Framework(
+    "raw-asgi",
+    "python",
+    APPS / "hayate",
+    "raw_asgi",
+    "raw_asgi:app",
+)
+THROUGHPUT_TARGETS = (*FRAMEWORKS, RAW_ASGI)
 
 SCENARIOS = (
     ("static-text", "GET", "/text", None),
@@ -579,20 +587,17 @@ def measure_throughput(
     """Measure all scenarios with rotating framework order."""
 
     samples: dict[str, dict[str, list[dict[str, float]]]] = {
-        framework.name: {scenario[0]: [] for scenario in SCENARIOS} for framework in FRAMEWORKS
+        target.name: {scenario[0]: [] for scenario in SCENARIOS} for target in THROUGHPUT_TARGETS
     }
-    frameworks = list(FRAMEWORKS)
+    targets = list(THROUGHPUT_TARGETS)
     for round_index in range(rounds):
-        order = (
-            frameworks[round_index % len(frameworks) :]
-            + frameworks[: round_index % len(frameworks)]
-        )
-        for framework in order:
+        order = targets[round_index % len(targets) :] + targets[: round_index % len(targets)]
+        for target in order:
             print(
-                f"throughput: round {round_index + 1}/{rounds} {framework.name}",
+                f"throughput: round {round_index + 1}/{rounds} {target.name}",
                 flush=True,
             )
-            with _running_server(framework) as port:
+            with _running_server(target) as port:
                 scenarios = list(SCENARIOS)
                 offset = round_index % len(scenarios)
                 scenarios = scenarios[offset:] + scenarios[:offset]
@@ -607,14 +612,14 @@ def measure_throughput(
                         connections=connections,
                         duration=duration,
                     )
-                    samples[framework.name][scenario_name].append(sample)
+                    samples[target.name][scenario_name].append(sample)
 
     measured: dict[str, dict[str, Any]] = {}
-    for framework in FRAMEWORKS:
+    for target in THROUGHPUT_TARGETS:
         scenarios_result: dict[str, Any] = {}
         scenario_rps: list[float] = []
         for scenario_name, *_ in SCENARIOS:
-            scenario_samples = samples[framework.name][scenario_name]
+            scenario_samples = samples[target.name][scenario_name]
             rps = [sample["requests_per_second"] for sample in scenario_samples]
             p50 = [sample["latency_p50_ms"] for sample in scenario_samples]
             p99 = [sample["latency_p99_ms"] for sample in scenario_samples]
@@ -625,11 +630,40 @@ def measure_throughput(
                 "latency_p99_ms": round(statistics.median(p99), 3),
                 "samples": scenario_samples,
             }
-        measured[framework.name] = {
+        measured[target.name] = {
             "geometric_mean_requests_per_second": round(_geometric_mean(scenario_rps), 1),
             "scenarios": scenarios_result,
         }
     return measured
+
+
+def _transport_profile(throughput: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Compare Hayate with a minimal app on its exact Uvicorn/h11 transport."""
+
+    hayate = throughput["hayate"]
+    raw = throughput["raw-asgi"]
+    efficiency = {
+        scenario_name: round(
+            hayate["scenarios"][scenario_name]["requests_per_second"]
+            / raw["scenarios"][scenario_name]["requests_per_second"]
+            * 100,
+            1,
+        )
+        for scenario_name, *_ in SCENARIOS
+    }
+    return {
+        "boundary": "raw ASGI app / same workload / hayate locked Uvicorn environment",
+        "raw_asgi": raw,
+        "hayate_efficiency_percent": {
+            "geometric_mean": round(
+                hayate["geometric_mean_requests_per_second"]
+                / raw["geometric_mean_requests_per_second"]
+                * 100,
+                1,
+            ),
+            "scenarios": efficiency,
+        },
+    }
 
 
 def _tool_version(command: list[str]) -> str:
@@ -686,7 +720,7 @@ def measure(args: argparse.Namespace) -> dict[str, Any]:
     """Run all metric families and return the raw report."""
 
     report: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "measured_at": dt.datetime.now(dt.UTC).isoformat(),
         "git_commit": _git_commit(),
         "machine": _machine_metadata(),
@@ -710,8 +744,9 @@ def measure(args: argparse.Namespace) -> dict[str, Any]:
         }
 
     throughput = measure_throughput(args.rounds, args.duration, args.connections)
-    for framework_name, result in throughput.items():
-        report["frameworks"][framework_name]["throughput"] = result
+    for framework in FRAMEWORKS:
+        report["frameworks"][framework.name]["throughput"] = throughput[framework.name]
+    report["python_transport_profile"] = _transport_profile(throughput)
     return report
 
 
@@ -771,6 +806,33 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"{scenarios['many-routes-64']['requests_per_second']:,.0f} | "
             f"{scenarios['json-echo']['requests_per_second']:,.0f} |"
         )
+
+    transport = report["python_transport_profile"]
+    raw = transport["raw_asgi"]
+    efficiency = transport["hayate_efficiency_percent"]
+    lines.extend(
+        [
+            "",
+            "## Python transport profile",
+            "",
+            "The raw ASGI target runs the same four workloads in hayate's exact",
+            "locked Uvicorn/asyncio/h11 environment. It is a transport ceiling,",
+            "not a fifth framework or a separately tuned server.",
+            "",
+            "| Boundary | Geo mean | Static text | Dynamic JSON | 64 routes | JSON echo |",
+            "|---|---:|---:|---:|---:|---:|",
+            f"| Raw ASGI (req/s) | {raw['geometric_mean_requests_per_second']:,.0f} | "
+            f"{raw['scenarios']['static-text']['requests_per_second']:,.0f} | "
+            f"{raw['scenarios']['dynamic-json']['requests_per_second']:,.0f} | "
+            f"{raw['scenarios']['many-routes-64']['requests_per_second']:,.0f} | "
+            f"{raw['scenarios']['json-echo']['requests_per_second']:,.0f} |",
+            f"| Hayate / raw efficiency | {efficiency['geometric_mean']:.1f}% | "
+            f"{efficiency['scenarios']['static-text']:.1f}% | "
+            f"{efficiency['scenarios']['dynamic-json']:.1f}% | "
+            f"{efficiency['scenarios']['many-routes-64']:.1f}% | "
+            f"{efficiency['scenarios']['json-echo']:.1f}% |",
+        ]
+    )
 
     lines.extend(
         [

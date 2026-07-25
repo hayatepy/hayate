@@ -7,6 +7,9 @@ hayate publishes two separate suites:
    payload, throughput, and a shared HTTP contract.
 2. An in-process ASGI dispatch benchmark against Starlette. It isolates
    framework overhead by removing sockets and HTTP parsing.
+3. A raw-ASGI transport profile inside the competitive suite. It executes the
+   same four workloads on hayate's locked Uvicorn/asyncio/h11 environment and
+   reports how much of that transport ceiling Hayate reaches.
 
 Do not combine their request rates: they measure different boundaries.
 
@@ -66,6 +69,11 @@ and [rendered summary](https://github.com/hayatepy/hayate/blob/main/benchmarks/c
 contain every sample, latency percentile, resolved package version, and
 machine field. These numbers are a reproducible baseline, not a claim about
 all applications or hardware.
+
+The suite also measures a raw ASGI implementation of the same four workloads
+inside hayate's locked Python environment. This separates framework overhead
+from the Uvicorn/h11 versus Node transport difference; the raw target is not
+ranked as a framework and is excluded from startup and payload comparisons.
 
 ## In-process ASGI dispatch
 
