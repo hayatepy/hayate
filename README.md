@@ -70,8 +70,10 @@ app.use(cors(origin_resolver=allowed_origin, credentials=True))
 - Standards conformance runs against vendored [web-platform-tests](https://github.com/web-platform-tests/wpt)
   vectors on every `pytest` run, with ratcheted pass counts —
   see [docs/conformance.md](docs/conformance.md).
-- Framework overhead is benchmarked against Starlette (1.27x on simple
-  routes, 3.83x at 64 routes; optional Rust accelerator included) — see
+- A locked, end-to-end benchmark measures the same workload against FastAPI,
+  Django, and Hono across startup, dependencies, deployment payload, cold
+  start, throughput, and an HTTP contract. Framework-only ASGI overhead is
+  also benchmarked against Starlette — see
   [docs/benchmarks.md](docs/benchmarks.md).
 
 ## Status

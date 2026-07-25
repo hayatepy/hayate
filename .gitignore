@@ -10,6 +10,8 @@ accel/target/
 Cargo.lock
 site/
 .wrangler/
+node_modules/
+.benchmark/
 examples/workers/python_modules/
 examples/workers/.venv-workers/
 examples/workers/pylock.toml

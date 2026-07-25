@@ -33,8 +33,10 @@ async def show_book(c):
   adapters. See [Runtimes](guide/runtimes.md).
 - **Measured, not claimed** — standards conformance runs against vendored
   [web-platform-tests](https://github.com/web-platform-tests/wpt) with ratcheted
-  pass counts ([Conformance](conformance.md)); framework overhead is benchmarked
-  at or below Starlette's ([Benchmarks](benchmarks.md)).
+  pass counts ([Conformance](conformance.md)); a locked, same-workload suite
+  measures startup, dependency closure, payload, cold start, throughput, and
+  HTTP behavior against FastAPI, Django, and Hono
+  ([Benchmarks](benchmarks.md)).
 - **Serverless testing** — `await app.request("/path")` calls the app directly.
   No server, no test client, milliseconds per test. See [Testing](guide/testing.md).
 
