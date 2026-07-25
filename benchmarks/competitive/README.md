@@ -40,6 +40,10 @@ python3 benchmarks/competitive/runner.py all \
 `setup`, `verify`, and `run` subcommands are also available. `run` reuses
 the isolated environments created by `setup`.
 
+The publication-profile baseline is committed as
+[raw JSON](results/2026-07-26-macos-arm64.json) and a
+[Markdown summary](results/2026-07-26-macos-arm64.md).
+
 ## Common workload
 
 Each implementation registers the same 67 routes and response data:
