@@ -40,6 +40,33 @@ The monthly and manually dispatchable
 uploads the raw JSON and Markdown summary. Shared-runner measurements are not
 used as a hard regression gate because host contention is uncontrolled.
 
+### Recorded baseline (2026-07-26)
+
+Apple M2 Pro, macOS 26.5.1, arm64, Python 3.14.6, Node 26.5.0;
+50 connections, 10 seconds per scenario, three rotating rounds. The source
+under test is commit `b616c49`; every one of the 48 throughput samples
+completed with zero errors, timeouts, or non-2xx responses.
+
+| Framework | Version | App import | Cold start | Production packages | gzip payload | Throughput geo mean | HTTP contract |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **hayate** | 0.10.0 | **61.1 ms** | **130.3 ms** | **5** | **280.3 KiB** | **14,016 req/s** | **14/14 (100%)** |
+| FastAPI | 0.140.0 | 204.2 ms | 244.1 ms | 13 | 2,802.1 KiB | 9,861 req/s | 12/14 (85.7%) |
+| Django | 6.0.7 | 132.0 ms | 168.2 ms | 6 | 5,147.1 KiB | 2,740 req/s | 12/14 (85.7%) |
+| Hono | 4.12.32 | **56.4 ms** | **66.6 ms** | **2** | 281.5 KiB | **64,794 req/s** | 12/14 (85.7%) |
+
+On this workload, hayate delivered 1.42x FastAPI's and 5.12x Django's
+throughput. Its cold start was 1.87x faster than FastAPI's and 1.29x faster
+than Django's. Hono remained 4.62x faster in throughput and 1.96x faster at
+cold start. hayate's runtime-excluded compressed payload was approximately
+the same size as Hono's official Node stack, while using three more production
+packages.
+
+The full [raw report](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-26-macos-arm64.json)
+and [rendered summary](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-26-macos-arm64.md)
+contain every sample, latency percentile, resolved package version, and
+machine field. These numbers are a reproducible baseline, not a claim about
+all applications or hardware.
+
 ## In-process ASGI dispatch
 
 This historical benchmark measures hayate against Starlette with no sockets
