@@ -44,6 +44,10 @@ uv run --no-project python benchmarks/competitive/workers/runner.py all \
 `setup`, `verify`, and `run` subcommands are also available. Generated runtime
 fixtures and default reports live under `.benchmark/competitive/`.
 
+The publication-profile baseline is committed as
+[raw JSON](results/2026-07-26-macos-arm64.json) and a
+[Markdown summary](results/2026-07-26-macos-arm64.md).
+
 ## Fairness boundary
 
 - All three targets use Wrangler 4.114.0 and its exact workerd dependency.
