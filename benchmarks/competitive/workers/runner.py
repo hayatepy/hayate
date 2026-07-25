@@ -113,14 +113,20 @@ def _python_executable(name: str) -> Path:
 
 
 def _run_checked(command: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        command,
-        cwd=cwd,
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
+    try:
+        return subprocess.run(
+            command,
+            cwd=cwd,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+    except subprocess.CalledProcessError as error:
+        rendered = " ".join(command)
+        raise RuntimeError(
+            f"command failed ({error.returncode}) in {cwd}: {rendered}\n{error.stdout or ''}"
+        ) from error
 
 
 def _replace_local_hayate_dependency(project: Path, wheel: Path) -> None:
