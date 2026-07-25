@@ -112,12 +112,15 @@ def _python_executable(name: str) -> Path:
     return TOOLING / ".venv" / directory / f"{name}{suffix}"
 
 
-def _run_checked(command: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+def _run_checked(
+    command: list[str], *, cwd: Path, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
     try:
         return subprocess.run(
             command,
             cwd=cwd,
             check=True,
+            env=env,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -185,6 +188,11 @@ def setup() -> None:
     hayate_project = next(target for target in TARGETS if target.name == "hayate").directory
     hayate_project /= "pyproject.toml"
     _replace_local_hayate_dependency(hayate_project, wheels[0])
+    pywrangler_env = os.environ.copy()
+    # setup-uv pins the job's outer interpreter with UV_PYTHON. pywrangler
+    # creates and selects its own CPython/Pyodide pair, so inheriting that pin
+    # makes uv ignore the valid 3.13 environment and fail on CI.
+    pywrangler_env.pop("UV_PYTHON", None)
     for target in TARGETS:
         if target.python:
             _run_checked(
@@ -195,6 +203,7 @@ def setup() -> None:
                     "--no-allow-build",
                 ],
                 cwd=target.directory,
+                env=pywrangler_env,
             )
 
 
