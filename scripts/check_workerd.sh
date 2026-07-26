@@ -26,7 +26,7 @@ test -n "${wheel_path}"
 cp "${repo_dir}/examples/workers/entry.py" "${test_dir}/entry.py"
 cp "${repo_dir}/examples/workers/wrangler.toml" "${test_dir}/wrangler.toml"
 sed \
-  "s|\"hayate>=0.10.0\"|\"hayate @ file://${wheel_path}\"|" \
+  "s|\"hayate>=0.11.0\"|\"hayate @ file://${wheel_path}\"|" \
   "${repo_dir}/examples/workers/pyproject.toml" >"${test_dir}/pyproject.toml"
 
 (

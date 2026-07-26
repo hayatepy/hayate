@@ -4,8 +4,16 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-26
+
 ### Added
 
+- Add a cross-repository compatibility gate that builds the candidate Hayate
+  wheel and tests the public auth, fetch, MCP, OpenAPI, and scaffold heads in
+  disposable locked environments. Pull requests run a bounded smoke profile;
+  a weekly and manually dispatchable full profile adds both generated
+  Workers variants. Reports record exact commits, runtimes, commands, wheel
+  provenance, and failure output.
 - Add a locked, same-workload competitive benchmark against FastAPI, Django,
   and Hono. It records app import, server readiness, cold start, production
   dependency closure, compressed deployment payload, per-scenario HTTP
@@ -14,6 +22,9 @@ All notable changes to hayate are documented here.
 - Add PR smoke verification plus monthly and manually dispatchable full
   benchmark automation. Reports include the Git commit, machine and tool
   metadata, resolved transitive versions, and every raw sample.
+- Let the release workflow run manually as a non-publishing dry run through
+  the same test, dependency-audit, build, SPDX SBOM, and attestation path used
+  by immutable release tags. Tag pushes remain the only publishing trigger.
 - Use checksum-pinned official oha release binaries as the load generator,
   avoiding a vulnerable transitive dependency in autocannon's current
   `hyperid`/`uuid` chain.

@@ -33,6 +33,12 @@ CPython 3.14.6, Node 24.18.0, Wrangler 4.114.0, and workerd
 rotating rounds. All 72 samples and 1,626,628 requests completed with zero
 errors, timeouts, or non-2xx responses.
 
+The measurement ran from the release commit before its 0.11.0 version bump,
+so the immutable raw artifact correctly reports package metadata `0.10.0`.
+The Workers implementation measured below is the one released in 0.11.0;
+the table preserves the observed metadata instead of rewriting benchmark
+evidence after the fact.
+
 | Target | Local first response | gzip upload | Throughput geo mean | CPU s / 1k req | Peak tree RSS | HTTP contract |
 |---|---:|---:|---:|---:|---:|---:|
 | hayate 0.10.0, class | 2,465.8 ms | 355.5 KiB | 1,817 req/s | **0.9200** | 1,760.9 MiB | **14/14 (100%)** |
