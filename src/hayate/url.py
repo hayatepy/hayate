@@ -19,9 +19,6 @@ import re
 from collections.abc import Iterable, Iterator, Mapping
 from urllib.parse import unquote, unquote_to_bytes
 
-from uts46 import Uts46Error
-from uts46.whatwg import domain_to_ascii
-
 _SCHEME_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-."
 _DEFAULT_PORTS = {"http": "80", "https": "443", "ws": "80", "wss": "443", "ftp": "21"}
 _SPECIAL_SCHEMES = frozenset(_DEFAULT_PORTS) | {"file"}
@@ -212,8 +209,17 @@ def _canonicalize_domain(hostname: str, url: str) -> str:
         # once the percent-decoded domain actually contains Unicode.
         if decoded.isascii():
             return decoded.lower()
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"invalid domain host in URL: {url!r}") from exc
+    # The 136 KiB UTS-46 mapping table is needed only for non-ASCII host
+    # construction. Platform-validated request URLs and ordinary ASCII URLs
+    # should not import it during application startup.
+    from uts46 import Uts46Error
+    from uts46.whatwg import domain_to_ascii
+
+    try:
         return domain_to_ascii(decoded, be_strict=False)
-    except (UnicodeDecodeError, Uts46Error) as exc:
+    except Uts46Error as exc:
         raise ValueError(f"invalid domain host in URL: {url!r}") from exc
 
 
@@ -458,6 +464,23 @@ class URL:
         url._search = f"?{query}" if query else ""
         url._hash = ""
         return url
+
+    @classmethod
+    def _from_trusted_href(cls, href: str) -> URL:
+        """Split a platform-serialized absolute URL without re-validation."""
+        scheme, separator, rest = href.partition("://")
+        if not separator or not scheme or "#" in rest:
+            return cls(href)
+        authority, slash, path_query = rest.partition("/")
+        if "@" in authority or not authority:
+            return cls(href)
+        path, _, query = path_query.partition("?")
+        return cls._from_server(
+            scheme,
+            authority,
+            slash + path if slash else "/",
+            query,
+        )
 
     def _parse(self, url: str) -> None:
         split = _split_scheme(url)

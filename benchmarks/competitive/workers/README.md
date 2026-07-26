@@ -46,6 +46,18 @@ uv run --no-project python benchmarks/competitive/workers/runner.py all \
 `setup`, `verify`, and `run` subcommands are also available. Generated runtime
 fixtures and default reports live under `.benchmark/competitive/`.
 
+For a focused diagnostic run, select any declared subset without editing the
+runner:
+
+```sh
+uv run --no-project python benchmarks/competitive/workers/runner.py all \
+  --targets hayate-global,raw-global,hono \
+  --connections 5 \
+  --duration 1 \
+  --rounds 1 \
+  --cold-rounds 2
+```
+
 The publication-profile baseline is committed as
 [raw JSON](results/2026-07-26-macos-arm64.json) and a
 [Markdown summary](results/2026-07-26-macos-arm64.md).
@@ -59,6 +71,13 @@ The publication-profile baseline is committed as
 - Hono 4.12.32, workers-py 1.15.0, and workers-runtime-sdk 1.6.3 are
   exactly pinned.
 - The Hayate fixture bundles a wheel built from the measured Git commit.
+- Every Python target uses the same Wrangler `python_modules.exclude` list.
+  It removes bytecode caches, distribution metadata, and ASGI/WSGI/AWS
+  adapters that cannot execute in workerd. The compressed upload metric
+  therefore measures runtime-relevant code instead of packaging debris.
+  Excluding `*.dist-info` deliberately makes `importlib.metadata` unavailable
+  inside these fixtures; application deployments that inspect package
+  metadata should omit that exclusion.
 - `raw-python` uses the SDK Request/Response wrappers. `raw-js` keeps the
   current class entrypoint but accesses its underlying JS objects directly.
   `raw-global` combines direct JS access with the compatibility handler.

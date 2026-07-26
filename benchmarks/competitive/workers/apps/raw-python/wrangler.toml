@@ -2,3 +2,14 @@ name = "raw-python-workers-benchmark"
 main = "entry.py"
 compatibility_date = "2026-07-01"
 compatibility_flags = ["python_workers"]
+
+[python_modules]
+exclude = [
+  "**/*.pyc",
+  "**/__pycache__/**",
+  "**/*.dist-info/**",
+  "asgi.py",
+  "hayate/adapters/asgi.py",
+  "hayate/adapters/aws.py",
+  "workers/wsgi.py",
+]

@@ -266,9 +266,17 @@ class Hayate:
         _finish_arg2: Any = None,
     ) -> Any:
         """Adapter path that stays synchronous and can fuse final conversion."""
-        c = Context(HayateRequest(request), env, ctx)
-        if _exec_factory is not None:
-            c._init_platform_execution(_exec_factory, _exec_arg1, _exec_arg2)
+        c = (
+            Context(HayateRequest(request), env, ctx)
+            if _exec_factory is None
+            else Context._from_adapter(
+                HayateRequest(request),
+                env,
+                _exec_factory,
+                _exec_arg1,
+                _exec_arg2,
+            )
+        )
         chain: Sequence[Middleware]
         handler: Handler
         inline: bool

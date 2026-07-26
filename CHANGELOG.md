@@ -25,6 +25,8 @@ All notable changes to hayate are documented here.
   opt into Cloudflare's global-handler compatibility flag. The benchmark
   reports this separately from the current `WorkerEntrypoint` default and
   includes direct-JS controls for both entrypoint boundaries.
+- Let the native Workers benchmark select named target subsets for focused,
+  reproducible diagnostics without modifying the runner.
 
 ### Changed
 
@@ -36,6 +38,17 @@ All notable changes to hayate are documented here.
   contexts, UTF-8 response encoding, and body reads until application code
   observes them. Regular HTTP responses use the platform `Response`
   constructor directly while WebSocket upgrades retain the SDK extension.
+- Construct trusted Workers requests, contexts, and text responses directly in
+  their final lazy state; cache the most recent platform `ResponseInit`; and
+  bypass wrapper-shape probes on the known global-handler request path.
+- Add a semantics-preserving terminal-parameter routing tier for unambiguous
+  `/literal/:name` routes while retaining registration order for overlaps.
+- Import the UTS-46 mapping table only when a non-ASCII host is constructed.
+  ASCII and platform-validated request URLs avoid the table at startup while
+  the complete 306/306 in-scope WHATWG URL result remains unchanged.
+- Exclude bytecode caches, distribution metadata, and non-Workers adapters
+  from example and benchmark Worker uploads. The metadata trade-off is
+  documented, and every Python benchmark target uses the same exclusion list.
 - Reach throughput parity with Hono on the reproducible native Workers
   workload through the explicit global-handler compatibility path: 2,746.5
   versus 2,734.1 requests/second geometric mean, with all 72 samples and

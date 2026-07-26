@@ -40,6 +40,17 @@ def test_workers_runner_rejects_invalid_high_rps_samples():
         workers_runner._ensure_valid_load_sample(0, 1, {})
 
 
+def test_workers_runner_selects_a_reproducible_target_subset():
+    targets = workers_runner._select_targets("hayate-global,raw-global,hono")
+    assert [target.name for target in targets] == [
+        "hayate-global",
+        "raw-global",
+        "hono",
+    ]
+    with pytest.raises(SystemExit, match="unknown Workers benchmark target"):
+        workers_runner._select_targets("missing")
+
+
 def test_workers_markdown_keeps_local_startup_boundary_explicit():
     scenario = {
         "requests_per_second": 100.0,

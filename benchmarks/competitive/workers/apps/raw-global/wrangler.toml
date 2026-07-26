@@ -5,3 +5,14 @@ compatibility_flags = [
   "python_workers",
   "disable_python_no_global_handlers",
 ]
+
+[python_modules]
+exclude = [
+  "**/*.pyc",
+  "**/__pycache__/**",
+  "**/*.dist-info/**",
+  "asgi.py",
+  "hayate/adapters/asgi.py",
+  "hayate/adapters/aws.py",
+  "workers/wsgi.py",
+]

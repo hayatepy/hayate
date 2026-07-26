@@ -1,12 +1,14 @@
 """Method x pathname routing table.
 
-Three tiers, in match order (scaling curves measured in DESIGN §14.4):
+Four tiers, in match order (scaling curves measured in DESIGN §14.4):
 
 1. **static** — exact-match dict for patterns with no syntax.
-2. **trie** — patterns made only of literal segments and whole-segment
+2. **terminal parameter** — unambiguous ``/literal/:name`` shapes use one
+   prefix lookup and one parameter allocation.
+3. **trie** — patterns made only of literal segments and whole-segment
    ``:name`` parameters walk a segment trie: O(path segments) whatever
    the route count (0.66 µs flat vs 76 µs for a 1024-route linear scan).
-3. **regex** — everything else (regexp constraints, optional params,
+4. **regex** — everything else (regexp constraints, optional params,
    wildcards) stays as precompiled URLPattern regexes in a linear tail.
 
 Static always wins. Between the trie and the regex tail, *registration
@@ -81,10 +83,19 @@ class Route:
 
 
 class Router:
-    __slots__ = ("_all", "_count", "_has_websocket_routes", "_regex", "_static", "_trie")
+    __slots__ = (
+        "_all",
+        "_count",
+        "_has_websocket_routes",
+        "_regex",
+        "_static",
+        "_terminal",
+        "_trie",
+    )
 
     def __init__(self) -> None:
         self._static: dict[str, dict[str, tuple[Route, dict[str, str | None]]]] = {}
+        self._terminal: dict[str, dict[str, tuple[Route, str, bool]]] = {}
         self._trie: dict[Any, Any] = {}
         self._regex: list[tuple[int, str, re.Pattern[str], tuple[str, ...], Route]] = []
         self._count = 0  # registration index shared by the dynamic tiers
@@ -112,6 +123,14 @@ class Router:
         segments = _plain_segments(route.pattern)
         if segments is not None:
             self._trie_add(segments, route, index)
+            terminal = self._terminal_param(segments)
+            if terminal is not None:
+                prefix, name = terminal
+                terminal_methods = self._terminal.setdefault(prefix, {})
+                terminal_methods.setdefault(
+                    route.method,
+                    (route, name, self._terminal_is_unambiguous(route, segments)),
+                )
             self._all.append(route)
             return
         for _, method, _, _, existing in self._regex:
@@ -119,6 +138,34 @@ class Router:
                 raise ValueError(f"duplicate route: {route.method} {route.pattern}")
         self._regex.append((index, route.method, regex, names, route))
         self._all.append(route)
+
+    @staticmethod
+    def _terminal_param(segments: list[str]) -> tuple[str, str] | None:
+        if not segments or not segments[-1].startswith(":"):
+            return None
+        if any(segment.startswith(":") for segment in segments[:-1]):
+            return None
+        prefix = "/" + "/".join(segments[:-1]) if len(segments) > 1 else ""
+        return prefix, segments[-1][1:]
+
+    def _terminal_is_unambiguous(self, route: Route, segments: list[str]) -> bool:
+        """Whether no earlier dynamic route can match this terminal shape."""
+        for existing in self._all:
+            if existing.method != route.method:
+                continue
+            other = _plain_segments(existing.pattern)
+            if other is None:
+                return False  # an earlier regex tail may overlap
+            if not any(segment.startswith(":") for segment in other):
+                continue  # static routes already have absolute priority
+            if len(other) != len(segments):
+                continue
+            if all(
+                left.startswith(":") or right.startswith(":") or left == right
+                for left, right in zip(other, segments, strict=True)
+            ):
+                return False
+        return True
 
     def _trie_add(self, segments: list[str], route: Route, index: int) -> None:
         node = self._trie
@@ -141,6 +188,15 @@ class Router:
         methods = self._static.get(path)
         if methods is not None and method in methods:
             return methods[method]
+        if self._terminal:
+            prefix, separator, value = path.rpartition("/")
+            if separator and value:
+                terminal_methods = self._terminal.get(prefix)
+                if terminal_methods is not None:
+                    terminal = terminal_methods.get(method)
+                    if terminal is not None and terminal[2]:
+                        route, name, _ = terminal
+                        return route, {name: value}
         best = self._trie_match(method, path) if self._trie and path.startswith("/") else None
         limit = best[0] if best is not None else None
         for index, m, regex, names, route in self._regex:
