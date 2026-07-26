@@ -2,7 +2,7 @@
 
 import pytest
 
-from hayate import File, Request
+from hayate import AbortSignal, File, Request
 
 
 async def test_body_bytes_and_reuse_forbidden():
@@ -121,3 +121,36 @@ def test_headers_are_immutable():
 
 def test_default_signal_not_aborted():
     assert Request("http://x/").signal.aborted is False
+
+
+def test_adapter_signal_factory_is_lazy_and_releasable():
+    class PlatformSignal(AbortSignal):
+        def __init__(self, source):
+            super().__init__()
+            self.source = source
+            self.releases = 0
+
+        def release(self):
+            self.releases += 1
+
+    source = object()
+    request = Request("http://x/")
+    request._init_platform_signal(source, PlatformSignal)
+
+    assert request._signal is None
+    signal = request.signal
+    assert signal.source is source
+    request._release_platform_signal()
+    assert signal.releases == 1
+
+
+def test_trusted_platform_url_is_parsed_only_when_observed():
+    request = Request(
+        "https://edge.example/items/42?q=1",
+        _trusted_pathname="/items/42",
+    )
+
+    assert request._url == "https://edge.example/items/42?q=1"
+    assert request._pathname_for_routing() == "/items/42"
+    assert request.url.search == "?q=1"
+    assert not isinstance(request._url, str)

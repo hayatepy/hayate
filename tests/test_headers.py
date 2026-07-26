@@ -85,3 +85,18 @@ def test_init_from_headers_copies():
 
 def test_equality_ignores_order():
     assert Headers([("a", "1"), ("b", "2")]) == Headers([("b", "2"), ("a", "1")])
+
+
+def test_adapter_loader_is_lazy_and_runs_once():
+    source = {"pairs": [("x-edge", "1")], "loads": 0}
+
+    def load(value):
+        value["loads"] += 1
+        return value["pairs"]
+
+    headers = Headers._from_loader(source, load, guard="immutable")
+
+    assert source["loads"] == 0
+    assert headers.get("x-edge") == "1"
+    assert headers.raw() == [("x-edge", "1")]
+    assert source["loads"] == 1

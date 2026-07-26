@@ -22,10 +22,11 @@ type BodyInit = bytes | bytearray | str | AsyncIterable[bytes] | None
 
 
 class Body:
-    __slots__ = ("_buffer", "_stream", "_used")
+    __slots__ = ("_buffer", "_platform", "_stream", "_used")
 
     def _init_body(self, body: BodyInit) -> None:
         self._used = False
+        self._platform: Any = None
         self._buffer: bytes | None
         self._stream: AsyncIterable[bytes] | None
         if body is None:
@@ -46,10 +47,30 @@ class Body:
                 f"got {type(body).__name__}"
             )
 
+    def _init_text_body(self, text: str) -> None:
+        """Response fast path: defer UTF-8 encoding until bytes are observed."""
+        self._used = False
+        self._platform = None
+        self._buffer = None
+        self._stream = None
+
+    def _init_platform_body(self, body: AsyncIterable[bytes]) -> None:
+        """Adapter hook for a lazy body with native ``bytes``/``text`` readers."""
+        self._used = False
+        self._platform = body
+        self._buffer = None
+        self._stream = body
+
     @property
     def body(self) -> bytes | AsyncIterable[bytes] | None:
         """The raw body: ``None``, a ``bytes`` buffer, or an async byte stream."""
-        return self._buffer if self._stream is None else self._stream
+        if self._stream is not None:
+            return self._stream
+        if self._buffer is None:
+            text = getattr(self, "_text_body", None)
+            if text is not None:
+                self._buffer = text.encode("utf-8")
+        return self._buffer
 
     @property
     def body_used(self) -> bool:
@@ -63,16 +84,39 @@ class Body:
     async def bytes(self) -> bytes:
         """Read the whole body (Fetch ``bytes()``). One-shot."""
         self._mark_used()
+        if self._platform is not None:
+            platform, self._platform = self._platform, None
+            self._buffer = bytes(await platform.bytes())
+            self._stream = None
+            return self._buffer
         if self._stream is not None:
             chunks = [bytes(chunk) async for chunk in self._stream]
             self._buffer = b"".join(chunks)
             self._stream = None
+        elif self._buffer is None:
+            text = getattr(self, "_text_body", None)
+            if text is not None:
+                self._buffer = text.encode("utf-8")
         return self._buffer if self._buffer is not None else b""
 
     async def text(self) -> str:
         """UTF-8 decode per Fetch: strip a leading BOM, replace invalid bytes."""
+        if self._platform is not None:
+            self._mark_used()
+            platform, self._platform = self._platform, None
+            text = str(await platform.text()).removeprefix("﻿")
+            self._buffer = text.encode("utf-8")
+            self._stream = None
+            return text
         data = await self.bytes()
         return data.decode("utf-8", errors="replace").removeprefix("﻿")
 
     async def json(self) -> Any:
+        if self._platform is not None:
+            self._mark_used()
+            platform, self._platform = self._platform, None
+            text = str(await platform.text()).removeprefix("﻿")
+            self._buffer = text.encode("utf-8")
+            self._stream = None
+            return _json.loads(text)
         return _json.loads(await self.text())

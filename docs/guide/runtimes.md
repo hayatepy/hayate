@@ -29,6 +29,8 @@ Default = to_workers(app)
 - `c.env` receives the Workers bindings (`c.env.KV`, `c.env.DB`, ... —
   awaitable JS proxies pass straight through).
 - `c.wait_until` forwards to the platform `ctx.waitUntil`.
+- Short synchronous handlers run inline on Pyodide, which has no threads;
+  handlers that perform I/O remain `async def`.
 - Bodies stream across the FFI boundary (JS `ReadableStream` in both
   directions, with a buffered fallback on runtimes that lack the pieces),
   and the JS abort signal is mirrored onto `request.signal`. Verified in
@@ -41,6 +43,36 @@ Default = to_workers(app)
   production over `wss://`). Every per-request FFI proxy is destroyed
   deterministically when the request ends — no reliance on garbage
   collection.
+
+### HTTP throughput compatibility mode
+
+Cloudflare changed Python Workers from module-level handlers to
+`WorkerEntrypoint` on 2025-08-14. The class entrypoint above is the default
+and supports named RPC methods. For an HTTP-only Worker where warm throughput
+has priority, Hayate can use Cloudflare's explicitly supported compatibility
+flag to skip the class RPC conversion wrapper:
+
+```python title="entry.py"
+from hayate.adapters.workers import to_workers_global
+from main import app
+
+on_fetch = to_workers_global(app)
+```
+
+```toml title="wrangler.toml"
+compatibility_date = "2026-07-01"
+compatibility_flags = [
+  "python_workers",
+  "disable_python_no_global_handlers",
+]
+```
+
+This mode still supports bindings, `c.wait_until`, streaming bodies, SSE, and
+WebSockets. It does not provide named `WorkerEntrypoint` RPC methods or other
+class handlers such as `scheduled`; use `to_workers(app)` when those are
+needed. The native benchmark publishes both modes and labels the global
+handler as a compatibility path rather than presenting it as Cloudflare's
+current default.
 
 ### Durable Objects
 

@@ -1,7 +1,7 @@
-"""The common competitive workload as a native Cloudflare Python Worker."""
+"""The common workload using Hayate's global-handler compatibility mode."""
 
 from hayate import Context, Hayate, Response
-from hayate.adapters.workers import to_workers
+from hayate.adapters.workers import to_workers_global
 
 app = Hayate()
 
@@ -32,4 +32,4 @@ for index in range(64):
     app.get(f"/route{index}/:key")(route)
 
 
-Default = to_workers(app)
+on_fetch = to_workers_global(app)

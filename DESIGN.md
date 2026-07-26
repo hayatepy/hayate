@@ -270,7 +270,7 @@ JWT(HS256 は stdlib の hmac で可、RS256 等は `hayate-jwt` extra)のよう
 | 論点 | 決定 | 理由 |
 |---|---|---|
 | 非同期基盤 | **asyncio のみ**(anyio 非依存) | 依存最小化方針。内部で使うのは await / TaskGroup / timeout の最小サブセットなので、将来 anyio 対応が必要になっても表面 API は変わらない |
-| sync ハンドラ | 許容し、登録時に検出して `asyncio.to_thread` 実行に**正規化**。ただし **ASGI 系アダプタ限定機能**(Pyodide にはスレッドがないため Workers では async ハンドラのみ) | 実行機構は coroutine チェーン 1 本のまま(単一経路)。free-threading 時代に価値が上がる |
+| sync ハンドラ | 許容し、登録時に検出。native Python では `asyncio.to_thread`、threadless Pyodide では同一 event loop 上で inline 実行 | Workers の inline sync は短い CPU 処理・即時レスポンス用。I/O は async handler を使う。free-threading 時代にも価値が上がる |
 | タイムアウト | `asyncio.timeout` ベースの `timeout` ミドルウェア | 標準機構の再利用 |
 | キャンセル | `request.signal` ⇔ asyncio cancellation のブリッジ。既定は継続、opt-in で中断 | §4.5 |
 | free-threading(3.13t/3.14t) | コアをグローバル可変状態ゼロで設計し、CI に free-threaded ビルドを含める | 「対応」は設計制約であって機能ではない |

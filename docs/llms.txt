@@ -28,7 +28,9 @@ Key facts for code generation:
 - Testing: `res = await app.request("/path", method="POST", json={...})`,
   then `res.status`, `await res.json()` — no server or test client
 - Runtimes: ASGI (`uvicorn main:app`), Workers
-  (`Default = to_workers(app)` from `hayate.adapters.workers`), Lambda
+  (`Default = to_workers(app)`; HTTP-only throughput compatibility mode:
+  `on_fetch = to_workers_global(app)` plus
+  `disable_python_no_global_handlers`), Lambda
   (`handler = to_lambda(app)` from `hayate.adapters.aws`)
 
 ## Docs

@@ -18,6 +18,8 @@ from .body import Body, BodyInit
 from .headers import Headers
 
 _REDIRECT_STATUSES = (301, 302, 303, 307, 308)
+_EMPTY_HEADER_PAIRS: tuple[tuple[str, str], ...] = ()
+_TEXT_HEADER_PAIRS = (("content-type", "text/plain;charset=utf-8"),)
 
 
 class Response(Body):
@@ -26,25 +28,61 @@ class Response(Body):
     Adapters translate it to whatever each runtime speaks.
     """
 
-    __slots__ = ("_background", "headers", "status")
+    __slots__ = ("_background", "_header_pairs", "_headers", "_text_body", "status")
 
     def __init__(
         self,
         body: BodyInit = None,
         status: int = 200,
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        *,
+        _default_content_type: str | None = None,
     ) -> None:
         if not 100 <= status <= 599:
             raise ValueError(f"status must be in 100-599, got {status}")
         # Internal contract: an ExecutionContext with pending wait_until()
         # work, drained by the adapter (or app.request) after delivery.
         self._background: Any = None
+        # Adapters that natively accept text can avoid bytes -> Uint8Array FFI.
+        self._text_body = body if isinstance(body, str) else None
         self.status = status
-        self.headers = Headers(headers)
-        # Per Fetch: a text body implies text/plain;charset=UTF-8 unless set.
-        if isinstance(body, str) and not self.headers.has("content-type"):
-            self.headers._append_trusted("content-type", "text/plain;charset=utf-8")
-        self._init_body(body)
+        default_content_type = (
+            _default_content_type
+            if _default_content_type is not None
+            else ("text/plain;charset=utf-8" if isinstance(body, str) else None)
+        )
+        if headers is None:
+            self._headers: Headers | None = None
+            if default_content_type is None:
+                self._header_pairs = _EMPTY_HEADER_PAIRS
+            elif default_content_type == "text/plain;charset=utf-8":
+                self._header_pairs = _TEXT_HEADER_PAIRS
+            else:
+                self._header_pairs = (("content-type", default_content_type),)
+        else:
+            self._headers = Headers(headers)
+            self._header_pairs = _EMPTY_HEADER_PAIRS
+            if default_content_type is not None and not self._headers.has("content-type"):
+                self._headers._append_trusted("content-type", default_content_type)
+        if isinstance(body, str):
+            self._init_text_body(body)
+        else:
+            self._init_body(body)
+
+    @property
+    def headers(self) -> Headers:
+        headers = self._headers
+        if headers is None:
+            headers = Headers._from_trusted_pairs(list(self._header_pairs))
+            self._headers = headers
+            self._header_pairs = _EMPTY_HEADER_PAIRS
+        return headers
+
+    def _header_pairs_for_adapter(
+        self,
+    ) -> list[tuple[str, str]] | tuple[tuple[str, str], ...]:
+        headers = self._headers
+        return self._header_pairs if headers is None else headers._raw_for_adapter()
 
     @property
     def ok(self) -> bool:

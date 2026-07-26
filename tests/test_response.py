@@ -7,6 +7,7 @@ from hayate import Response
 
 async def test_str_body_sets_text_plain():
     res = Response("hi")
+    assert res._buffer is None
     assert res.headers.get("content-type") == "text/plain;charset=utf-8"
     assert await res.text() == "hi"
 

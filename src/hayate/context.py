@@ -18,7 +18,7 @@ from .sse import SSEMessage, event_stream
 
 type Next = Callable[[], Awaitable[None]]
 type HeadersArg = Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None
-type Handler = Callable[["Context"], Awaitable[Response | None]]
+type Handler = Callable[["Context"], Awaitable[Response | None] | Response | None]
 type Middleware = Callable[["Context", Next], Awaitable[Response | None]]
 type ErrorHandler = Callable[[Exception, "Context"], Awaitable[Response]]
 
@@ -54,12 +54,27 @@ class ExecutionContext:
 class Context:
     """The one object handlers and middleware receive: request, env, and response helpers."""
 
-    __slots__ = ("_exec", "_header_ops", "_res", "_vars", "env", "req")
+    __slots__ = (
+        "_exec",
+        "_exec_arg1",
+        "_exec_arg2",
+        "_exec_factory",
+        "_external_exec",
+        "_header_ops",
+        "_res",
+        "_vars",
+        "env",
+        "req",
+    )
 
     def __init__(self, req: HayateRequest, env: Any, exec_ctx: ExecutionContext | None) -> None:
         self.req = req
         self.env = env
         self._exec = exec_ctx
+        self._exec_factory: Callable[[Any, Any], ExecutionContext] | None = None
+        self._exec_arg1: Any = None
+        self._exec_arg2: Any = None
+        self._external_exec = exec_ctx is not None
         self._res: Response | None = None
         # Lazily created — most requests never use per-request variables
         # or staged headers, so they should not pay for the allocations.
@@ -91,11 +106,35 @@ class Context:
 
     # -- deferred work -------------------------------------------------------
 
+    def _init_platform_execution(
+        self,
+        factory: Callable[[Any, Any], ExecutionContext],
+        arg1: Any,
+        arg2: Any,
+    ) -> None:
+        """Adapter hook: materialize an external execution context on access."""
+        self._exec_factory = factory
+        self._exec_arg1 = arg1
+        self._exec_arg2 = arg2
+        self._external_exec = True
+
+    def _ensure_execution_context(self) -> ExecutionContext:
+        exec_ctx = self._exec
+        if exec_ctx is None:
+            factory = self._exec_factory
+            if factory is None:
+                exec_ctx = ExecutionContext()
+            else:
+                exec_ctx = factory(self._exec_arg1, self._exec_arg2)
+                self._exec_factory = None
+                self._exec_arg1 = None
+                self._exec_arg2 = None
+            self._exec = exec_ctx
+        return exec_ctx
+
     def wait_until(self, awaitable: Awaitable[Any]) -> None:
         """Run work after the response is sent (Workers ``ctx.waitUntil``)."""
-        if self._exec is None:
-            self._exec = ExecutionContext()
-        self._exec.wait_until(awaitable)
+        self._ensure_execution_context().wait_until(awaitable)
 
     # -- response header staging ----------------------------------------------
 
@@ -117,14 +156,15 @@ class Context:
     # -- response helpers -------------------------------------------------------
 
     def json(self, data: Any, status: int = 200, headers: HeadersArg = None) -> Response:
-        if headers is None:
-            merged = Headers()
-            merged._append_trusted("content-type", "application/json")
-        else:
-            merged = Headers(headers)
-            if not merged.has("content-type"):
-                merged._append_trusted("content-type", "application/json")
-        return Response(dumps_compact(data), status, headers=merged)
+        # Build the response's Headers once, then add the trusted default in
+        # place. The text stays unencoded for runtimes that accept it natively.
+        text = dumps_compact(data)
+        return Response(
+            text,
+            status,
+            headers=headers,
+            _default_content_type="application/json",
+        )
 
     def text(self, text: str, status: int = 200, headers: HeadersArg = None) -> Response:
         return Response(text, status, headers=headers)
