@@ -49,11 +49,13 @@ All notable changes to hayate are documented here.
 - Exclude bytecode caches, distribution metadata, and non-Workers adapters
   from example and benchmark Worker uploads. The metadata trade-off is
   documented, and every Python benchmark target uses the same exclusion list.
-- Reach throughput parity with Hono on the reproducible native Workers
-  workload through the explicit global-handler compatibility path: 2,746.5
-  versus 2,734.1 requests/second geometric mean, with all 72 samples and
-  1,649,632 requests free of errors, timeouts, and non-2xx responses. The
-  default class entrypoint, startup, upload size, CPU, and memory gaps remain
+- Reach the framework-free Python runtime ceiling on the reproducible native
+  Workers workload through the explicit global-handler compatibility path:
+  2,684.6 versus raw Python's 2,686.1 requests/second geometric mean (99.94%).
+  The class entrypoint reaches 98.74% of its direct-JS control. Hono remains
+  3.21% ahead while Hayate passes 14/14 versus 12/14 HTTP contract cases.
+  All 72 samples and 1,626,628 requests are free of errors, timeouts, and
+  non-2xx responses; startup, upload size, CPU, and memory gaps remain
   reported rather than hidden.
 
 ### Fixed
