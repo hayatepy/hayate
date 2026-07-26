@@ -1,5 +1,5 @@
 name = "hayate-example"
-main = "entry.py"
+main = "src/entry.py"
 compatibility_date = "2026-07-01"
 compatibility_flags = ["python_workers"]
 

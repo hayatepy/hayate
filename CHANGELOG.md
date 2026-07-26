@@ -4,6 +4,19 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-07-26
+
+### Fixed
+
+- Load the public `hayate.adapters.ASGIAdapter` export lazily so Workers-only
+  deployments can omit ASGI and AWS adapter modules without breaking package
+  import. The real-workerd gate now builds Wrangler's dry-run bundle, verifies
+  every documented exclusion against its contents, records compressed upload
+  size, and retains the UTS-46 internationalized-host contract.
+- Put the Workers example entrypoint under `src/`, making that directory
+  Wrangler's module root so project virtual environments, tests, and
+  management scripts cannot be discovered as application modules.
+
 ## [0.11.0] - 2026-07-26
 
 ### Added
