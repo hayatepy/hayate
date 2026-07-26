@@ -1,0 +1,89 @@
+name: Ecosystem compatibility
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/ecosystem-compatibility.yml"
+      - "benchmarks/ecosystem/**"
+      - "docs/ecosystem-compatibility.md"
+      - "mkdocs.yml"
+      - "pyproject.toml"
+      - "src/**"
+      - "tests/fixtures/ecosystem/**"
+      - "tests/test_ecosystem_compatibility.py"
+      - "uv.lock"
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ecosystem-compatibility-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.14"
+      - name: Test ecosystem heads
+        run: >-
+          uv run --no-project python benchmarks/ecosystem/runner.py smoke
+          --output ecosystem-compatibility.json
+      - if: always()
+        run: |
+          if test -f ecosystem-compatibility.md; then
+            cat ecosystem-compatibility.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ecosystem-compatibility-smoke-${{ github.run_id }}
+          path: |
+            ecosystem-compatibility.json
+            ecosystem-compatibility.md
+          if-no-files-found: error
+
+  full:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.14"
+      - name: Test ecosystem heads
+        run: >-
+          uv run --no-project python benchmarks/ecosystem/runner.py full
+          --output ecosystem-compatibility.json
+      - if: always()
+        run: |
+          if test -f ecosystem-compatibility.md; then
+            cat ecosystem-compatibility.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ecosystem-compatibility-full-${{ github.run_id }}
+          path: |
+            ecosystem-compatibility.json
+            ecosystem-compatibility.md
+          if-no-files-found: error
