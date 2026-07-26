@@ -1,5 +1,9 @@
 # hayate
 
+> **Hayate ecosystem:** [Start here](https://github.com/hayatepy/.github/blob/main/docs/START.md)
+> · [Production golden app](https://github.com/hayatepy/golden-app)
+> · [Tested compatibility](https://github.com/hayatepy/.github/blob/main/docs/COMPATIBILITY.md)
+
 **Web-standards-first Python web framework, inspired by [Hono](https://hono.dev).**
 
 hayate (疾風, *swift wind*) brings the Fetch API model to Python. Everything you
