@@ -36,6 +36,12 @@ All notable changes to hayate are documented here.
   contexts, UTF-8 response encoding, and body reads until application code
   observes them. Regular HTTP responses use the platform `Response`
   constructor directly while WebSocket upgrades retain the SDK extension.
+- Reach throughput parity with Hono on the reproducible native Workers
+  workload through the explicit global-handler compatibility path: 2,746.5
+  versus 2,734.1 requests/second geometric mean, with all 72 samples and
+  1,649,632 requests free of errors, timeouts, and non-2xx responses. The
+  default class entrypoint, startup, upload size, CPU, and memory gaps remain
+  reported rather than hidden.
 
 ### Fixed
 

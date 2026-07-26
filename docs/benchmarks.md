@@ -18,9 +18,11 @@ Do not combine their request rates: they measure different boundaries.
 
 The native Workers methodology and reproduction command live under
 [`benchmarks/competitive/workers/`](https://github.com/hayatepy/hayate/tree/main/benchmarks/competitive/workers).
-Hayate enters through `WorkerEntrypoint.fetch`, so ASGI, Uvicorn, and h11 are
-absent. The raw target separates framework cost from the Python runtime/SDK
-boundary. The local process-start metric is deliberately not labeled as a
+The default Hayate target enters through `WorkerEntrypoint.fetch`;
+`hayate-global` separately measures Cloudflare's global-handler compatibility
+path. ASGI, Uvicorn, and h11 are absent from both. Three framework-free Python
+controls separate framework cost, FFI cost, and the current class-entrypoint
+RPC wrapper. The local process-start metric is deliberately not labeled as a
 deployed Cloudflare edge cold start.
 
 ## Native Cloudflare Workers benchmark
@@ -28,20 +30,33 @@ deployed Cloudflare edge cold start.
 The recorded 2026-07-26 baseline used Apple M2 Pro/macOS 26.5.1 arm64,
 CPython 3.14.6, Node 24.18.0, Wrangler 4.114.0, and workerd
 1.20260722.1. It ran 20 connections for 10 seconds per scenario across three
-rotating rounds. All 36 samples and 757,430 requests completed with zero
+rotating rounds. All 72 samples and 1,649,632 requests completed with zero
 errors, timeouts, or non-2xx responses.
 
 | Target | Local first response | gzip upload | Throughput geo mean | CPU s / 1k req | Peak tree RSS | HTTP contract |
 |---|---:|---:|---:|---:|---:|---:|
-| **hayate 0.10.0** | 2,568.5 ms | 354.1 KiB | **1,665 req/s** | 0.9812 | 1,753.3 MiB | **14/14 (100%)** |
-| raw Python SDK 1.6.3 | 3,371.2 ms | 125.2 KiB | 1,829 req/s | 0.9156 | 1,396.0 MiB | **14/14 (100%)** |
-| Hono 4.12.32 | **573.0 ms** | **38.0 KiB** | **2,774 req/s** | **0.5155** | **1,174.0 MiB** | 12/14 (85.7%) |
+| hayate 0.10.0, class | 2,378.3 ms | 363.7 KiB | 1,803 req/s | 0.9265 | 1,794.6 MiB | **14/14 (100%)** |
+| **hayate 0.10.0, global** | 2,400.9 ms | 363.7 KiB | **2,746 req/s** | 0.5824 | 1,873.0 MiB | **14/14 (100%)** |
+| raw Python SDK, class | 2,236.4 ms | 125.2 KiB | 1,877 req/s | 0.8998 | 1,425.9 MiB | **14/14 (100%)** |
+| raw JS objects, class | 2,166.3 ms | 125.8 KiB | 1,849 req/s | 0.9168 | 1,409.1 MiB | **14/14 (100%)** |
+| raw JS objects, global | 2,148.3 ms | 125.8 KiB | 2,724 req/s | 0.5686 | 1,468.2 MiB | **14/14 (100%)** |
+| Hono 4.12.32 | **547.0 ms** | **38.0 KiB** | 2,734 req/s | **0.5267** | **1,150.7 MiB** | 12/14 (85.7%) |
 
-Hayate reached 91.1% of the framework-free Python runtime/SDK throughput
-ceiling. Hono remained 1.67x faster than Hayate and used less CPU, memory,
-startup time, and upload payload; Hayate preserved the stronger RFC 9110
-method/HEAD contract. These resource figures are for a local Wrangler process
-tree, not a deployed edge isolate.
+On the HTTP-focused global-handler path, Hayate measured 2,746.5 req/s
+against Hono's 2,734.1 req/s: 100.5% of Hono's geometric mean. The individual
+workloads ranged from 97.5% (64 routes) to 102.3% (dynamic JSON), while Hayate
+also passed the two RFC 9110 method/HEAD cases that Hono's default behavior
+did not.
+
+This is throughput parity, not overall platform parity. The current default
+class entrypoint reached only 66.0% of Hono throughput; the equivalent raw
+controls reproduce the same class/global split, attributing it to the current
+Python Workers entrypoint boundary rather than Hayate routing. Even on the
+global path, Hayate used 10.6% more CPU per request, 1.63x peak process-tree
+RSS, 9.57x upload payload, and 4.39x local startup time. The global path also
+requires `disable_python_no_global_handlers`, so it is an explicit
+compatibility choice rather than Cloudflare's current default. These resource
+figures are for a local Wrangler process tree, not a deployed edge isolate.
 
 The full native Workers [raw report](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/workers/results/2026-07-26-macos-arm64.json)
 and [rendered summary](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/workers/results/2026-07-26-macos-arm64.md)
