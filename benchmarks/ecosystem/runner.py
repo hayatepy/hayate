@@ -149,6 +149,19 @@ def _python_executable(repository: Path) -> Path:
     return repository / ".venv" / directory / executable
 
 
+def _workerd_environment(wheel: Path) -> dict[str, str]:
+    """Isolate Workers' pinned Python from the outer CPython test runtime."""
+
+    env = os.environ.copy()
+    # setup-uv exports UV_PYTHON for the job, while Workers projects pin
+    # CPython/Pyodide 3.13 themselves. A parent venv has the same precedence
+    # problem for generated projects, so neither may cross this boundary.
+    env.pop("UV_PYTHON", None)
+    env.pop("VIRTUAL_ENV", None)
+    env["HAYATE_ECOSYSTEM_WHEEL"] = str(wheel)
+    return env
+
+
 class CompatibilityRun:
     """Stateful compatibility run that always produces an audit artifact."""
 
@@ -441,8 +454,7 @@ class CompatibilityRun:
             )
             return
         assert self.wheel is not None
-        env = os.environ.copy()
-        env["HAYATE_ECOSYSTEM_WHEEL"] = str(self.wheel)
+        env = _workerd_environment(self.wheel)
         if target.name == "hayate-mcp":
             self.run_command(
                 target=target.name,

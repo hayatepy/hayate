@@ -117,3 +117,15 @@ def test_workerd_target_requires_node_24(tmp_path, monkeypatch):
 
     assert run.verify_node_24() is False
     assert run.checks[-1].status == "failed"
+
+
+def test_workerd_environment_does_not_inherit_outer_python(tmp_path, monkeypatch):
+    wheel = tmp_path / "hayate.whl"
+    monkeypatch.setenv("UV_PYTHON", "3.14")
+    monkeypatch.setenv("VIRTUAL_ENV", "/outer/.venv")
+
+    env = runner._workerd_environment(wheel)
+
+    assert "UV_PYTHON" not in env
+    assert "VIRTUAL_ENV" not in env
+    assert env["HAYATE_ECOSYSTEM_WHEEL"] == str(wheel)
