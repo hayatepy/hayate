@@ -4,6 +4,13 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-07-26
+
+### Changed
+
+- Link the canonical ecosystem start page, production golden app, and tested
+  compatibility evidence from the package description and core documentation.
+
 ## [0.11.1] - 2026-07-26
 
 ### Fixed
