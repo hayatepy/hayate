@@ -3,6 +3,7 @@
 import pytest
 
 from hayate import AbortSignal, File, Request
+from hayate.request import HayateRequest
 
 
 async def test_body_bytes_and_reuse_forbidden():
@@ -142,6 +143,15 @@ def test_adapter_signal_factory_is_lazy_and_releasable():
     assert signal.source is source
     request._release_platform_signal()
     assert signal.releases == 1
+
+
+def test_routed_requests_share_the_immutable_empty_params_mapping():
+    first = HayateRequest(Request("http://x/"))
+    second = HayateRequest(Request("http://x/"))
+
+    assert first._params is second._params
+    assert first.param("missing") is None
+    assert first.params == {}
 
 
 def test_trusted_platform_url_is_parsed_only_when_observed():

@@ -80,7 +80,7 @@ class WorkerTarget:
         ]
 
 
-TARGETS = (
+ALL_TARGETS = (
     WorkerTarget("hayate", python=True),
     WorkerTarget("hayate-global", python=True),
     WorkerTarget("raw-python", python=True),
@@ -88,6 +88,7 @@ TARGETS = (
     WorkerTarget("raw-global", python=True),
     WorkerTarget("hono"),
 )
+TARGETS = ALL_TARGETS
 
 
 @dataclass(frozen=True, slots=True)
@@ -820,20 +821,47 @@ def _add_measure_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
 
 
+def _add_target_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--targets",
+        help="comma-separated target names; default: all",
+    )
+
+
+def _select_targets(value: str | None) -> tuple[WorkerTarget, ...]:
+    if value is None:
+        return ALL_TARGETS
+    names = [name.strip() for name in value.split(",") if name.strip()]
+    requested = set(names)
+    known = {target.name for target in ALL_TARGETS}
+    unknown = requested - known
+    if unknown:
+        raise SystemExit(f"unknown Workers benchmark target(s): {', '.join(sorted(unknown))}")
+    if not requested:
+        raise SystemExit("--targets must contain at least one target name")
+    return tuple(target for target in ALL_TARGETS if target.name in requested)
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
-    subparsers.add_parser("setup", help="prepare all locked Worker fixtures")
-    subparsers.add_parser("verify", help="setup and run only the common HTTP contract")
+    setup_parser = subparsers.add_parser("setup", help="prepare locked Worker fixtures")
+    _add_target_argument(setup_parser)
+    verify_parser = subparsers.add_parser("verify", help="setup and run the common HTTP contract")
+    _add_target_argument(verify_parser)
     run_parser = subparsers.add_parser("run", help="measure prepared fixtures")
+    _add_target_argument(run_parser)
     _add_measure_arguments(run_parser)
     all_parser = subparsers.add_parser("all", help="setup, verify, and measure")
+    _add_target_argument(all_parser)
     _add_measure_arguments(all_parser)
     return parser.parse_args()
 
 
 def main() -> None:
+    global TARGETS
     args = _parse_args()
+    TARGETS = _select_targets(args.targets)
     if args.command == "setup":
         setup()
         return

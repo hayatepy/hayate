@@ -91,6 +91,9 @@ class _Runtime:
     """Handles to the Workers runtime pieces, resolved once per entrypoint."""
 
     __slots__ = (
+        "_last_response_options",
+        "_last_response_pairs",
+        "_last_response_status",
         "_response_options",
         "direct_response",
         "direct_response_cls",
@@ -110,6 +113,9 @@ class _Runtime:
         self.response_cls = workers_module.Response
         self.object_cls = js_module.Object if self.direct_response else None
         self._response_options: dict[tuple[int, tuple[tuple[str, str], ...]], Any] = {}
+        self._last_response_status = 0
+        self._last_response_pairs: Sequence[tuple[str, str]] | None = None
+        self._last_response_options: Any = None
         try:
             self.readable_stream_cls = js_module.ReadableStream
         except AttributeError:  # a runtime without streams: responses are buffered
@@ -121,20 +127,24 @@ class _Runtime:
 
     def response_options(self, status: int, pairs: Sequence[tuple[str, str]]) -> Any:
         """Return a cached JS ResponseInit for stable status/header sets."""
+        if status == self._last_response_status and pairs is self._last_response_pairs:
+            return self._last_response_options
         key = (status, tuple(pairs))
         options = self._response_options.get(key)
-        if options is not None:
-            return options
-        if len(self._response_options) >= 128:
-            oldest = next(iter(self._response_options))
-            _destroy(self._response_options.pop(oldest))
-        assert self.object_cls is not None
-        assert _to_js is not None
-        options = _to_js(
-            {"status": status, "headers": pairs},
-            dict_converter=self.object_cls.fromEntries,
-        )
-        self._response_options[key] = options
+        if options is None:
+            if len(self._response_options) >= 128:
+                oldest = next(iter(self._response_options))
+                _destroy(self._response_options.pop(oldest))
+            assert self.object_cls is not None
+            assert _to_js is not None
+            options = _to_js(
+                {"status": status, "headers": pairs},
+                dict_converter=self.object_cls.fromEntries,
+            )
+            self._response_options[key] = options
+        self._last_response_status = status
+        self._last_response_pairs = pairs
+        self._last_response_options = options
         return options
 
 
@@ -172,14 +182,7 @@ def _url_from_trusted(href: str) -> URL:
     probes) would only redo its work — the component split is ~10x
     cheaper (measured). Anything surprising falls back to the parser.
     """
-    scheme, sep, rest = href.partition("://")
-    if not sep or not scheme or "#" in rest:
-        return URL(href)  # not a served request URL; take the strict path
-    authority, slash, path_query = rest.partition("/")
-    if "@" in authority or not authority:
-        return URL(href)  # userinfo never appears in served URLs
-    path, _, query = path_query.partition("?")
-    return URL._from_server(scheme, authority, slash + path if slash else "/", query)
+    return URL._from_trusted_href(href)
 
 
 def _pathname_from_trusted(href: str) -> str:
@@ -417,34 +420,30 @@ def _finish_hayate_request(
     platform_body: _WorkersBody | None,
 ) -> Request:
     href = str(raw_request.url)
-    request = Request(
+    return Request._from_platform(
         href,
-        method=method,
+        method,
+        _pathname_from_trusted(href),
+        header_source=raw_request,
+        header_loader=_raw_request_headers_to_pairs,
         body=body,
-        _trusted_pathname=_pathname_from_trusted(href),
-        _header_source=raw_request,
-        _header_loader=_raw_request_headers_to_pairs,
+        platform_body=platform_body,
+        signal_source=raw_request,
+        signal_factory=_WorkersAbortSignal,
     )
-    request._init_platform_signal(raw_request, _WorkersAbortSignal)
-    if platform_body is not None:
-        request._init_platform_body(platform_body)
-    return request
 
 
 def _release_hayate_request(request: Request) -> None:
     """Release only the platform resources application code materialized."""
+    if request._signal is None:
+        return
     try:  # noqa: SIM105 - avoid a context-manager allocation on every request
         request._release_platform_signal()
     except Exception:
         pass
 
 
-def _to_hayate_request(
-    js_request: Any,
-) -> Request | Awaitable[Request]:
-    raw_request = getattr(js_request, "js_object", None)
-    if raw_request is None:
-        raw_request = js_request
+def _translate_raw_request(js_request: Any, raw_request: Any) -> Request | Awaitable[Request]:
     method_value = raw_request.method
     # workers-py returns HTTPMethod on some Pyodide builds and a string on
     # others. ``.value`` is stable across both CPython 3.13/3.14 runtime
@@ -475,6 +474,16 @@ def _to_hayate_request(
 
             return buffered()
     return _finish_hayate_request(raw_request, method, body, platform_body)
+
+
+def _to_hayate_request(
+    js_request: Any,
+) -> Request | Awaitable[Request]:
+    raw_request = getattr(js_request, "js_object", None)
+    return _translate_raw_request(
+        js_request,
+        js_request if raw_request is None else raw_request,
+    )
 
 
 def _js_stream_from_body(
@@ -550,10 +559,22 @@ def _finish_workers_response(
 def _to_workers_response(
     response: Response, runtime: _Runtime, request: Request
 ) -> Any | Awaitable[Any]:
-    platform_response = getattr(response, "platform_response", None)
-    if platform_response is not None:  # forward(): return it untouched
+    if isinstance(response, _PassthroughResponse):  # forward(): return it untouched
         _release_hayate_request(request)
-        return platform_response
+        return response.platform_response
+    if (
+        runtime.direct_response
+        and response._text_body is not None
+        and response.status not in _NULL_BODY_STATUSES
+    ):
+        pairs = response._header_pairs_for_adapter()
+        _release_hayate_request(request)
+        direct_response_cls = runtime.direct_response_cls
+        assert direct_response_cls is not None
+        return direct_response_cls.new(
+            response._text_body,
+            runtime.response_options(response.status, pairs),
+        )
     # Hand the Python sequence to workers.Response. Its SDK owns the
     # temporary JS Headers lifetime; retaining a Headers JsProxy here grows
     # Pyodide's proxy table under sustained load.
@@ -817,6 +838,22 @@ def _handle_fetch(
     return complete_translation()
 
 
+def _handle_raw_fetch(
+    app: Hayate, js_request: Any, js_ctx: Any, env: Any, runtime: _Runtime
+) -> Any | Awaitable[Any]:
+    """Global-handler path where workerd already guarantees a raw Request."""
+    translated = _translate_raw_request(js_request, js_request)
+    if isinstance(translated, Request):
+        return _handle_translated_request(app, translated, js_request, js_ctx, env, runtime)
+
+    async def complete_translation() -> Any:
+        request = await translated
+        result = _handle_translated_request(app, request, js_request, js_ctx, env, runtime)
+        return await result if isinstance(result, CoroutineType) else result
+
+    return complete_translation()
+
+
 def to_workers(app: Hayate) -> type:
     """Build the Workers entrypoint class: ``Default = to_workers(app)``."""
     WorkerEntrypoint = import_module("workers").WorkerEntrypoint
@@ -857,7 +894,7 @@ def to_workers_global(app: Hayate) -> Callable[[Any, Any], Any]:
     js_ctx = GlobalExecutionContext()
 
     def on_fetch(request: Any, env: Any) -> Any:
-        return _handle_fetch(app, request, js_ctx, env, runtime)
+        return _handle_raw_fetch(app, request, js_ctx, env, runtime)
 
     return on_fetch
 

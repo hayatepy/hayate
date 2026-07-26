@@ -20,6 +20,7 @@ from .headers import Headers
 _REDIRECT_STATUSES = (301, 302, 303, 307, 308)
 _EMPTY_HEADER_PAIRS: tuple[tuple[str, str], ...] = ()
 _TEXT_HEADER_PAIRS = (("content-type", "text/plain;charset=utf-8"),)
+_JSON_HEADER_PAIRS = (("content-type", "application/json"),)
 
 
 class Response(Body):
@@ -57,6 +58,8 @@ class Response(Body):
                 self._header_pairs = _EMPTY_HEADER_PAIRS
             elif default_content_type == "text/plain;charset=utf-8":
                 self._header_pairs = _TEXT_HEADER_PAIRS
+            elif default_content_type == "application/json":
+                self._header_pairs = _JSON_HEADER_PAIRS
             else:
                 self._header_pairs = (("content-type", default_content_type),)
         else:
@@ -68,6 +71,37 @@ class Response(Body):
             self._init_text_body(body)
         else:
             self._init_body(body)
+
+    @classmethod
+    def _from_text(
+        cls,
+        text: str,
+        status: int,
+        headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None,
+        content_type: str,
+    ) -> Response:
+        """Build a trusted text response for Context helpers in one pass."""
+        if headers is not None:
+            return cls(text, status, headers=headers, _default_content_type=content_type)
+        if not 100 <= status <= 599:
+            raise ValueError(f"status must be in 100-599, got {status}")
+        if content_type == "application/json":
+            header_pairs = _JSON_HEADER_PAIRS
+        elif content_type == "text/plain;charset=utf-8":
+            header_pairs = _TEXT_HEADER_PAIRS
+        else:
+            return cls(text, status, _default_content_type=content_type)
+        response = cls.__new__(cls)
+        response._background = None
+        response._text_body = text
+        response.status = status
+        response._headers = None
+        response._header_pairs = header_pairs
+        response._used = False
+        response._platform = None
+        response._buffer = None
+        response._stream = None
+        return response
 
     @property
     def headers(self) -> Headers:

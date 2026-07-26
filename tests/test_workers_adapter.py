@@ -536,6 +536,11 @@ async def test_direct_js_response_reuses_options_and_releases_body_proxy(monkeyp
     assert options[0].destroys == 1
     assert all(option.destroys == 0 for option in options[1:])
 
+    shared_pairs = (("content-type", "application/json"),)
+    shared_options = runtime.response_options(200, shared_pairs)
+    assert runtime.response_options(200, shared_pairs) is shared_options
+    assert runtime._last_response_pairs is shared_pairs
+
 
 async def test_streaming_response_becomes_a_readable_stream(workers_streaming_runtime):
     js_response = await _entry(_streaming_app()).fetch(FakeJsRequest("https://edge.example/stream"))

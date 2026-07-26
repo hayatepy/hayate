@@ -20,6 +20,8 @@ from .formdata import FormData, parse_header_params, parse_multipart
 from .headers import Headers
 from .url import URL, parse_form_urlencoded
 
+_EMPTY_PARAMS: dict[str, str | None] = {}
+
 
 class _TeeSource:
     """Buffers an async byte stream so two readers can replay it (``clone()``)."""
@@ -123,11 +125,48 @@ class Request(Body):
         self._signal_source: Any = None
         self._init_body(body)
 
+    @classmethod
+    def _from_platform(
+        cls,
+        href: str,
+        method: str,
+        pathname: str,
+        *,
+        header_source: Any,
+        header_loader: Callable[[Any], list[tuple[str, str]]],
+        body: bytes | None,
+        platform_body: AsyncIterable[bytes] | None,
+        signal_source: Any,
+        signal_factory: Callable[[Any], AbortSignal],
+    ) -> Request:
+        """Build from transport-validated components without reinitializing.
+
+        Adapters have already normalized the URL, method, headers, body, and
+        signal shapes. Assigning the final lazy state once avoids running the
+        public constructor's validation branches and then overwriting its
+        body/signal state with platform bridges.
+        """
+        request = cls.__new__(cls)
+        request._url = href
+        request._routing_pathname = pathname
+        request.method = method
+        request._headers = None
+        request._header_source = header_source
+        request._header_loader = header_loader
+        request._signal = None
+        request._signal_factory = signal_factory
+        request._signal_source = signal_source
+        request._used = False
+        request._platform = platform_body
+        request._buffer = body
+        request._stream = platform_body
+        return request
+
     @property
     def url(self) -> URL:
         url = self._url
         if isinstance(url, str):
-            url = URL(url)
+            url = URL(url) if self._routing_pathname is None else URL._from_trusted_href(url)
             self._url = url
         return url
 
@@ -230,7 +269,10 @@ class HayateRequest:
 
     def __init__(self, raw: Request) -> None:
         self.raw = raw
-        self._params: dict[str, str | None] = {}
+        # Routing replaces this reference for parameterized matches. The
+        # empty mapping is immutable by convention and shared by static,
+        # not-found, and method-mismatch requests.
+        self._params = _EMPTY_PARAMS
         self._validated: dict[str, Any] | None = None
 
     @property

@@ -58,6 +58,27 @@ def test_same_shape_parameters_keep_the_first_registration():
     assert params == {"a": "x"}
 
 
+def test_terminal_parameter_fast_path_preserves_earlier_general_route():
+    router = _router(("GET", "/:kind/:id"), ("GET", "/users/:name"))
+    route, params = router.match("GET", "/users/42")
+    assert route.handler == "GET /:kind/:id"
+    assert params == {"kind": "users", "id": "42"}
+
+
+def test_terminal_parameter_fast_path_preserves_earlier_regex_route():
+    router = _router(("GET", r"/users/:id(\d+)"), ("GET", "/users/:name"))
+    route, params = router.match("GET", "/users/42")
+    assert route.handler == r"GET /users/:id(\d+)"
+    assert params == {"id": "42"}
+
+
+def test_terminal_parameter_fast_path_keeps_earlier_terminal_route():
+    router = _router(("GET", "/users/:name"), ("GET", r"/users/:id(\d+)"))
+    route, params = router.match("GET", "/users/42")
+    assert route.handler == "GET /users/:name"
+    assert params == {"name": "42"}
+
+
 def test_trailing_slash_is_significant():
     router = _router(("GET", "/t/:id/"))
     assert router.match("GET", "/t/x/") is not None

@@ -86,26 +86,27 @@ Default = to_workers(app)   # WorkerEntrypoint サブクラスを生成
 ### 3.6 Hono と同一 workload の実測(2026-07-26)
 
 Wrangler 4.114.0 / workerd 1.20260722.1 を固定し、20 connections、
-10 秒 × 4 workload × 3 rotating rounds で測定した。全 72 sample、
-1,649,632 request は error / timeout / non-2xx がすべて 0。ASGI、
+10 秒 × 4 workload × 3 rotating rounds で再測定した。全 72 sample、
+1,626,628 request は error / timeout / non-2xx がすべて 0。ASGI、
 Uvicorn、h11 はどの Hayate Workers 経路にも存在しない。
 
-- `to_workers_global(app)`: **2,746.5 req/s**
-- Hono 4.12.32: **2,734.1 req/s**
-- `to_workers(app)`（現行標準の class entrypoint）: **1,803.3 req/s**
-- framework-free raw global control: **2,724.2 req/s**
-- framework-free raw class control: **1,848.9 req/s**
+- `to_workers_global(app)`: **2,684.6 req/s**
+- framework-free raw global control: **2,686.1 req/s**
+- Hono 4.12.32: **2,773.6 req/s**
+- `to_workers(app)`（現行標準の class entrypoint）: **1,816.8 req/s**
+- framework-free direct-JS class control: **1,840.0 req/s**
 
-global-handler compatibility path の Hayate は総合で Hono の 100.5%。
-workload 別にも static text 100.8%、dynamic JSON 102.3%、JSON echo
-101.3%、64 routes 97.5% と同等圏に入った。一方で class entrypoint は
-66.0% に留まり、raw control にも同じ差が出る。したがって残る最大の
-throughput 差は routing や ASGI ではなく、現行 Python Workers の
-`WorkerEntrypoint.fetch` RPC wrapper にある。
+global-handler compatibility path の Hayate は raw Python ceiling の
+**99.94%**。workload 別にも static text 101.0%、dynamic JSON 97.5%、
+JSON echo 100.9%、64 routes 100.4%、CPU/request は raw 比 +2.05% まで
+縮んだ。class entrypoint も direct-JS class control の 98.74% に達する。
+したがってこの workload に、Hayate が制御できる material な warm
+throughput gap は残っていない。Hono 比は 96.79% であり、残差は routing
+や ASGI ではなく Python/workerd 境界にある。
 
-ただし総合的には Hono 優位が残る。global 経路でも CPU/request は 10.6%
-多く、local startup は 4.39 倍、gzip upload は 9.57 倍、peak process-tree
-RSS は 1.63 倍だった。`request.text()` / `request.json()` が必要な body
+ただし総合的には Hono 優位が残る。global 経路でも CPU/request は 13.9%
+多く、local startup は 4.20 倍、gzip upload は 9.36 倍、peak process-tree
+RSS は 1.60 倍だった。`request.text()` / `request.json()` が必要な body
 workload には JS Promise → Python Future の Pyodide 境界も残る。
 `disable_python_no_global_handlers` を要する global 経路は HTTP 専用の
 明示的な互換モードとして提供し、scheduled/queue handler を含む標準経路は

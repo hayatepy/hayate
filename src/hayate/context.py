@@ -81,6 +81,29 @@ class Context:
         self._vars: dict[str, Any] | None = None
         self._header_ops: list[tuple[str, str, bool]] | None = None
 
+    @classmethod
+    def _from_adapter(
+        cls,
+        req: HayateRequest,
+        env: Any,
+        exec_factory: Callable[[Any, Any], ExecutionContext],
+        exec_arg1: Any,
+        exec_arg2: Any,
+    ) -> Context:
+        """Construct the final lazy adapter state in one pass."""
+        context = cls.__new__(cls)
+        context.req = req
+        context.env = env
+        context._exec = None
+        context._exec_factory = exec_factory
+        context._exec_arg1 = exec_arg1
+        context._exec_arg2 = exec_arg2
+        context._external_exec = True
+        context._res = None
+        context._vars = None
+        context._header_ops = None
+        return context
+
     # -- response ----------------------------------------------------------
 
     @property
@@ -159,15 +182,10 @@ class Context:
         # Build the response's Headers once, then add the trusted default in
         # place. The text stays unencoded for runtimes that accept it natively.
         text = dumps_compact(data)
-        return Response(
-            text,
-            status,
-            headers=headers,
-            _default_content_type="application/json",
-        )
+        return Response._from_text(text, status, headers, "application/json")
 
     def text(self, text: str, status: int = 200, headers: HeadersArg = None) -> Response:
-        return Response(text, status, headers=headers)
+        return Response._from_text(text, status, headers, "text/plain;charset=utf-8")
 
     def html(self, html: str, status: int = 200, headers: HeadersArg = None) -> Response:
         merged = Headers(headers)

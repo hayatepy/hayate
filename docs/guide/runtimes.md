@@ -128,6 +128,32 @@ mutations (`c.header()`) do not apply to it.
 A ready-to-deploy project lives at
 [`examples/workers/`](https://github.com/hayatepy/hayate/tree/main/examples/workers).
 
+### Smaller Python uploads
+
+Wrangler can omit modules that cannot execute in a Workers deployment. The
+example uses:
+
+```toml title="wrangler.toml"
+[python_modules]
+exclude = [
+  "**/*.pyc",
+  "**/__pycache__/**",
+  "**/*.dist-info/**",
+  "asgi.py",
+  "hayate/adapters/asgi.py",
+  "hayate/adapters/aws.py",
+  "workers/wsgi.py",
+]
+```
+
+This keeps the Fetch/Workers adapter, WebSocket support, Durable Objects, and
+the full URL implementation. The `*.dist-info` rule means
+`importlib.metadata` cannot inspect installed distributions at runtime; omit
+that one rule if your application needs package metadata. Do not exclude the
+`uts46` package: Hayate imports its mapping table only when constructing a URL
+with a non-ASCII host, but it is required to preserve the framework's complete
+WHATWG URL behavior.
+
 ## AWS Lambda (Function URLs / API Gateway HTTP API v2.0)
 
 ```python title="lambda_function.py"

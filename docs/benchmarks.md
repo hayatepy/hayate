@@ -30,31 +30,36 @@ deployed Cloudflare edge cold start.
 The recorded 2026-07-26 baseline used Apple M2 Pro/macOS 26.5.1 arm64,
 CPython 3.14.6, Node 24.18.0, Wrangler 4.114.0, and workerd
 1.20260722.1. It ran 20 connections for 10 seconds per scenario across three
-rotating rounds. All 72 samples and 1,649,632 requests completed with zero
+rotating rounds. All 72 samples and 1,626,628 requests completed with zero
 errors, timeouts, or non-2xx responses.
 
 | Target | Local first response | gzip upload | Throughput geo mean | CPU s / 1k req | Peak tree RSS | HTTP contract |
 |---|---:|---:|---:|---:|---:|---:|
-| hayate 0.10.0, class | 2,378.3 ms | 363.7 KiB | 1,803 req/s | 0.9265 | 1,794.6 MiB | **14/14 (100%)** |
-| **hayate 0.10.0, global** | 2,400.9 ms | 363.7 KiB | **2,746 req/s** | 0.5824 | 1,873.0 MiB | **14/14 (100%)** |
-| raw Python SDK, class | 2,236.4 ms | 125.2 KiB | 1,877 req/s | 0.8998 | 1,425.9 MiB | **14/14 (100%)** |
-| raw JS objects, class | 2,166.3 ms | 125.8 KiB | 1,849 req/s | 0.9168 | 1,409.1 MiB | **14/14 (100%)** |
-| raw JS objects, global | 2,148.3 ms | 125.8 KiB | 2,724 req/s | 0.5686 | 1,468.2 MiB | **14/14 (100%)** |
-| Hono 4.12.32 | **547.0 ms** | **38.0 KiB** | 2,734 req/s | **0.5267** | **1,150.7 MiB** | 12/14 (85.7%) |
+| hayate 0.10.0, class | 2,465.8 ms | 355.5 KiB | 1,817 req/s | **0.9200** | 1,760.9 MiB | **14/14 (100%)** |
+| **hayate 0.10.0, global** | 2,452.8 ms | 355.5 KiB | **2,685 req/s** | 0.5929 | 1,835.8 MiB | **14/14 (100%)** |
+| raw Python SDK, class | 2,366.2 ms | 123.7 KiB | 1,806 req/s | 0.9350 | 1,385.6 MiB | **14/14 (100%)** |
+| raw JS objects, class | 2,260.0 ms | 124.3 KiB | 1,840 req/s | 0.9209 | 1,399.2 MiB | **14/14 (100%)** |
+| raw JS objects, global | 2,250.6 ms | 124.3 KiB | 2,686 req/s | 0.5810 | 1,450.6 MiB | **14/14 (100%)** |
+| Hono 4.12.32 | **584.5 ms** | **38.0 KiB** | 2,774 req/s | **0.5203** | **1,150.3 MiB** | 12/14 (85.7%) |
 
-On the HTTP-focused global-handler path, Hayate measured 2,746.5 req/s
-against Hono's 2,734.1 req/s: 100.5% of Hono's geometric mean. The individual
-workloads ranged from 97.5% (64 routes) to 102.3% (dynamic JSON), while Hayate
-also passed the two RFC 9110 method/HEAD cases that Hono's default behavior
+On the HTTP-focused global-handler path, Hayate measured 2,684.6 req/s
+against the framework-free raw Python ceiling's 2,686.1 req/s: **99.94% of
+the runtime ceiling**. Its individual workloads reached 97.5–101.0% of their
+raw controls, and CPU per request was 2.05% above raw. The class entrypoint
+similarly reached 98.74% of the direct-JS class control. This leaves no
+material warm-throughput gap attributable to Hayate on this workload.
+
+Hono measured 2,773.6 req/s, so Hayate global reached 96.79% of Hono while
+also passing the two RFC 9110 method/HEAD cases that Hono's default behavior
 did not.
 
 This is throughput parity, not overall platform parity. The current default
-class entrypoint reached only 66.0% of Hono throughput; the equivalent raw
+class entrypoint reached only 65.5% of Hono throughput; the equivalent raw
 controls reproduce the same class/global split, attributing it to the current
 Python Workers entrypoint boundary rather than Hayate routing. Even on the
-global path, Hayate used 10.6% more CPU per request, 1.63x peak process-tree
-RSS, 9.57x upload payload, and 4.39x local startup time. The global path also
-requires `disable_python_no_global_handlers`, so it is an explicit
+global path, Hayate used 13.9% more CPU per request, 1.60x peak process-tree
+RSS, 9.36x upload payload, and 4.20x local startup time than Hono. The global
+path also requires `disable_python_no_global_handlers`, so it is an explicit
 compatibility choice rather than Cloudflare's current default. These resource
 figures are for a local Wrangler process tree, not a deployed edge isolate.
 

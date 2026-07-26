@@ -1,5 +1,8 @@
 """URL / URLSearchParams: WHATWG semantics (documented subset)."""
 
+import subprocess
+import sys
+
 import pytest
 
 from hayate import URL, URLSearchParams
@@ -88,6 +91,19 @@ def test_href_roundtrip():
 
 def test_equality():
     assert URL("http://a.com/x") == URL("http://A.COM/x")
+
+
+def test_uts46_mapping_table_import_is_lazy():
+    code = """
+import sys
+from hayate import URL
+assert "uts46.whatwg" not in sys.modules
+assert URL("https://example.com/path").hostname == "example.com"
+assert "uts46.whatwg" not in sys.modules
+assert URL("https://faß.de/").hostname == "xn--fa-hia.de"
+assert "uts46.whatwg" in sys.modules
+"""
+    subprocess.run([sys.executable, "-c", code], check=True)
 
 
 class TestURLSearchParams:
