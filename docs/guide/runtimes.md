@@ -127,6 +127,9 @@ mutations (`c.header()`) do not apply to it.
 
 A ready-to-deploy project lives at
 [`examples/workers/`](https://github.com/hayatepy/hayate/tree/main/examples/workers).
+Its Wrangler `main` is `src/entry.py`, so only application source under
+`src/` is discovered as a local Python module; project virtual environments,
+tests, and deployment-management scripts stay outside the module root.
 
 ### Smaller Python uploads
 
