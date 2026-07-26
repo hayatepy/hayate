@@ -1,0 +1,7 @@
+name = "hayate-global-workers-benchmark"
+main = "entry.py"
+compatibility_date = "2026-07-01"
+compatibility_flags = [
+  "python_workers",
+  "disable_python_no_global_handlers",
+]

@@ -21,6 +21,21 @@ All notable changes to hayate are documented here.
   the same locked Wrangler/workerd runtime without ASGI. An SDK-only Python
   control attributes the runtime boundary. It records upload size, local
   startup, throughput, latency, CPU, RSS, and the shared HTTP contract.
+- Add `to_workers_global(app)` for HTTP-focused Python Workers that explicitly
+  opt into Cloudflare's global-handler compatibility flag. The benchmark
+  reports this separately from the current `WorkerEntrypoint` default and
+  includes direct-JS controls for both entrypoint boundaries.
+
+### Changed
+
+- Fuse native Workers request handling and response conversion into one
+  direct path. On threadless Pyodide, short synchronous handlers run inline;
+  synchronous entrypoints return a platform `Response` without manufacturing
+  a Python coroutine.
+- Defer Workers URL, request/response headers, abort-signal bridges, execution
+  contexts, UTF-8 response encoding, and body reads until application code
+  observes them. Regular HTTP responses use the platform `Response`
+  constructor directly while WebSocket upgrades retain the SDK extension.
 
 ### Fixed
 

@@ -56,13 +56,13 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from collections.abc import AsyncIterable, AsyncIterator, Callable
+from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, Sequence
 from importlib import import_module
-from typing import TYPE_CHECKING, Any
+from types import CoroutineType
+from typing import TYPE_CHECKING, Any, cast
 
 from ..abort import AbortSignal
 from ..context import Context, ExecutionContext
-from ..headers import Headers
 from ..request import HayateRequest, Request
 from ..response import Response
 from ..router import WEBSOCKET_METHOD
@@ -90,12 +90,26 @@ _live_connections: set[asyncio.Task[None]] = set()
 class _Runtime:
     """Handles to the Workers runtime pieces, resolved once per entrypoint."""
 
-    __slots__ = ("readable_stream_cls", "response_cls", "websocket_pair_cls")
+    __slots__ = (
+        "_response_options",
+        "direct_response",
+        "direct_response_cls",
+        "object_cls",
+        "readable_stream_cls",
+        "response_cls",
+        "websocket_pair_cls",
+    )
 
     def __init__(self) -> None:
         js_module = import_module("js")
         workers_module = import_module("workers")
+        self.direct_response = _to_js is not None and hasattr(js_module, "Response")
+        self.direct_response_cls = js_module.Response if self.direct_response else None
+        # The SDK response carries Workers-only extensions such as
+        # ``web_socket`` on a 101; the platform Response constructor cannot.
         self.response_cls = workers_module.Response
+        self.object_cls = js_module.Object if self.direct_response else None
+        self._response_options: dict[tuple[int, tuple[tuple[str, str], ...]], Any] = {}
         try:
             self.readable_stream_cls = js_module.ReadableStream
         except AttributeError:  # a runtime without streams: responses are buffered
@@ -104,6 +118,24 @@ class _Runtime:
             self.websocket_pair_cls = js_module.WebSocketPair
         except AttributeError:  # a runtime without WebSocketPair: no upgrades
             self.websocket_pair_cls = None
+
+    def response_options(self, status: int, pairs: Sequence[tuple[str, str]]) -> Any:
+        """Return a cached JS ResponseInit for stable status/header sets."""
+        key = (status, tuple(pairs))
+        options = self._response_options.get(key)
+        if options is not None:
+            return options
+        if len(self._response_options) >= 128:
+            oldest = next(iter(self._response_options))
+            _destroy(self._response_options.pop(oldest))
+        assert self.object_cls is not None
+        assert _to_js is not None
+        options = _to_js(
+            {"status": status, "headers": pairs},
+            dict_converter=self.object_cls.fromEntries,
+        )
+        self._response_options[key] = options
+        return options
 
 
 def _proxy(obj: Any) -> Any:
@@ -116,18 +148,6 @@ def _destroy(proxy: Any) -> None:
         destroy()
 
 
-def _once(*callbacks: Callable[[], None] | None) -> Callable[[], None]:
-    """Combine cleanups into one idempotent, never-raising callable."""
-    pending = [callback for callback in callbacks if callback is not None]
-
-    def run() -> None:
-        while pending:
-            with contextlib.suppress(Exception):
-                pending.pop()()
-
-    return run
-
-
 _MISSING = object()
 
 
@@ -138,6 +158,10 @@ def _js_headers_to_pairs(js_headers: Any) -> list[tuple[str, str]]:
     if entries is not None:
         return [(str(entry[0]), str(entry[1])) for entry in entries()]
     return [(str(name), str(value)) for name, value in js_headers.items()]
+
+
+def _raw_request_headers_to_pairs(js_request: Any) -> list[tuple[str, str]]:
+    return _js_headers_to_pairs(js_request.headers)
 
 
 def _url_from_trusted(href: str) -> URL:
@@ -156,6 +180,16 @@ def _url_from_trusted(href: str) -> URL:
         return URL(href)  # userinfo never appears in served URLs
     path, _, query = path_query.partition("?")
     return URL._from_server(scheme, authority, slash + path if slash else "/", query)
+
+
+def _pathname_from_trusted(href: str) -> str:
+    """Pathname from a platform-serialized Fetch URL, without a URL object."""
+    scheme_end = href.find("://")
+    path_start = href.find("/", scheme_end + 3)
+    if path_start < 0:
+        return "/"
+    query_start = href.find("?", path_start)
+    return href[path_start:] if query_start < 0 else href[path_start:query_start]
 
 
 def _probe(js_request: Any, name: str) -> Any:
@@ -248,6 +282,67 @@ async def _read_body(js_request: Any) -> bytes | None:
     return _js_bytes(await reader()) or None
 
 
+class _WorkersBody:
+    """Lazy request body with native whole-body readers and a stream view."""
+
+    __slots__ = ("_raw_request", "_request", "_source")
+
+    def __init__(self, request: Any, raw_request: Any, source: Any) -> None:
+        self._request = request
+        self._raw_request = raw_request
+        self._source = source
+
+    def _take_source(self) -> Any:
+        source, self._source = self._source, _MISSING
+        return source
+
+    def __aiter__(self) -> AsyncIterator[bytes]:
+        async def chunks() -> AsyncIterator[bytes]:
+            source = self._take_source()
+            if source is not _MISSING and hasattr(source, "getReader"):
+                async for chunk in _iter_js_stream(source):
+                    yield chunk
+                return
+            try:
+                data = await _read_body(self._request)
+                if data:
+                    yield data
+            finally:
+                if source is not _MISSING:
+                    _destroy(source)
+
+        return chunks()
+
+    async def bytes(self) -> bytes:
+        source = self._take_source()
+        try:
+            return (await _read_body(self._raw_request)) or b""
+        finally:
+            if source is not _MISSING:
+                _destroy(source)
+
+    def text(self) -> Awaitable[Any]:
+        source = self._take_source()
+        reader = getattr(self._raw_request, "text", None)
+        if reader is not None:
+            try:
+                # Calling Request.text() starts JS-side consumption. Its
+                # Promise retains the stream; the transient Python proxy can
+                # be released before awaiting it, removing one coroutine hop.
+                return cast(Awaitable[Any], reader())
+            finally:
+                if source is not _MISSING:
+                    _destroy(source)
+
+        async def buffered() -> str:
+            data = await _read_body(self._request)
+            return (data or b"").decode("utf-8", errors="replace")
+
+        if source is not _MISSING:
+            _destroy(source)
+        return buffered()
+
+
 class _WorkersAbortSignal(AbortSignal):
     """Attach the cross-FFI listener only if application code observes it."""
 
@@ -315,46 +410,75 @@ class _WorkersAbortSignal(AbortSignal):
         self._listener = None
 
 
-def _bridge_abort_signal(js_request: Any) -> tuple[AbortSignal | None, Callable[[], None] | None]:
-    """Mirror the JS AbortSignal lazily, returning the signal and its release."""
-    signal = _WorkersAbortSignal(js_request)
-    return signal, signal.release
+def _finish_hayate_request(
+    raw_request: Any,
+    method: str,
+    body: Any,
+    platform_body: _WorkersBody | None,
+) -> Request:
+    href = str(raw_request.url)
+    request = Request(
+        href,
+        method=method,
+        body=body,
+        _trusted_pathname=_pathname_from_trusted(href),
+        _header_source=raw_request,
+        _header_loader=_raw_request_headers_to_pairs,
+    )
+    request._init_platform_signal(raw_request, _WorkersAbortSignal)
+    if platform_body is not None:
+        request._init_platform_body(platform_body)
+    return request
 
 
-async def _to_hayate_request(js_request: Any) -> tuple[Request, Callable[[], None] | None]:
-    method_value = js_request.method
+def _release_hayate_request(request: Request) -> None:
+    """Release only the platform resources application code materialized."""
+    try:  # noqa: SIM105 - avoid a context-manager allocation on every request
+        request._release_platform_signal()
+    except Exception:
+        pass
+
+
+def _to_hayate_request(
+    js_request: Any,
+) -> Request | Awaitable[Request]:
+    raw_request = getattr(js_request, "js_object", None)
+    if raw_request is None:
+        raw_request = js_request
+    method_value = raw_request.method
     # workers-py returns HTTPMethod on some Pyodide builds and a string on
     # others. ``.value`` is stable across both CPython 3.13/3.14 runtime
     # shapes; blindly stringifying the enum broke HEAD routing on Linux.
-    method = str(getattr(method_value, "value", method_value))
-    if method.upper() in {"GET", "HEAD"}:
+    method = (
+        method_value
+        if isinstance(method_value, str)
+        else str(getattr(method_value, "value", method_value))
+    )
+    platform_body: _WorkersBody | None = None
+    if method == "GET" or method == "HEAD":
         # Fetch Request construction rejects a body for GET/HEAD. Avoid even
         # reading the JS ``body`` property: a JS null crossing still creates a
         # short-lived Pyodide handle and this is the hottest path in a Worker.
         body: Any = None
     else:
-        source = _body_source(js_request)
+        source = _body_source(raw_request)
         if source is None:
             body = None  # Fetch null body: nothing to read, skip the crossing
-        elif source is not _MISSING and hasattr(source, "getReader"):
-            body = _iter_js_stream(source)
+        elif source is not _MISSING:
+            body = None
+            platform_body = _WorkersBody(js_request, raw_request, source)
         else:
-            body = await _read_body(js_request)
-    signal, release = _bridge_abort_signal(js_request)
-    request = Request(
-        _url_from_trusted(str(js_request.url)),
-        method=method,
-        headers=Headers._from_trusted_pairs(
-            _js_headers_to_pairs(js_request.headers), guard="immutable"
-        ),
-        body=body,
-        signal=signal,
-    )
-    return request, release
+
+            async def buffered() -> Request:
+                body = await _read_body(js_request)
+                return _finish_hayate_request(raw_request, method, body, None)
+
+            return buffered()
+    return _finish_hayate_request(raw_request, method, body, platform_body)
 
 
 def _js_stream_from_body(
-    body: AsyncIterable[bytes], readable_stream_cls: Any, on_done: Callable[[], None]
+    body: AsyncIterable[bytes], readable_stream_cls: Any, request: Request
 ) -> Any:
     """Build a JS ReadableStream from an async byte iterable, or None.
 
@@ -376,7 +500,7 @@ def _js_stream_from_body(
                 data = bytes(chunk)
                 yield data if _to_js is None else _to_js(data)
         finally:
-            on_done()
+            _release_hayate_request(request)
             if proxy_ref:
                 asyncio.get_running_loop().call_soon(proxy_ref.pop().destroy)
 
@@ -398,20 +522,55 @@ def _js_stream_from_body(
 _NULL_BODY_STATUSES = frozenset((101, 103, 204, 205, 304))
 
 
-async def _to_workers_response(
-    response: Response, runtime: _Runtime, on_done: Callable[[], None]
+def _finish_workers_response(
+    response: Response,
+    runtime: _Runtime,
+    pairs: Sequence[tuple[str, str]],
+    body: bytes | None,
+    text_body: str | None,
+    request: Request,
 ) -> Any:
+    _release_hayate_request(request)
+    if runtime.direct_response:
+        direct_response_cls = runtime.direct_response_cls
+        assert direct_response_cls is not None
+        options = runtime.response_options(response.status, pairs)
+        if text_body is not None:
+            return direct_response_cls.new(text_body, options)
+        if body is None:
+            return direct_response_cls.new(None, options)
+        js_body = _to_js(body)
+        try:
+            return direct_response_cls.new(js_body, options)
+        finally:
+            _destroy(js_body)
+    return runtime.response_cls(body, status=response.status, headers=pairs)
+
+
+def _to_workers_response(
+    response: Response, runtime: _Runtime, request: Request
+) -> Any | Awaitable[Any]:
     platform_response = getattr(response, "platform_response", None)
     if platform_response is not None:  # forward(): return it untouched
-        on_done()
+        _release_hayate_request(request)
         return platform_response
     # Hand the Python sequence to workers.Response. Its SDK owns the
     # temporary JS Headers lifetime; retaining a Headers JsProxy here grows
     # Pyodide's proxy table under sustained load.
-    pairs = response.headers.raw()
-    body = None if response.status in _NULL_BODY_STATUSES else response.body
+    pairs = response._header_pairs_for_adapter()
+    if not runtime.direct_response and not isinstance(pairs, list):
+        pairs = list(pairs)
+    if response.status in _NULL_BODY_STATUSES:
+        text_body = None
+        body = None
+    elif runtime.direct_response and response._text_body is not None:
+        text_body = response._text_body
+        body = None
+    else:
+        text_body = None
+        body = response.body
     if body is not None and not isinstance(body, bytes):
-        stream = _js_stream_from_body(body, runtime.readable_stream_cls, on_done)
+        stream = _js_stream_from_body(body, runtime.readable_stream_cls, request)
         if stream is not None:
             # workers.Response accepts a ReadableStream body (it is in the
             # SDK's RESPONSE_ACCEPTED_TYPES); an SDK that rejects it falls
@@ -419,13 +578,23 @@ async def _to_workers_response(
             # canceling the stream releases its proxy without touching
             # the underlying body iterable.
             try:
+                if runtime.direct_response:
+                    direct_response_cls = runtime.direct_response_cls
+                    assert direct_response_cls is not None
+                    return direct_response_cls.new(
+                        stream, runtime.response_options(response.status, pairs)
+                    )
                 return runtime.response_cls(stream, status=response.status, headers=pairs)
             except Exception:
                 with contextlib.suppress(Exception):
                     stream.cancel()
-        body = await response.bytes()
-    on_done()
-    return runtime.response_cls(body, status=response.status, headers=pairs)
+
+        async def buffered() -> Any:
+            body = await response.bytes()
+            return _finish_workers_response(response, runtime, pairs, body, None, request)
+
+        return buffered()
+    return _finish_workers_response(response, runtime, pairs, body, text_body, request)
 
 
 class _WorkersExecutionContext(ExecutionContext):
@@ -438,7 +607,8 @@ class _WorkersExecutionContext(ExecutionContext):
     __slots__ = ("_js_ctx", "js_request")
 
     def __init__(self, js_ctx: Any, js_request: Any = None) -> None:
-        super().__init__()
+        # wait_until() is forwarded immediately, so the base class's task
+        # list would be an unused allocation on every request.
         self._js_ctx = js_ctx
         self.js_request = js_request
 
@@ -466,7 +636,7 @@ async def forward(c: Context, fetcher: Any) -> Response:
     response, staged response middleware mutations (``c.header()``) do
     not apply to it.
     """
-    js_request = getattr(c._exec, "js_request", None)
+    js_request = getattr(c._ensure_execution_context(), "js_request", None)
     if js_request is None:
         raise RuntimeError(
             "forward() needs the original platform request; it is only "
@@ -486,7 +656,6 @@ def _accept_websocket(
     env: Any,
     js_ctx: Any,
     runtime: _Runtime,
-    release: Callable[[], None],
 ) -> Any:
     """Upgrade via WebSocketPair and drive the handler over the server side.
 
@@ -571,7 +740,7 @@ def _accept_websocket(
                 with contextlib.suppress(Exception):
                     server.removeEventListener(event_name, listener)
                 _destroy(listener)
-            release()
+            _release_hayate_request(request)
 
     task = asyncio.ensure_future(run())
     _live_connections.add(task)
@@ -579,25 +748,73 @@ def _accept_websocket(
     return runtime.response_cls(None, status=101, web_socket=client)
 
 
-async def _handle_fetch(
-    app: Hayate, js_request: Any, js_ctx: Any, env: Any, runtime: _Runtime
-) -> Any:
-    request, release_signal = await _to_hayate_request(js_request)
-    release = _once(release_signal)
+def _convert_app_response(
+    response: Response, runtime: _Runtime, request: Request
+) -> Any | Awaitable[Any]:
     try:
-        if runtime.websocket_pair_cls is not None:
+        converted = _to_workers_response(response, runtime, request)
+    except BaseException:
+        _release_hayate_request(request)
+        raise
+    if not isinstance(converted, CoroutineType):
+        return converted
+
+    async def complete() -> Any:
+        try:
+            return await converted
+        except BaseException:
+            _release_hayate_request(request)
+            raise
+
+    return complete()
+
+
+def _handle_translated_request(
+    app: Hayate,
+    request: Request,
+    js_request: Any,
+    js_ctx: Any,
+    env: Any,
+    runtime: _Runtime,
+) -> Any | Awaitable[Any]:
+    try:
+        if runtime.websocket_pair_cls is not None and app._router._has_websocket_routes:
             upgrade = request.headers.get("upgrade")
             if upgrade is not None and upgrade.lower() == "websocket":
-                matched = app._router.match(WEBSOCKET_METHOD, request.url.pathname)
+                matched = app._router.match(WEBSOCKET_METHOD, request._pathname_for_routing())
                 if matched is not None:
                     route, params = matched
-                    return _accept_websocket(route, params, request, env, js_ctx, runtime, release)
-        exec_ctx = _WorkersExecutionContext(js_ctx, js_request)
-        response = await app.fetch(request, env=env, ctx=exec_ctx)
-        return await _to_workers_response(response, runtime, on_done=release)
-    except BaseException:  # adapter failure or cancellation: do not leak the proxy
-        release()
+                    return _accept_websocket(route, params, request, env, js_ctx, runtime)
+        app_env = env if env is not None else app._env
+        return app._fetch_for_adapter(
+            request,
+            app_env,
+            None,
+            _exec_factory=_WorkersExecutionContext,
+            _exec_arg1=js_ctx,
+            _exec_arg2=js_request,
+            _finish=_convert_app_response,
+            _finish_arg1=runtime,
+            _finish_arg2=request,
+        )
+    except BaseException:
+        _release_hayate_request(request)
         raise
+
+
+def _handle_fetch(
+    app: Hayate, js_request: Any, js_ctx: Any, env: Any, runtime: _Runtime
+) -> Any | Awaitable[Any]:
+    translated = _to_hayate_request(js_request)
+    if isinstance(translated, Request):
+        return _handle_translated_request(app, translated, js_request, js_ctx, env, runtime)
+
+    async def complete_translation() -> Any:
+        request = await translated
+        result = _handle_translated_request(app, request, js_request, js_ctx, env, runtime)
+        return await result if isinstance(result, CoroutineType) else result
+
+    return complete_translation()
 
 
 def to_workers(app: Hayate) -> type:
@@ -607,10 +824,42 @@ def to_workers(app: Hayate) -> type:
     runtime = _Runtime()
 
     class Default(WorkerEntrypoint):  # type: ignore[misc,valid-type]
-        async def fetch(self, request: Any) -> Any:
-            return await _handle_fetch(app, request, self.ctx, self.env, runtime)
+        def fetch(self, request: Any) -> Any:
+            # workerd calls entrypoint methods with ``promising: true`` and
+            # therefore accepts either a direct Response or an awaitable.
+            # Keeping this method synchronous preserves the direct hot path.
+            return _handle_fetch(app, request, self.ctx, self.env, runtime)
 
     return Default
+
+
+def to_workers_global(app: Hayate) -> Callable[[Any, Any], Any]:
+    """Build the compatibility global handler: ``on_fetch = ...``.
+
+    Cloudflare made ``WorkerEntrypoint`` the default on 2025-08-14. This
+    lower-overhead handler remains available through the
+    ``disable_python_no_global_handlers`` compatibility flag. It avoids
+    the entrypoint RPC conversion wrapper but cannot expose named RPC
+    methods; use :func:`to_workers` unless raw HTTP throughput is the
+    priority.
+    """
+    workers_module = import_module("workers")
+    wait_until = workers_module.wait_until
+    runtime = _Runtime()
+
+    class GlobalExecutionContext:
+        __slots__ = ()
+
+        @staticmethod
+        def waitUntil(promise: Any) -> None:
+            wait_until(promise)
+
+    js_ctx = GlobalExecutionContext()
+
+    def on_fetch(request: Any, env: Any) -> Any:
+        return _handle_fetch(app, request, js_ctx, env, runtime)
+
+    return on_fetch
 
 
 def to_durable_object(factory: Callable[[Any, Any], Hayate]) -> type:
@@ -641,8 +890,8 @@ def to_durable_object(factory: Callable[[Any, Any], Hayate]) -> type:
             super().__init__(ctx, env)
             self._app = factory(ctx, env)
 
-        async def fetch(self, request: Any) -> Any:
-            return await _handle_fetch(self._app, request, self.ctx, self.env, runtime)
+        def fetch(self, request: Any) -> Any:
+            return _handle_fetch(self._app, request, self.ctx, self.env, runtime)
 
     HayateDurableObject.__name__ = factory.__name__
     HayateDurableObject.__qualname__ = factory.__name__

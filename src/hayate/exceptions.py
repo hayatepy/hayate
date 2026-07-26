@@ -45,9 +45,12 @@ def problem(
         payload["instance"] = instance
     if extensions:
         payload.update(extensions)
-    merged = Headers(headers)
-    merged.set("content-type", "application/problem+json")
-    return Response(dumps_compact(payload), status, headers=merged)
+    text = dumps_compact(payload)
+    response = Response(None, status, headers=headers)
+    response._text_body = text
+    response._init_text_body(text)
+    response.headers.set("content-type", "application/problem+json")
+    return response
 
 
 class HTTPException(Exception):

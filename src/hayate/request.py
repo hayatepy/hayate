@@ -9,7 +9,7 @@ as ``c.req`` — so the standard object is never polluted.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterable, AsyncIterator, Iterable, Mapping
+from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, Iterable, Mapping
 from typing import Any
 from urllib.parse import unquote
 
@@ -64,7 +64,17 @@ class _TeeSource:
 class Request(Body):
     """Fetch ``Request``: URL, method, immutable headers, one-shot body, abort signal."""
 
-    __slots__ = ("_signal", "headers", "method", "url")
+    __slots__ = (
+        "_header_loader",
+        "_header_source",
+        "_headers",
+        "_routing_pathname",
+        "_signal",
+        "_signal_factory",
+        "_signal_source",
+        "_url",
+        "method",
+    )
 
     def __init__(
         self,
@@ -74,24 +84,102 @@ class Request(Body):
         headers: Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
         body: BodyInit = None,
         signal: AbortSignal | None = None,
+        _trusted_pathname: str | None = None,
+        _header_source: Any = None,
+        _header_loader: Callable[[Any], list[tuple[str, str]]] | None = None,
     ) -> None:
-        self.url = url if isinstance(url, URL) else URL(url)
-        self.method = method.upper()
-        # Request headers are immutable, per the Fetch guard semantics.
-        # An already-immutable Headers can be shared instead of copied.
-        if isinstance(headers, Headers) and headers._guard == "immutable":
-            self.headers = headers
+        if _trusted_pathname is None:
+            self._url: URL | str = url if isinstance(url, URL) else URL(url)
+            self._routing_pathname: str | None = None
+            self.method = method.upper()
         else:
-            self.headers = Headers(headers, guard="immutable")
+            if not isinstance(url, str):
+                raise TypeError("a trusted platform URL must be a string")
+            # The platform has already parsed and serialized this Fetch URL.
+            # Keep its path for routing and defer our richer URL object until
+            # application code actually asks for it.
+            self._url = url
+            self._routing_pathname = _trusted_pathname
+            self.method = method
+        self._headers: Headers | None
+        self._header_source: Any
+        self._header_loader: Callable[[Any], list[tuple[str, str]]] | None
+        if _header_loader is not None:
+            self._headers = None
+            self._header_source = _header_source
+            self._header_loader = _header_loader
+        else:
+            # Request headers are immutable, per the Fetch guard semantics.
+            # An already-immutable Headers can be shared instead of copied.
+            self._headers = (
+                headers
+                if isinstance(headers, Headers) and headers._guard == "immutable"
+                else Headers(headers, guard="immutable")
+            )
+            self._header_source = None
+            self._header_loader = None
         self._signal = signal
+        self._signal_factory: Callable[[Any], AbortSignal] | None = None
+        self._signal_source: Any = None
         self._init_body(body)
 
     @property
+    def url(self) -> URL:
+        url = self._url
+        if isinstance(url, str):
+            url = URL(url)
+            self._url = url
+        return url
+
+    @property
+    def headers(self) -> Headers:
+        headers = self._headers
+        if headers is None:
+            loader = self._header_loader
+            assert loader is not None
+            headers = Headers._from_loader(
+                self._header_source,
+                loader,
+                guard="immutable",
+            )
+            self._headers = headers
+            self._header_source = None
+            self._header_loader = None
+        return headers
+
+    def _pathname_for_routing(self) -> str:
+        pathname = self._routing_pathname
+        return self.url.pathname if pathname is None else pathname
+
+    @property
     def signal(self) -> AbortSignal:
-        # Created lazily: most requests never observe their signal.
+        # Created lazily: most requests never observe their signal. Adapters
+        # may defer their platform bridge too, avoiding an FFI-lifecycle
+        # object on the common request path.
         if self._signal is None:
-            self._signal = AbortSignal()
+            factory = self._signal_factory
+            if factory is None:
+                self._signal = AbortSignal()
+            else:
+                self._signal = factory(self._signal_source)
+                self._signal_factory = None
+                self._signal_source = None
         return self._signal
+
+    def _init_platform_signal(self, source: Any, factory: Callable[[Any], AbortSignal]) -> None:
+        """Adapter hook: create the platform AbortSignal bridge on access."""
+        self._signal_factory = factory
+        self._signal_source = source
+
+    def _release_platform_signal(self) -> None:
+        """Release an adapter signal bridge, if application code created it."""
+        self._signal_factory = None
+        self._signal_source = None
+        signal = self._signal
+        if signal is not None:
+            release = getattr(signal, "release", None)
+            if release is not None:
+                release()
 
     def clone(self) -> Request:
         if self.body_used:
@@ -100,6 +188,7 @@ class Request(Body):
         if self._stream is not None:
             tee = _TeeSource(self._stream)
             self._stream = tee.reader()
+            self._platform = None
             body = tee.reader()
         else:
             body = self._buffer
@@ -152,6 +241,9 @@ class HayateRequest:
     def url(self) -> URL:
         return self.raw.url
 
+    def _pathname_for_routing(self) -> str:
+        return self.raw._pathname_for_routing()
+
     @property
     def headers(self) -> Headers:
         return self.raw.headers
@@ -165,12 +257,14 @@ class HayateRequest:
 
     def param(self, name: str) -> str | None:
         value = self._params.get(name)
-        return None if value is None else unquote(value, errors="replace")
+        if value is None or "%" not in value:
+            return value
+        return unquote(value, errors="replace")
 
     @property
     def params(self) -> dict[str, str | None]:
         return {
-            name: (None if value is None else unquote(value, errors="replace"))
+            name: (value if value is None or "%" not in value else unquote(value, errors="replace"))
             for name, value in self._params.items()
         }
 
@@ -196,17 +290,17 @@ class HayateRequest:
     def queries(self, name: str) -> list[str]:
         return self.raw.url.search_params.get_all(name)
 
-    async def bytes(self) -> bytes:
-        return await self.raw.bytes()
+    def bytes(self) -> Awaitable[bytes]:
+        return self.raw.bytes()
 
-    async def text(self) -> str:
-        return await self.raw.text()
+    def text(self) -> Awaitable[str]:
+        return self.raw.text()
 
-    async def json(self) -> Any:
-        return await self.raw.json()
+    def json(self) -> Awaitable[Any]:
+        return self.raw.json()
 
-    async def form_data(self) -> FormData:
-        return await self.raw.form_data()
+    def form_data(self) -> Awaitable[FormData]:
+        return self.raw.form_data()
 
     def __repr__(self) -> str:
         return f"HayateRequest({self.method} {self.url.href!r})"

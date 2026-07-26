@@ -18,8 +18,8 @@ Naming policy: semantics from the standard, spelling per PEP 8
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Iterator, Mapping
-from typing import Literal
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from typing import Any, Literal
 
 _TOKEN_RE = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
 _BAD_VALUE_CHARS = ("\x00", "\r", "\n")
@@ -28,7 +28,7 @@ _BAD_VALUE_CHARS = ("\x00", "\r", "\n")
 class Headers:
     """Fetch ``Headers``: case-insensitive multimap with guard semantics."""
 
-    __slots__ = ("_guard", "_pairs", "_raw")
+    __slots__ = ("_guard", "_lazy", "_pairs", "_raw")
 
     def __init__(
         self,
@@ -37,6 +37,7 @@ class Headers:
         guard: Literal["none", "immutable"] = "none",
     ) -> None:
         self._raw: list[tuple[bytes, bytes]] | None = None
+        self._lazy: tuple[Any, Callable[[Any], list[tuple[str, str]]]] | None = None
         self._pairs: list[tuple[str, str]] = []
         self._guard: Literal["none", "immutable"] = "none"
         if isinstance(init, Headers):
@@ -58,6 +59,7 @@ class Headers:
         """Adapter fast path: server-validated wire pairs, decoded lazily."""
         headers = cls.__new__(cls)
         headers._raw = raw
+        headers._lazy = None
         headers._pairs = []
         headers._guard = guard
         return headers
@@ -76,11 +78,32 @@ class Headers:
         """
         headers = cls.__new__(cls)
         headers._raw = None
+        headers._lazy = None
         headers._pairs = pairs
         headers._guard = guard
         return headers
 
+    @classmethod
+    def _from_loader(
+        cls,
+        source: Any,
+        loader: Callable[[Any], list[tuple[str, str]]],
+        guard: Literal["none", "immutable"] = "none",
+    ) -> Headers:
+        """Adapter fast path: materialize platform headers on first access."""
+        headers = cls.__new__(cls)
+        headers._raw = None
+        headers._lazy = (source, loader)
+        headers._pairs = []
+        headers._guard = guard
+        return headers
+
     def _decoded(self) -> list[tuple[str, str]]:
+        lazy = self._lazy
+        if lazy is not None:
+            source, loader = lazy
+            self._pairs = loader(source)
+            self._lazy = None
         raw = self._raw
         if raw is not None:
             self._pairs = [(name.decode("latin-1"), value.decode("latin-1")) for name, value in raw]
@@ -170,6 +193,10 @@ class Headers:
     def raw(self) -> list[tuple[str, str]]:
         """Underlying (name, value) pairs in insertion order, for adapters."""
         return list(self._decoded())
+
+    def _raw_for_adapter(self) -> list[tuple[str, str]]:
+        """Internal zero-copy view; the adapter must treat it as immutable."""
+        return self._decoded()
 
     # -- iteration (Fetch iterator: sorted, combined, set-cookie apart) ----
 

@@ -11,10 +11,12 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import sys
 import traceback
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from functools import wraps
-from typing import TYPE_CHECKING, Any, overload
+from types import CoroutineType
+from typing import TYPE_CHECKING, Any, cast, overload
 
 from .context import Context, ErrorHandler, ExecutionContext, Handler, HeadersArg, Middleware
 from .exceptions import HTTPException, problem
@@ -29,26 +31,30 @@ if TYPE_CHECKING:
     from .body import BodyInit
 
 _logger = logging.getLogger("hayate")
+_INLINE_SYNC_HANDLERS = sys.platform == "emscripten"
+_EMPTY_MIDDLEWARE: tuple[Middleware, ...] = ()
 
 
 async def _default_not_found(c: Context) -> Response:
     return problem(404)
 
 
-def _ensure_async_handler(fn: Callable[..., Any]) -> Handler:
-    """Normalize handlers to coroutine functions (single execution path).
+def _prepare_handler(fn: Callable[..., Any]) -> tuple[Handler, bool]:
+    """Prepare a handler for the active Python runtime.
 
-    Sync handlers run in a thread via ``asyncio.to_thread``. This is an
-    ASGI-side convenience only — Pyodide (Workers) has no threads.
+    Native Python sends sync handlers to a thread. Pyodide has no threads,
+    so its sync handlers execute inline without manufacturing a coroutine.
     """
     if inspect.iscoroutinefunction(fn):
-        return fn
+        return fn, False
+    if _INLINE_SYNC_HANDLERS:
+        return fn, True
 
     @wraps(fn)
     async def run_in_thread(c: Context) -> Response | None:
         return await asyncio.to_thread(fn, c)
 
-    return run_in_thread
+    return run_in_thread, False
 
 
 def _check_middleware(fn: Any) -> None:
@@ -59,6 +65,15 @@ def _check_middleware(fn: Any) -> None:
 def _check_error_handler(fn: Any) -> None:
     if not inspect.iscoroutinefunction(fn):
         raise TypeError("error handler must be async: async def handler(err, c)")
+
+
+def _finish_adapter_output(
+    response: Response,
+    finish: Callable[[Response, Any, Any], Any] | None,
+    arg1: Any,
+    arg2: Any,
+) -> Any:
+    return response if finish is None else finish(response, arg1, arg2)
 
 
 class Hayate:
@@ -73,6 +88,7 @@ class Hayate:
         self._env = env
         self._debug = debug
         self._not_found_handler: Handler = _default_not_found
+        self._not_found_inline = False
         self._error_handler: ErrorHandler | None = None
         self._on_start: list[Callable[[], Any]] = []
         self._on_stop: list[Callable[[], Any]] = []
@@ -99,8 +115,8 @@ class Hayate:
             _check_middleware(mw)
 
         def decorator(fn: F) -> F:
-            handler = _ensure_async_handler(fn)
-            self._router.add(Route(upper, path, handler, tuple(middleware)))
+            handler, inline = _prepare_handler(fn)
+            self._router.add(Route(upper, path, handler, tuple(middleware), inline=inline))
             return fn
 
         return decorator
@@ -185,7 +201,7 @@ class Hayate:
     # -- hooks -------------------------------------------------------------------
 
     def not_found[F: Callable[..., Any]](self, fn: F) -> F:
-        self._not_found_handler = _ensure_async_handler(fn)
+        self._not_found_handler, self._not_found_inline = _prepare_handler(fn)
         return fn
 
     def on_error[F: ErrorHandler](self, fn: F) -> F:
@@ -215,27 +231,157 @@ class Hayate:
         """
         c = Context(HayateRequest(request), env if env is not None else self._env, ctx)
         try:
-            await self._dispatch(c)
+            chain, handler, inline = self._resolve(c)
+            if chain:
+                await self._compose(c, chain, handler, inline)
+            else:
+                result = (
+                    cast(Response | None, handler(c))
+                    if inline
+                    else await cast(Awaitable[Response | None], handler(c))
+                )
+                if result is not None:
+                    if not isinstance(result, Response):
+                        raise TypeError(
+                            f"handler must return a Response or None, got {type(result).__name__}"
+                        )
+                    c._res = result
+                elif c._res is None:
+                    raise TypeError("handler returned None and no response was set on c.res")
         except Exception as exc:
-            c.res = await self._handle_error(exc, c)
-        if c.res is None:
-            c.res = problem(500, detail="no response was produced")
+            c._res = await self._handle_error(exc, c)
+        return self._finalize_context(c)
+
+    def _fetch_for_adapter(
+        self,
+        request: Request,
+        env: Any,
+        ctx: ExecutionContext | None,
+        *,
+        _exec_factory: Callable[[Any, Any], ExecutionContext] | None = None,
+        _exec_arg1: Any = None,
+        _exec_arg2: Any = None,
+        _finish: Callable[[Response, Any, Any], Any] | None = None,
+        _finish_arg1: Any = None,
+        _finish_arg2: Any = None,
+    ) -> Any:
+        """Adapter path that stays synchronous and can fuse final conversion."""
+        c = Context(HayateRequest(request), env, ctx)
+        if _exec_factory is not None:
+            c._init_platform_execution(_exec_factory, _exec_arg1, _exec_arg2)
+        chain: Sequence[Middleware]
+        handler: Handler
+        inline: bool
+        try:
+            if not self._middleware:
+                method = request.method
+                matched = self._router.match(method, request._pathname_for_routing())
+                if matched is None and method == "HEAD":
+                    matched = self._router.match("GET", request._pathname_for_routing())
+                if matched is not None:
+                    route, params = matched
+                    c.req._params = params
+                    chain = _EMPTY_MIDDLEWARE
+                    handler = route.handler
+                    inline = route.inline
+                else:
+                    chain, handler, inline = self._resolve(c)
+            else:
+                chain, handler, inline = self._resolve(c)
+        except Exception as exc:
+
+            async def failed(error: Exception = exc) -> Any:
+                c._res = await self._handle_error(error, c)
+                output = _finish_adapter_output(
+                    self._finalize_context(c),
+                    _finish,
+                    _finish_arg1,
+                    _finish_arg2,
+                )
+                return await output if isinstance(output, CoroutineType) else output
+
+            return failed()
+        if not chain and inline:
+            try:
+                result = cast(Response | None, handler(c))
+                self._accept_handler_result(c, result)
+            except Exception as exc:
+
+                async def failed(error: Exception = exc) -> Any:
+                    c._res = await self._handle_error(error, c)
+                    output = _finish_adapter_output(
+                        self._finalize_context(c),
+                        _finish,
+                        _finish_arg1,
+                        _finish_arg2,
+                    )
+                    return await output if isinstance(output, CoroutineType) else output
+
+                return failed()
+            return _finish_adapter_output(
+                self._finalize_context(c),
+                _finish,
+                _finish_arg1,
+                _finish_arg2,
+            )
+
+        return self._complete_adapter_request(
+            c,
+            chain,
+            handler,
+            inline,
+            _finish,
+            _finish_arg1,
+            _finish_arg2,
+        )
+
+    async def _complete_adapter_request(
+        self,
+        c: Context,
+        chain: Sequence[Middleware],
+        handler: Handler,
+        inline: bool,
+        finish: Callable[[Response, Any, Any], Any] | None,
+        finish_arg1: Any,
+        finish_arg2: Any,
+    ) -> Any:
+        try:
+            if chain:
+                await self._compose(c, chain, handler, inline)
+            else:
+                result = await cast(Awaitable[Response | None], handler(c))
+                self._accept_handler_result(c, result)
+        except Exception as exc:
+            c._res = await self._handle_error(exc, c)
+        output = _finish_adapter_output(
+            self._finalize_context(c),
+            finish,
+            finish_arg1,
+            finish_arg2,
+        )
+        return await output if isinstance(output, CoroutineType) else output
+
+    @staticmethod
+    def _finalize_context(c: Context) -> Response:
+        if c._res is None:
+            c._res = problem(500, detail="no response was produced")
         if c._header_ops:
             c._apply_header_ops()
-        response = c.res
-        if ctx is None and c._exec is not None:
+        response = c._res
+        if not c._external_exec and c._exec is not None:
             response._background = c._exec
         return response
 
-    async def _dispatch(self, c: Context) -> None:
-        path = c.req.url.pathname
+    def _resolve(self, c: Context) -> tuple[Sequence[Middleware], Handler, bool]:
+        """Resolve a request synchronously; only handlers cross an await."""
+        path = c.req._pathname_for_routing()
         method = c.req.method
         matched = self._router.match(method, path)
         if matched is None and method == "HEAD":
             matched = self._router.match("GET", path)
 
         if not self._middleware:
-            scoped: list[Middleware] = []
+            scoped: Sequence[Middleware] = _EMPTY_MIDDLEWARE
         elif self._plain_chain is not None:
             scoped = self._plain_chain
         else:
@@ -245,8 +391,9 @@ class Hayate:
         if matched is not None:
             route, params = matched
             c.req._params = params
-            chain = scoped + list(route.middleware) if route.middleware else scoped
+            chain = [*scoped, *route.middleware] if route.middleware else scoped
             handler = route.handler
+            inline = route.inline
         else:
             # No route: middleware still runs (CORS etc. apply to 404/405 too).
             chain = scoped
@@ -257,35 +404,34 @@ class Hayate:
                 async def handler(_c: Context) -> Response | None:
                     raise HTTPException(405, headers={"allow": allow_value})
 
+                inline = False
             else:
                 handler = self._not_found_handler
-        await self._compose(c, chain, handler)
+                inline = self._not_found_inline
+        return chain, handler, inline
 
-    async def _compose(self, c: Context, chain: list[Middleware], handler: Handler) -> None:
-        if not chain:
-            # Hot path: no middleware, no dispatch closures.
-            result = await handler(c)
-            if result is not None:
-                if not isinstance(result, Response):
-                    raise TypeError(
-                        f"handler must return a Response or None, got {type(result).__name__}"
-                    )
-                c.res = result
-            elif c.res is None:
-                raise TypeError("handler returned None and no response was set on c.res")
-            return
+    @staticmethod
+    def _accept_handler_result(c: Context, result: Response | None) -> None:
+        if result is not None:
+            if not isinstance(result, Response):
+                raise TypeError(
+                    f"handler must return a Response or None, got {type(result).__name__}"
+                )
+            c._res = result
+        elif c._res is None:
+            raise TypeError("handler returned None and no response was set on c.res")
 
+    async def _compose(
+        self, c: Context, chain: Sequence[Middleware], handler: Handler, inline: bool
+    ) -> None:
         async def dispatch(index: int) -> None:
             if index == len(chain):
-                result = await handler(c)
-                if result is not None:
-                    if not isinstance(result, Response):
-                        raise TypeError(
-                            f"handler must return a Response or None, got {type(result).__name__}"
-                        )
-                    c.res = result
-                elif c.res is None:
-                    raise TypeError("handler returned None and no response was set on c.res")
+                result = (
+                    cast(Response | None, handler(c))
+                    if inline
+                    else await cast(Awaitable[Response | None], handler(c))
+                )
+                self._accept_handler_result(c, result)
                 return
 
             called = False

@@ -11,9 +11,37 @@ from __future__ import annotations
 import json as _json
 from importlib import import_module
 
+_encode_compact = _json.JSONEncoder(ensure_ascii=False, separators=(",", ":")).encode
+_encode_string = _json.encoder.encode_basestring
+
 
 def _stdlib_dumps(data: object) -> str:
-    return _json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    if type(data) is dict:
+        parts: list[str] = []
+        for key, value in data.items():
+            if type(key) is not str:
+                break
+            encoded_key = _encode_string(key)
+            if type(value) is str:
+                encoded_value = _encode_string(value)
+            elif value is None:
+                encoded_value = "null"
+            elif value is True:
+                encoded_value = "true"
+            elif value is False:
+                encoded_value = "false"
+            elif type(value) is int:
+                encoded_value = str(value)
+            else:
+                break
+            parts.append(f"{encoded_key}:{encoded_value}")
+        else:
+            if len(parts) == 1:
+                return f"{{{parts[0]}}}"
+            if len(parts) == 2:
+                return f"{{{parts[0]},{parts[1]}}}"
+            return "{" + ",".join(parts) + "}"
+    return _encode_compact(data)
 
 
 try:

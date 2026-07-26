@@ -77,7 +77,10 @@ Default = to_workers(app)   # WorkerEntrypoint サブクラスを生成
 ### 3.5 制約の追認と調整
 
 - **async-first の追認**: Python Workers は async I/O のみ(`requests` 不可、httpx/aiohttp の async のみ)。hayate の async-first 方針と完全一致。
-- **sync ハンドラは ASGI 限定機能に**: Pyodide にはスレッドがなく `asyncio.to_thread` が使えない。sync ハンドラ許容(DESIGN.md §8)は「ASGI 系アダプタ限定」と明記(反映済み)。
+- **sync ハンドラの threadless 経路**: Pyodide にはスレッドがなく
+  `asyncio.to_thread` が使えないため、短い CPU 処理・即時レスポンスの
+  sync handler は同一 event loop 上で inline 実行する。I/O を伴う handler
+  は従来どおり async とする。
 - **zstd 圧縮**: Pyodide の Python バージョン依存。既定の「3.14+ なら有効」の条件分岐で対応済み、変更不要。
 
 ## 4. できないこと・条件付きのこと(制約リスト)

@@ -59,7 +59,7 @@ def _plain_segments(pattern: str) -> list[str] | None:
 
 
 class Route:
-    __slots__ = ("handler", "method", "middleware", "pattern")
+    __slots__ = ("handler", "inline", "method", "middleware", "pattern")
 
     def __init__(
         self,
@@ -67,33 +67,42 @@ class Route:
         pattern: str,
         handler: Callable[..., Any],
         middleware: tuple[Any, ...] = (),
+        *,
+        inline: bool = False,
     ) -> None:
         self.method = method
         self.pattern = pattern
         self.handler = handler
         self.middleware = middleware
+        self.inline = inline
 
     def __repr__(self) -> str:
         return f"Route({self.method} {self.pattern!r})"
 
 
 class Router:
-    __slots__ = ("_all", "_count", "_regex", "_static", "_trie")
+    __slots__ = ("_all", "_count", "_has_websocket_routes", "_regex", "_static", "_trie")
 
     def __init__(self) -> None:
-        self._static: dict[str, dict[str, Route]] = {}
+        self._static: dict[str, dict[str, tuple[Route, dict[str, str | None]]]] = {}
         self._trie: dict[Any, Any] = {}
         self._regex: list[tuple[int, str, re.Pattern[str], tuple[str, ...], Route]] = []
         self._count = 0  # registration index shared by the dynamic tiers
         self._all: list[Route] = []  # registration order, for introspection
+        self._has_websocket_routes = False
 
     def add(self, route: Route) -> None:
+        if route.method == WEBSOCKET_METHOD:
+            self._has_websocket_routes = True
         static, regex, names = compile_pathname(route.pattern)
         if static is not None:
             methods = self._static.setdefault(static, {})
             if route.method in methods:
                 raise ValueError(f"duplicate route: {route.method} {route.pattern}")
-            methods[route.method] = route
+            # Cache the complete match result: static routes have no
+            # per-request parameters, so allocating this tuple repeatedly is
+            # unnecessary.
+            methods[route.method] = (route, _NO_PARAMS)
             self._all.append(route)
             return
         if regex is None:  # pragma: no cover - compile_pathname guarantees one of the two
@@ -131,7 +140,7 @@ class Router:
     def match(self, method: str, path: str) -> tuple[Route, dict[str, str | None]] | None:
         methods = self._static.get(path)
         if methods is not None and method in methods:
-            return methods[method], _NO_PARAMS
+            return methods[method]
         best = self._trie_match(method, path) if self._trie and path.startswith("/") else None
         limit = best[0] if best is not None else None
         for index, m, regex, names, route in self._regex:
@@ -144,6 +153,8 @@ class Router:
                 return route, dict(zip(names, matched.groups(), strict=True))
         if best is not None:
             _, route, names, values = best
+            if len(names) == 1:
+                return route, {names[0]: values[0]}
             return route, dict(zip(names, values, strict=True))
         return None
 

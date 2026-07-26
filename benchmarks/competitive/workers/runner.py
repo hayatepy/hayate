@@ -82,7 +82,10 @@ class WorkerTarget:
 
 TARGETS = (
     WorkerTarget("hayate", python=True),
+    WorkerTarget("hayate-global", python=True),
     WorkerTarget("raw-python", python=True),
+    WorkerTarget("raw-js", python=True),
+    WorkerTarget("raw-global", python=True),
     WorkerTarget("hono"),
 )
 
@@ -185,9 +188,9 @@ def setup() -> None:
             target_is_directory=True,
         )
 
-    hayate_project = next(target for target in TARGETS if target.name == "hayate").directory
-    hayate_project /= "pyproject.toml"
-    _replace_local_hayate_dependency(hayate_project, wheels[0])
+    for target in TARGETS:
+        if target.name.startswith("hayate"):
+            _replace_local_hayate_dependency(target.directory / "pyproject.toml", wheels[0])
     pywrangler_env = os.environ.copy()
     # setup-uv pins the job's outer interpreter with UV_PYTHON. pywrangler
     # creates and selects its own CPython/Pyodide pair, so inheriting that pin
@@ -648,7 +651,10 @@ def _framework_versions() -> dict[str, str]:
     root_project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     return {
         "hayate": root_project["project"]["version"],
+        "hayate-global": root_project["project"]["version"],
         "raw-python": WORKERS_RUNTIME_SDK_VERSION,
+        "raw-js": WORKERS_RUNTIME_SDK_VERSION,
+        "raw-global": "Pyodide built-in",
         "hono": _locked_node_versions()["hono"],
     }
 
@@ -782,12 +788,15 @@ def render_markdown(report: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
-            "Hayate enters through `WorkerEntrypoint.fetch`; ASGI, Uvicorn, and h11",
-            "are absent. Startup is local Wrangler/workerd startup and must not be",
-            "reported as deployed Cloudflare edge cold start. RSS and CPU include",
-            "Wrangler plus its descendant process tree. Shared-host throughput is",
-            "evidence, not a hard regression gate. The raw-python target is the",
-            "framework-free Python runtime/SDK boundary, not a framework.",
+            "The default Hayate target enters through `WorkerEntrypoint.fetch`;",
+            "hayate-global and raw-global explicitly use Cloudflare's",
+            "`disable_python_no_global_handlers` compatibility path to quantify",
+            "the current class RPC wrapper. ASGI, Uvicorn, and h11 are absent.",
+            "Startup is local Wrangler/workerd startup and must not be reported as",
+            "deployed Cloudflare edge cold start. RSS and CPU include Wrangler plus",
+            "its descendant process tree. Shared-host throughput is evidence, not",
+            "a hard regression gate. Raw targets are runtime boundaries, not",
+            "frameworks.",
             "",
         ]
     )

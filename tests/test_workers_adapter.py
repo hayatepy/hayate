@@ -125,6 +125,8 @@ def _install_runtime(
     workers_module.WorkerEntrypoint = FakeWorkerEntrypoint
     workers_module.DurableObject = FakeDurableObject
     workers_module.Response = response_cls
+    workers_module.waited = []
+    workers_module.wait_until = workers_module.waited.append
     js_module = types.ModuleType("js")
     js_module.Headers = FakeJsHeadersClass
     if readable_stream is not None:
@@ -154,8 +156,10 @@ def workers_ws_runtime(monkeypatch):
 class FakeJsRequestHeaders:
     def __init__(self, pairs):
         self._pairs = pairs
+        self.reads = 0
 
     def entries(self):
+        self.reads += 1
         return [[name, value] for name, value in self._pairs]
 
 
@@ -233,9 +237,17 @@ class FakeJsRequest:
         self.method = method
         self.headers = FakeJsRequestHeaders(headers)
         self.body = body
+        self.text_reads = 0
 
     async def arrayBuffer(self):
         return memoryview(self.body or b"")
+
+    async def text(self):
+        self.text_reads += 1
+        if isinstance(self.body, FakeJsBodyStream):
+            chunks, self.body._chunks = self.body._chunks, []
+            return b"".join(chunks).decode()
+        return bytes(self.body or b"").decode()
 
 
 class FakeCtx:
@@ -378,6 +390,61 @@ async def test_wait_until_bridges_to_js_ctx(workers_runtime):
     assert done == [True]
 
 
+async def test_global_handler_uses_importable_wait_until(workers_runtime):
+    from hayate.adapters.workers import to_workers_global
+
+    app = Hayate()
+    done = []
+
+    @app.get("/")
+    async def root(c: Context):
+        async def background():
+            done.append(True)
+
+        c.wait_until(background())
+        return c.text("ok")
+
+    handler = to_workers_global(app)
+    response = await handler(FakeJsRequest("https://edge.example/"), {"KV": "bound"})
+
+    assert response.status == 200
+    assert len(sys.modules["workers"].waited) == 1
+    await sys.modules["workers"].waited[0]
+    assert done == [True]
+
+
+def test_global_handler_returns_inline_response_without_coroutine(workers_runtime, monkeypatch):
+    app_module = __import__("hayate.app", fromlist=["_INLINE_SYNC_HANDLERS"])
+    monkeypatch.setattr(app_module, "_INLINE_SYNC_HANDLERS", True)
+    from hayate.adapters.workers import to_workers_global
+
+    app = Hayate()
+
+    @app.get("/")
+    def root(c: Context):
+        return c.text("inline")
+
+    response = to_workers_global(app)(FakeJsRequest("https://edge.example/"), {"KV": "bound"})
+
+    assert isinstance(response, FakeWorkersResponse)
+    assert response.body == b"inline"
+
+
+def test_class_entrypoint_returns_inline_response_without_coroutine(workers_runtime, monkeypatch):
+    app_module = __import__("hayate.app", fromlist=["_INLINE_SYNC_HANDLERS"])
+    monkeypatch.setattr(app_module, "_INLINE_SYNC_HANDLERS", True)
+    app = Hayate()
+
+    @app.get("/")
+    def root(c: Context):
+        return c.text("inline")
+
+    response = _entry(app).fetch(FakeJsRequest("https://edge.example/"))
+
+    assert isinstance(response, FakeWorkersResponse)
+    assert response.body == b"inline"
+
+
 def _streaming_app():
     app = Hayate()
 
@@ -396,6 +463,78 @@ async def test_streaming_response_buffers_without_readable_stream(workers_runtim
     """A runtime without ``js.ReadableStream`` gets the buffered fallback."""
     js_response = await _entry(_streaming_app()).fetch(FakeJsRequest("https://edge.example/stream"))
     assert js_response.body == b"ab"
+
+
+async def test_direct_js_response_reuses_options_and_releases_body_proxy(monkeypatch):
+    """The Pyodide fast path bypasses the SDK wrapper without leaking proxies."""
+    _install_runtime(monkeypatch)
+    from hayate.adapters import workers as adapter
+
+    class Converted:
+        def __init__(self, value):
+            self.value = value
+            self.destroys = 0
+
+        def destroy(self):
+            self.destroys += 1
+
+    converted = []
+
+    def fake_to_js(value, *, dict_converter=None):
+        if isinstance(value, dict):
+            assert dict_converter is FakeObject.fromEntries
+        result = Converted(value)
+        converted.append(result)
+        return result
+
+    class FakeObject:
+        @staticmethod
+        def fromEntries(value):
+            return value
+
+    class FakeDirectResponse:
+        @classmethod
+        def new(cls, body, options):
+            value = body.value if isinstance(body, Converted) else body
+            response = FakeWorkersResponse(
+                value,
+                status=options.value["status"],
+                headers=options.value["headers"],
+            )
+            response.options = options
+            return response
+
+    js_module = sys.modules["js"]
+    js_module.Object = FakeObject
+    js_module.Response = FakeDirectResponse
+    monkeypatch.setattr(adapter, "_to_js", fake_to_js)
+
+    app = Hayate()
+
+    @app.get("/")
+    async def root(c: Context):
+        return c.body(b"ok")
+
+    @app.get("/text")
+    async def text(c: Context):
+        return c.text("hello")
+
+    entry = _entry(app)
+    first = await entry.fetch(FakeJsRequest("https://edge.example/"))
+    second = await entry.fetch(FakeJsRequest("https://edge.example/"))
+    text_response = await entry.fetch(FakeJsRequest("https://edge.example/text"))
+
+    assert first.body == second.body == b"ok"
+    assert text_response.body == "hello"
+    assert first.options is second.options
+    assert first.options.destroys == 0
+    assert [proxy.destroys for proxy in converted if isinstance(proxy.value, bytes)] == [1, 1]
+
+    runtime = adapter._Runtime()
+    options = [runtime.response_options(200, [("x-response", str(index))]) for index in range(129)]
+    assert len(runtime._response_options) == 128
+    assert options[0].destroys == 1
+    assert all(option.destroys == 0 for option in options[1:])
 
 
 async def test_streaming_response_becomes_a_readable_stream(workers_streaming_runtime):
@@ -444,7 +583,10 @@ async def test_request_stream_body_is_bridged_not_buffered(workers_runtime):
 
     @app.post("/echo")
     async def echo(c: Context):
-        return c.json({"got": await c.req.json()})
+        body = c.req.raw.body
+        assert body is not None
+        payload = b"".join([chunk async for chunk in body])
+        return c.json({"got": json.loads(payload)})
 
     request = FakeJsRequest(
         "https://edge.example/echo",
@@ -466,6 +608,7 @@ async def test_request_stream_body_is_bridged_not_buffered(workers_runtime):
     assert stream.result_destroys == 3
     assert stream.reader_destroys == 1
     assert stream.stream_destroys == 1
+    assert request.text_reads == 0
 
 
 async def test_wrapper_streams_body_and_bridges_signal_via_js_object(workers_streaming_runtime):
@@ -488,11 +631,18 @@ async def test_wrapper_streams_body_and_bridges_signal_via_js_object(workers_str
         return c.body(chunks())
 
     js_signal = FakeJsAbortSignal()
+    raw_request = FakeJsRequest(
+        "https://edge.example/echo",
+        method="POST",
+        headers=[("content-type", "application/json")],
+        body=FakeJsBodyStream([b'{"k": 1}']),
+    )
+    raw_request.signal = js_signal
     wrapper = FakePyRequest(
         "https://edge.example/echo",
         method="POST",
         headers=[("content-type", "application/json")],
-        js_object=types.SimpleNamespace(body=FakeJsBodyStream([b'{"k": 1}']), signal=js_signal),
+        js_object=raw_request,
     )
 
     js_response = await _entry(app).fetch(wrapper)
@@ -502,6 +652,7 @@ async def test_wrapper_streams_body_and_bridges_signal_via_js_object(workers_str
     js_signal.fire("client went away")  # disconnect mid-stream
     rest = b"".join([chunk async for chunk in iterator])
     assert rest == b" end aborted=True reason=client went away"
+    assert raw_request.text_reads == 1
     assert js_signal.listeners == []  # released deterministically after the stream
 
 
@@ -549,12 +700,26 @@ async def test_bodyless_requests_skip_the_buffered_read(workers_runtime):
 
     wrapper = ExplodingBytesPyRequest(
         "https://edge.example/",
-        js_object=types.SimpleNamespace(body=None, signal=None),
+        js_object=FakeJsRequest("https://edge.example/"),
     )
 
     assert (await _entry(app).fetch(raw)).status == 200
+    assert raw.headers.reads == 0
     assert (await _entry(app).fetch(ExplodingBodyRequest("https://edge.example/"))).status == 200
     assert (await _entry(app).fetch(wrapper)).status == 200
+
+
+async def test_http_only_app_skips_headers_with_websocket_runtime(workers_ws_runtime):
+    """The presence of WebSocketPair alone must not force Upgrade inspection."""
+    app = Hayate()
+
+    @app.get("/")
+    async def root(c: Context):
+        return c.text("ok")
+
+    request = FakeJsRequest("https://edge.example/")
+    assert (await _entry(app).fetch(request)).status == 200
+    assert request.headers.reads == 0
 
 
 async def test_workers_http_method_enum_shape_is_normalized(workers_runtime):
@@ -642,7 +807,7 @@ async def test_websocket_upgrade_serves_the_ws_route(workers_ws_runtime):
         async for message in ws:
             await ws.send(message)
 
-    js_response = await _entry(app).fetch(_ws_upgrade_request("https://edge.example/ws/lobby"))
+    js_response = _entry(app).fetch(_ws_upgrade_request("https://edge.example/ws/lobby"))
     pair = FakeWebSocketPair.last
 
     assert js_response.status == 101
@@ -668,7 +833,7 @@ async def test_websocket_handler_error_closes_with_1011(workers_ws_runtime):
     async def boom(c: Context, ws):
         raise RuntimeError("handler bug")
 
-    await _entry(app).fetch(_ws_upgrade_request())
+    _entry(app).fetch(_ws_upgrade_request())
     pair = FakeWebSocketPair.last
     await asyncio.wait_for(next(iter(_live_connections)), 1)
 
@@ -751,7 +916,10 @@ async def test_forward_returns_the_platform_response_untouched(workers_runtime):
     async def room(c: Context):
         return await forward(c, stub)
 
-    raw_js = types.SimpleNamespace(body=None, signal=None)
+    raw_js = FakeJsRequest(
+        "https://edge.example/room/lobby",
+        headers=[("connection", "Upgrade"), ("upgrade", "websocket")],
+    )
     request = FakePyRequest(
         "https://edge.example/room/lobby",
         headers=[("connection", "Upgrade"), ("upgrade", "websocket")],
@@ -791,6 +959,6 @@ async def test_durable_object_serves_websocket_routes(workers_ws_runtime):
         return app
 
     obj = to_durable_object(build)(types.SimpleNamespace(storage=FakeStorage()), None)
-    js_response = await obj.fetch(_ws_upgrade_request("https://do.example/ws"))
+    js_response = obj.fetch(_ws_upgrade_request("https://do.example/ws"))
     assert js_response.status == 101
     assert js_response.web_socket is FakeWebSocketPair.last.client

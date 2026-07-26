@@ -1,10 +1,12 @@
 # Native Cloudflare Workers benchmark
 
-This profile runs Hayate, a framework-free Python control, and Hono through
-the same locked local Wrangler/workerd runtime. Hayate uses
-`WorkerEntrypoint.fetch` directly: ASGI, Uvicorn, and h11 are absent.
+This profile runs Hayate, three framework-free Python controls, and Hono
+through the same locked local Wrangler/workerd runtime. The default Hayate
+target uses `WorkerEntrypoint.fetch`; `hayate-global` and `raw-global`
+explicitly enable Cloudflare's global-handler compatibility path to isolate
+the current class RPC wrapper. ASGI, Uvicorn, and h11 are absent.
 
-All three targets implement the 67-route and four-scenario workload from the main
+All targets implement the 67-route and four-scenario workload from the main
 competitive benchmark. The profile records:
 
 - the shared 14-case HTTP contract;
@@ -50,13 +52,17 @@ The publication-profile baseline is committed as
 
 ## Fairness boundary
 
-- All three targets use Wrangler 4.114.0 and its exact workerd dependency.
-- Both use compatibility date `2026-07-01` with `--no-latest`.
+- All targets use Wrangler 4.114.0 and its exact workerd dependency.
+- All use compatibility date `2026-07-01` with `--no-latest`.
+- The `*-global` controls add `disable_python_no_global_handlers`. This is
+  reported as a compatibility path, not Cloudflare's current default.
 - Hono 4.12.32, workers-py 1.15.0, and workers-runtime-sdk 1.6.3 are
   exactly pinned.
 - The Hayate fixture bundles a wheel built from the measured Git commit.
-- The raw Python target implements the workload with only
-  `workers-runtime-sdk`; it is a Python runtime/SDK boundary, not a framework.
+- `raw-python` uses the SDK Request/Response wrappers. `raw-js` keeps the
+  current class entrypoint but accesses its underlying JS objects directly.
+  `raw-global` combines direct JS access with the compatibility handler.
+  They are runtime/FFI boundaries, not frameworks.
 - `pywrangler sync` happens during setup. Timed processes invoke Wrangler
   directly so Python dependency resolution is not counted as runtime startup.
 - Every throughput sample gets a fresh Worker process plus 25 untimed warmup

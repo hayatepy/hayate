@@ -1,6 +1,7 @@
 """Hayate app: routing, middleware composition, errors, context."""
 
 import asyncio
+import importlib
 
 import pytest
 
@@ -254,6 +255,29 @@ async def test_sync_handler_runs_in_thread():
 
     res = await app.request("/sync")
     assert await res.text() == "from-thread"
+
+
+async def test_sync_handler_runs_inline_on_threadless_runtime(monkeypatch):
+    app_module = importlib.import_module("hayate.app")
+    monkeypatch.setattr(app_module, "_INLINE_SYNC_HANDLERS", True)
+    app = Hayate()
+    calls = []
+
+    @app.use
+    async def middleware(c: Context, next_):
+        calls.append("before")
+        await next_()
+        calls.append("after")
+
+    @app.get("/sync")
+    def sync_handler(c: Context):
+        calls.append("handler")
+        return c.text("inline")
+
+    assert app.routes[0].inline is True
+    response = await app.request("/sync")
+    assert await response.text() == "inline"
+    assert calls == ["before", "handler", "after"]
 
 
 async def test_wait_until_completes_before_request_returns():
