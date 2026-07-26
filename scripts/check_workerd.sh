@@ -40,7 +40,7 @@ mkdir -p "${test_dir}/src"
 cp "${repo_dir}/examples/workers/src/entry.py" "${test_dir}/src/entry.py"
 cp "${repo_dir}/examples/workers/wrangler.toml" "${test_dir}/wrangler.toml"
 sed \
-  "s|\"hayate>=0.11.1\"|\"hayate @ file://${wheel_path}\"|" \
+  "s|\"hayate>=0.11.2\"|\"hayate @ file://${wheel_path}\"|" \
   "${repo_dir}/examples/workers/pyproject.toml" >"${test_dir}/pyproject.toml"
 
 (
