@@ -6,7 +6,7 @@ from .body import BodyInit
 from .context import Context, ErrorHandler, ExecutionContext, Handler, Middleware, Next
 from .cookies import parse_cookies, serialize_set_cookie
 from .exceptions import HTTPException, problem
-from .formdata import File, FormData
+from .formdata import File, FormData, FormDataError, FormDataLimitError, FormDataLimits
 from .headers import Headers
 from .request import HayateRequest, Request
 from .response import Response
@@ -29,6 +29,9 @@ __all__ = [
     "ExecutionContext",
     "File",
     "FormData",
+    "FormDataError",
+    "FormDataLimitError",
+    "FormDataLimits",
     "HTTPException",
     "Handler",
     "Hayate",

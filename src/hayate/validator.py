@@ -30,6 +30,7 @@ from typing import Any, Literal
 
 from .context import Context, Middleware, Next
 from .exceptions import HTTPException
+from .formdata import FormDataError, FormDataLimitError
 
 type ValidationTarget = Literal["json", "form", "query", "param", "header", "cookie"]
 
@@ -56,7 +57,16 @@ def validator(target: ValidationTarget, validate: Callable[[Any], Any]) -> Middl
                     400, title="Validation failed", detail="request body is not valid JSON"
                 ) from None
         elif target == "form":
-            data = dict(await c.req.form_data())
+            try:
+                data = dict(await c.req.form_data())
+            except FormDataLimitError as exc:
+                raise HTTPException(413, title="Payload Too Large", detail=str(exc)) from exc
+            except (FormDataError, TypeError) as exc:
+                raise HTTPException(
+                    400,
+                    title="Validation failed",
+                    detail=f"request form is invalid: {exc}",
+                ) from exc
         elif target == "query":
             data = dict(c.req.url.search_params)
         elif target == "param":

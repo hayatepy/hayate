@@ -2,7 +2,7 @@
 
 import pytest
 
-from hayate import Context, Hayate
+from hayate import Context, FormDataLimitError, FormDataLimits, Hayate, Request
 from hayate.validator import validator
 
 
@@ -84,6 +84,41 @@ async def test_form_validation():
     )
     assert res.status == 200
     assert await res.json() == {"title": "hello"}
+
+
+async def test_form_parse_error_is_problem():
+    app = make_app()
+    res = await app.request(
+        "/form",
+        method="POST",
+        body="ignored",
+        headers={"content-type": "multipart/form-data"},
+    )
+    assert res.status == 400
+    body = await res.json()
+    assert body["title"] == "Validation failed"
+    assert "boundary" in body["detail"]
+
+
+async def test_form_limit_error_is_payload_too_large(monkeypatch):
+    async def over_limit(
+        self: Request,
+        limits: FormDataLimits | None = None,
+    ):
+        raise FormDataLimitError("form body exceeds max_body_bytes")
+
+    monkeypatch.setattr(Request, "form_data", over_limit)
+    app = make_app()
+    res = await app.request(
+        "/form",
+        method="POST",
+        body="title=hello",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+    assert res.status == 413
+    body = await res.json()
+    assert body["title"] == "Payload Too Large"
+    assert body["detail"] == "form body exceeds max_body_bytes"
 
 
 async def test_route_parameter_validation_uses_decoded_values():

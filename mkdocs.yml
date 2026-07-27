@@ -56,6 +56,7 @@ nav:
       - Getting started: guide/getting-started.md
       - Routing: guide/routing.md
       - Context and responses: guide/context.md
+      - Forms and uploads: guide/forms-and-uploads.md
       - Middleware: guide/middleware.md
       - Realtime: guide/realtime.md
       - Validation: guide/validation.md

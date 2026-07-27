@@ -10,13 +10,20 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable, Iterable, Mapping
-from typing import Any
+from typing import Any, cast
 from urllib.parse import unquote
 
 from .abort import AbortSignal
 from .body import Body, BodyInit
 from .cookies import parse_cookies
-from .formdata import FormData, parse_header_params, parse_multipart
+from .formdata import (
+    DEFAULT_FORM_DATA_LIMITS,
+    FormData,
+    FormDataLimitError,
+    FormDataLimits,
+    parse_header_params,
+    parse_multipart_stream,
+)
 from .headers import Headers
 from .url import URL, parse_form_urlencoded
 
@@ -252,20 +259,66 @@ class Request(Body):
             self.url, method=self.method, headers=self.headers, body=body, signal=self.signal
         )
 
-    async def form_data(self) -> FormData:
+    def _take_form_source(self) -> bytes | AsyncIterable[bytes]:
+        self._mark_used()
+        if self._platform is not None:
+            source, self._platform = self._platform, None
+            self._stream = None
+            return cast(AsyncIterable[bytes], source)
+        if self._stream is not None:
+            source, self._stream = self._stream, None
+            return source
+        return self._buffer if self._buffer is not None else b""
+
+    async def form_data(
+        self,
+        limits: FormDataLimits = DEFAULT_FORM_DATA_LIMITS,
+    ) -> FormData:
         content_type = self.headers.get("content-type") or ""
         base = content_type.partition(";")[0].strip().lower()
         if base == "application/x-www-form-urlencoded":
-            data = await self.bytes()
+            source = self._take_form_source()
+            if isinstance(source, bytes):
+                data = source
+            else:
+                chunks: list[bytes] = []
+                size = 0
+                async for chunk in source:
+                    chunk_bytes = bytes(chunk)
+                    size += len(chunk_bytes)
+                    if size > limits.max_body_bytes:
+                        raise FormDataLimitError("form body exceeds max_body_bytes")
+                    chunks.append(chunk_bytes)
+                data = b"".join(chunks)
+            if len(data) > limits.max_body_bytes:
+                raise FormDataLimitError("form body exceeds max_body_bytes")
             form = FormData()
-            for name, value in parse_form_urlencoded(data.decode("utf-8", errors="replace")):
-                form.append(name, value)
+            for name, field_value in parse_form_urlencoded(data.decode("utf-8", errors="replace")):
+                if len(name.encode()) > limits.max_field_bytes or len(field_value.encode()) > (
+                    limits.max_field_bytes
+                ):
+                    raise FormDataLimitError("URL-encoded field exceeds max_field_bytes")
+                if len(form) >= limits.max_parts:
+                    raise FormDataLimitError("URL-encoded form exceeds max_parts")
+                form.append(name, field_value)
             return form
         if base == "multipart/form-data":
             boundary = parse_header_params(content_type).get("boundary")
             if not boundary:
                 raise TypeError("multipart/form-data content-type without a boundary")
-            return parse_multipart(await self.bytes(), boundary)
+            source = self._take_form_source()
+            if isinstance(source, bytes):
+
+                async def buffered() -> AsyncIterator[bytes]:
+                    yield source
+
+                return await parse_multipart_stream(
+                    buffered(),
+                    boundary,
+                    limits,
+                    spool_files=False,
+                )
+            return await parse_multipart_stream(source, boundary, limits)
         raise TypeError(f"cannot parse body as form data (content-type: {content_type!r})")
 
     def __repr__(self) -> str:
@@ -358,8 +411,11 @@ class HayateRequest:
     def json(self) -> Awaitable[Any]:
         return self.raw.json()
 
-    def form_data(self) -> Awaitable[FormData]:
-        return self.raw.form_data()
+    def form_data(
+        self,
+        limits: FormDataLimits = DEFAULT_FORM_DATA_LIMITS,
+    ) -> Awaitable[FormData]:
+        return self.raw.form_data(limits)
 
     def __repr__(self) -> str:
         return f"HayateRequest({self.method} {self.url.href!r})"

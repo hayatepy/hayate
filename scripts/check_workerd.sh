@@ -118,3 +118,22 @@ canonical="$(
 python -c \
   'import json,sys; assert json.loads(sys.argv[1]) == {"hostname":"xn--wgv71a119e.example"}' \
   "${canonical}"
+
+form="$(
+  curl --fail --silent --max-time 5 \
+    -F 'file=workers-upload;filename=a.txt;type=text/plain' \
+    "http://127.0.0.1:${port}/form"
+)"
+python -c \
+  'import json,sys; assert json.loads(sys.argv[1]) == {"filename":"a.txt","size":14,"spooled":False,"text":"workers-upload"}' \
+  "${form}"
+
+oversized="$(
+  curl --silent --max-time 5 \
+    -F 'file=0123456789012345678901234567890123456789;filename=large.txt;type=text/plain' \
+    -w $'\n%{http_code}' \
+    "http://127.0.0.1:${port}/form"
+)"
+python -c \
+  'import json,sys; body,status=sys.argv[1].rsplit("\n",1); assert status == "413"; assert json.loads(body)["title"] == "Payload Too Large"' \
+  "${oversized}"

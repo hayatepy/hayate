@@ -16,6 +16,9 @@ demoted to adapter-level implementation details.
   runs anywhere CPython or Pyodide runs.
 - **Runtime-agnostic** — the app core is a pure `fetch(Request) -> Response` function.
   ASGI servers, Cloudflare Python Workers, and AWS Lambda are thin adapters.
+- **Resource-bounded uploads** — Fetch-shaped `FormData`/`File` parsing has
+  explicit body/part/header limits; native ASGI spills large files to disk
+  while Workers remains bounded and disk-free.
 - **Async-first, typed** — Python 3.12+.
 
 ## Install
