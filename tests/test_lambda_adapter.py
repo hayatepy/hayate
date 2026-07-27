@@ -130,6 +130,17 @@ def test_cookies_both_directions():
     assert "set-cookie" not in result["headers"]
 
 
+def test_repeated_response_headers_are_comma_joined_for_payload_v2():
+    app = Hayate()
+
+    @app.get("/headers")
+    async def headers(c: Context):
+        return c.body(b"", headers=[("x-value", "one"), ("x-value", "two")])
+
+    result = to_lambda(app)(make_event(path="/headers"), None)
+    assert result["headers"]["x-value"] == "one, two"
+
+
 def test_not_found_is_problem_json():
     app = Hayate()
     handler = to_lambda(app)

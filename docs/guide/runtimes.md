@@ -213,6 +213,8 @@ WHATWG URL behavior.
 
 ## AWS Lambda (Function URLs / API Gateway HTTP API v2.0)
 
+### Managed Python runtime: buffered responses
+
 ```python title="lambda_function.py"
 from hayate.adapters.aws import to_lambda
 from main import app
@@ -240,6 +242,54 @@ forwarded scheme, text, binary/base64, and RFC 9457 problem responses without
 ASGI, Mangum, Uvicorn, AWS credentials, or a deployed network. This proves the
 packaged runtime boundary; local Runtime Interface Emulator timings are not
 presented as deployed Lambda cold-start or latency measurements.
+
+### Custom Python runtime: streaming responses
+
+AWS's managed Python runtime exposes only the buffered handler contract above.
+For incremental response bodies, use Hayate's custom Runtime API loop:
+
+```python title="bootstrap.py"
+from hayate.adapters.aws import run_lambda_streaming
+from main import app
+
+run_lambda_streaming(app)
+```
+
+The executable bootstrap starts this module in a container or an OS-only
+custom runtime. Configure a Function URL with invoke mode `RESPONSE_STREAM`, or
+an API Gateway Lambda proxy integration with response transfer mode `STREAM`.
+The complete digest-pinned container is in
+[`examples/lambda-streaming`](https://github.com/hayatepy/hayate/tree/main/examples/lambda-streaming).
+
+`run_lambda_streaming` polls the 2018-06-01 Runtime API directly and writes
+HTTP/1.1 chunks without ASGI, Mangum, or Lambda Web Adapter. Its integration
+metadata preserves status, single and repeated headers, and cookies, followed
+by AWS's eight-NUL delimiter within the required first 16 KiB. It does not
+iterate bodies for HEAD, 204, or 304 responses. Errors before a response use
+the invocation error endpoint; response-body failures after streaming begins
+use the two Lambda error trailers. A transport failure after the response
+starts exits instead of illegally calling the invocation error endpoint.
+
+```sh
+bash scripts/check_lambda_streaming_runtime.sh
+```
+
+That gate installs the exact wheel and hash-locked dependency into the same
+digest-pinned AWS Python 3.14 image. The Runtime Interface Emulator validates
+the packaged invocation and complete response; a wire-level Runtime API probe
+then observes `first\n` **at least 350 ms before** the deliberately delayed
+`second\n`. This separation matters because the RIE's outer local invocation
+endpoint presents a completed invocation and cannot itself prove client TTFB.
+
+This loop targets standard Lambda execution environments. It does not claim
+the concurrent custom-runtime contract for Lambda Managed Instances and
+`AWS_LAMBDA_MAX_CONCURRENCY`. Function URL streaming is also unavailable from
+within a VPC; use `InvokeWithResponseStream` with the required Lambda interface
+endpoint for that topology. See AWS's
+[response streaming](https://docs.aws.amazon.com/lambda/latest/dg/configuration-response-streaming.html),
+[custom runtime](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-custom.html),
+and [Function URL invoke-mode](https://docs.aws.amazon.com/lambda/latest/dg/config-rs-invoke-furls.html)
+documentation.
 
 ## Testing
 

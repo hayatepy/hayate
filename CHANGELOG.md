@@ -9,6 +9,12 @@ All notable changes to hayate are documented here.
 - Add a digest-pinned AWS Lambda Python 3.14 packaged-runtime gate that builds
   the current wheel and verifies the native payload-v2 adapter through the
   Lambda Runtime Interface Emulator without ASGI or Mangum.
+- Add native Python Lambda response streaming through an opt-in custom Runtime
+  API loop. It preserves status, headers, repeated headers, cookies, HEAD and
+  no-body semantics; bounds the HTTP metadata prelude; and reports midstream
+  failures with Lambda error trailers. The packaged-runtime gate proves on the
+  wire that the first chunk reaches the Runtime API before a delayed second
+  chunk, without ASGI or Lambda Web Adapter.
 
 ### Fixed
 

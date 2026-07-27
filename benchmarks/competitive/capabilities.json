@@ -7,7 +7,7 @@
       "id": "portable_agent_api",
       "title": "Portable Python agent API",
       "position": "advantaged",
-      "summary": "Hayate has the clearest first-party path when one Python application must run on ASGI, native Cloudflare Workers, and AWS Lambda HTTP payload v2 while combining typed HTTP contracts, cached dependency graphs, MCP 2025-11-25, authorization, and checked SQLite/D1 access.",
+      "summary": "Hayate has the clearest first-party path when one Python application must run on ASGI, native Cloudflare Workers, and buffered or response-streaming AWS Lambda HTTP payload v2 while combining typed HTTP contracts, cached dependency graphs, MCP 2025-11-25, authorization, and checked SQLite/D1 access.",
       "capabilities": [
         "fetch_core",
         "asgi",
@@ -201,13 +201,13 @@
     },
     {
       "id": "native_lambda",
-      "title": "Native AWS Lambda HTTP payload path",
-      "definition": "The framework package translates API Gateway HTTP API v2 and Function URL events directly, without a separately governed ASGI-to-Lambda adapter.",
+      "title": "Native AWS Lambda HTTP and response-streaming path",
+      "definition": "The framework package translates API Gateway HTTP API v2 and Function URL events directly and can incrementally stream responses, without a separately governed ASGI-to-Lambda adapter.",
       "support": {
         "hayate": {
           "status": "core",
-          "note": "to_lambda maps payload-v2 requests, responses, binary bodies, cookies, and background work directly to the Fetch core; CI installs the wheel in AWS's Python image and invokes it through the Runtime Interface Emulator.",
-          "sources": ["src/hayate/adapters/aws.py", "tests/test_lambda_adapter.py", "scripts/check_lambda_runtime.sh", "examples/lambda/Dockerfile"]
+          "note": "to_lambda maps buffered payload-v2 requests directly to the Fetch core, while run_lambda_streaming implements the custom Runtime API's chunking, HTTP metadata, cookies, and error trailers; CI installs the wheel in AWS's Python image and proves first-chunk delivery on the Runtime API wire.",
+          "sources": ["src/hayate/adapters/aws.py", "tests/test_lambda_adapter.py", "tests/test_lambda_streaming.py", "scripts/check_lambda_runtime.sh", "scripts/check_lambda_streaming_runtime.sh", "examples/lambda-streaming/Dockerfile"]
         },
         "fastapi": {
           "status": "not_first_party",
@@ -221,7 +221,7 @@
         },
         "hono": {
           "status": "core",
-          "note": "hono/aws-lambda supplies the maintained Lambda handler, including binary response handling.",
+          "note": "hono/aws-lambda supplies maintained buffered and response-streaming Lambda handlers.",
           "sources": ["https://hono.dev/docs/getting-started/aws-lambda"]
         }
       },
