@@ -10,6 +10,10 @@ URL / URLPattern standards; spelling follows PEP 8 (`searchParams` →
 
 ::: hayate.Route
 
+## ASGI composition
+
+::: hayate.adapters.asgi.ASGIPathDispatcher
+
 ## Context
 
 ::: hayate.Context

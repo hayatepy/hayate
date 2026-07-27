@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import inspect
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
@@ -29,10 +29,112 @@ _logger = logging.getLogger("hayate.asgi")
 
 type Receive = Callable[[], Awaitable[dict[str, Any]]]
 type Send = Callable[[dict[str, Any]], Awaitable[None]]
+type ASGIApplication = Callable[[dict[str, Any], Receive, Send], Awaitable[None]]
 
 _DEFAULT_SCHEME_PORTS = {"http": "80", "https": "443", "ws": "80", "wss": "443"}
 # pchar set — keep valid path characters intact when re-encoding a decoded path.
 _PATH_SAFE = "/:@!$&'()*+,;=~-._"
+_MOUNT_PATH_CHARS = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~!$&'()*+,;=:@/"
+)
+
+
+def _validate_mount_path(path: str) -> bytes:
+    if not path.startswith("/") or path == "/":
+        raise ValueError("ASGI mount paths must start with '/' and cannot be '/'")
+    if path.endswith("/"):
+        raise ValueError("ASGI mount paths must not end with '/'")
+    if any(segment in ("", ".", "..") for segment in path[1:].split("/")):
+        raise ValueError("ASGI mount paths cannot contain empty, '.' or '..' segments")
+    if any(character not in _MOUNT_PATH_CHARS for character in path):
+        raise ValueError("ASGI mount paths must contain only unescaped ASCII URL path characters")
+    return path.encode("ascii")
+
+
+def _mounted_scope(
+    scope: dict[str, Any],
+    *,
+    path: str,
+    prefix: str,
+    raw_prefix: bytes,
+) -> dict[str, Any]:
+    mounted = dict(scope)
+    mounted["path"] = path[len(prefix) :] or "/"
+
+    root_path = str(scope.get("root_path", "")).rstrip("/")
+    mounted["root_path"] = f"{root_path}{prefix}"
+
+    raw_path = scope.get("raw_path")
+    if isinstance(raw_path, bytes) and (
+        raw_path == raw_prefix or raw_path.startswith(raw_prefix + b"/")
+    ):
+        mounted["raw_path"] = raw_path[len(raw_prefix) :] or b"/"
+    else:
+        # ``raw_path`` is optional in ASGI. If an upstream server encoded the
+        # mount prefix differently, dropping it is safer than fabricating raw
+        # bytes that no longer describe ``path``.
+        mounted.pop("raw_path", None)
+    return mounted
+
+
+class ASGIPathDispatcher:
+    """Dispatch mounted ASGI applications before a default application.
+
+    HTTP and WebSocket scopes use longest path-segment prefix matching.
+    Mounted applications receive the remaining ``path`` and ``raw_path`` plus
+    a ``root_path`` extended by the matched prefix. Other scopes, including
+    lifespan, are owned by ``default``. The composition root must initialize
+    and shut down mounted applications that require their own lifecycle.
+
+    This adapter-level boundary is intentionally separate from Hayate's Fetch
+    core and its direct Cloudflare Workers adapter.
+    """
+
+    __slots__ = ("_default", "_mounts")
+
+    def __init__(
+        self,
+        default: ASGIApplication,
+        mounts: Mapping[str, ASGIApplication],
+    ) -> None:
+        if not callable(default):
+            raise TypeError("default ASGI application must be callable")
+
+        prepared: list[tuple[str, bytes, ASGIApplication]] = []
+        for path, application in mounts.items():
+            raw_path = _validate_mount_path(path)
+            if not callable(application):
+                raise TypeError(f"mounted ASGI application at {path!r} must be callable")
+            prepared.append((path, raw_path, application))
+
+        self._default = default
+        self._mounts = tuple(sorted(prepared, key=lambda mount: (-len(mount[0]), mount[0])))
+
+    async def __call__(
+        self,
+        scope: dict[str, Any],
+        receive: Receive,
+        send: Send,
+    ) -> None:
+        if scope.get("type") not in ("http", "websocket"):
+            await self._default(scope, receive, send)
+            return
+
+        path = str(scope.get("path", "/"))
+        for prefix, raw_prefix, application in self._mounts:
+            if path == prefix or path.startswith(f"{prefix}/"):
+                await application(
+                    _mounted_scope(
+                        scope,
+                        path=path,
+                        prefix=prefix,
+                        raw_prefix=raw_prefix,
+                    ),
+                    receive,
+                    send,
+                )
+                return
+        await self._default(scope, receive, send)
 
 
 async def _request_body(receive: Receive, signal: AbortSignal) -> AsyncIterator[bytes]:

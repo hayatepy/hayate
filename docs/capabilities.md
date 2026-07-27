@@ -18,19 +18,19 @@ Support levels: **Core** is in the framework package; **First-party** is maintai
 
 ### Conventional typed Python API
 
-**Competitive / mixed** — Hayate now meets FastAPI's central typed request/response, OpenAPI, dependency-graph, direct-test, realtime, and lifecycle capabilities. FastAPI retains a much larger adoption ecosystem; that is a material adoption advantage, not a missing Hayate endpoint feature.
+**Competitive / mixed** — Hayate now meets FastAPI's central typed request/response, OpenAPI, dependency-graph, direct-test, realtime, lifecycle, and sub-application composition capabilities. FastAPI retains a much larger adoption ecosystem; that is a material adoption advantage, not a missing Hayate endpoint feature.
 
-- Against FastAPI: Parity 7.
-- Against Django: Hayate advantage 3, Parity 4.
-- Against Hono: Hayate advantage 1, Parity 5, Different scope 1.
+- Against FastAPI: Parity 8.
+- Against Django: Hayate advantage 4, Parity 4.
+- Against Hono: Hayate advantage 1, Parity 6, Different scope 1.
 
 ### Traditional database-backed full stack
 
-**Competitor advantaged** — Django remains functionally ahead for model-driven admin, ORM/migrations, and integrated forms/templates. Hayate intentionally offers composable checked SQL and htmx/Jinja paths instead of reproducing Django's monolith.
+**Competitor advantaged** — Django remains functionally ahead for model-driven admin, ORM/migrations, and integrated forms/templates. Hayate offers composable checked SQL and htmx paths, and can now retain a Django admin/ORM application under an ASGI prefix during incremental migration instead of reproducing Django's monolith.
 
-- Against FastAPI: Hayate advantage 1, Parity 3.
-- Against Django: Parity 1, Competitor advantage 3.
-- Against Hono: Parity 4.
+- Against FastAPI: Hayate advantage 1, Parity 4.
+- Against Django: Hayate advantage 1, Parity 1, Competitor advantage 3.
+- Against Hono: Parity 5.
 
 ### JavaScript and TypeScript edge application
 
@@ -46,6 +46,7 @@ Support levels: **Core** is in the framework package; **First-party** is maintai
 |---|---|---|---|---|
 | **Web-standard Fetch core**<br>Application handlers use standard Request/Response/URL/Headers concepts rather than a Python-only server protocol. | **Core** — Fetch-shaped request/response core with ASGI and Workers as adapters. | **No first-party path** — The documented application model is Starlette on ASGI, not a Fetch core. | **No first-party path** — Django documents its own HttpRequest/HttpResponse stack over WSGI or ASGI. | **Core** — Hono explicitly uses Web Standards and the Fetch API. |
 | **ASGI server compatibility**<br>The application can run behind ordinary Python ASGI servers. | **Core** — Hayate is directly ASGI-callable and validates HTTP, WebSocket, lifespan, and background work. | **Core** — FastAPI is an ASGI framework built on Starlette. | **Core** — Django documents an async request stack under ASGI. | **Different scope** — Hono targets JavaScript runtimes and their adapters rather than Python ASGI. |
+| **Independent sub-application composition**<br>An application can dispatch an independent framework application under a path prefix with correct sub-application path semantics. | **Core** — ASGIPathDispatcher mounts Django, FastAPI, or another ASGI application by longest prefix while keeping the Fetch core and Workers adapter unchanged. | **Core** — FastAPI mounts independent sub-applications with their own routes, OpenAPI, and automatic documentation. | **No first-party path** — Django can be embedded in an outer ASGI composition, but its documented core does not provide a path dispatcher for independent applications. | **Core** — Hono route() composes Hono applications and mount() integrates applications from other Fetch frameworks. |
 | **Native Cloudflare Workers path without ASGI**<br>The framework connects Fetch requests directly to its application model without an ASGI protocol bridge. | **Core** — Class and global Python Workers entrypoints convert one Fetch boundary and retain bindings. | **Platform adapter** — Cloudflare supports FastAPI through its Python Workers ASGI server and asgi.fetch bridge. | **No first-party path** — Django documents WSGI/ASGI deployment; no native Fetch adapter is in its framework surface. | **Core** — Cloudflare Workers is a primary Hono runtime and uses app.fetch. |
 | **Typed request and response OpenAPI contracts**<br>Types drive input validation, response validation/serialization, OpenAPI 3.1, interactive docs, and client generation. | **First-party** — hayate-openapi 0.5 provides explicit source markers, response contracts, providers, and Scalar. | **Core** — Type-driven validation, OpenAPI, JSON Schema, and interactive docs are central FastAPI features. | **External** — API schemas and typed REST contracts are provided by projects such as Django REST Framework rather than Django core. | **First-party** — @hono/zod-openapi combines validation, types, and OpenAPI generation. |
 | **Nested dependency graph with request cache**<br>Endpoint dependencies may have subdependencies and shared results are cached once per request. | **First-party** — hayate-openapi Depends resolves sync/async subdependencies with per-request caching. | **Core** — FastAPI documents arbitrarily deep subdependencies and one-call-per-request caching. | **No first-party path** — Django's documented core feature set does not include a general endpoint dependency-injection graph. | **External** — Hono documents DI options such as Hono Simple DI in its third-party middleware catalog. |
@@ -79,6 +80,14 @@ Support levels: **Core** is in the framework package; **First-party** is maintai
 - **Django — Core:** Django documents an async request stack under ASGI. ([source 1](https://docs.djangoproject.com/en/6.0/topics/async/))
 - **Hono — Different scope:** Hono targets JavaScript runtimes and their adapters rather than Python ASGI. ([source 1](https://hono.dev/docs/concepts/web-standard))
 - **Relative to Hayate:** FastAPI: Parity; Django: Parity; Hono: Different scope.
+
+### Independent sub-application composition
+
+- **Hayate — Core:** ASGIPathDispatcher mounts Django, FastAPI, or another ASGI application by longest prefix while keeping the Fetch core and Workers adapter unchanged. ([evidence 1](https://github.com/hayatepy/hayate/blob/main/src/hayate/adapters/asgi.py), [evidence 2](https://github.com/hayatepy/hayate/blob/main/tests/test_asgi_composition.py), [evidence 3](https://github.com/hayatepy/hayate/blob/main/tests/interop/frameworks.py))
+- **FastAPI — Core:** FastAPI mounts independent sub-applications with their own routes, OpenAPI, and automatic documentation. ([source 1](https://fastapi.tiangolo.com/advanced/sub-applications/))
+- **Django — No first-party path:** Django can be embedded in an outer ASGI composition, but its documented core does not provide a path dispatcher for independent applications. ([source 1](https://docs.djangoproject.com/en/6.0/howto/deployment/asgi/#applying-asgi-middleware))
+- **Hono — Core:** Hono route() composes Hono applications and mount() integrates applications from other Fetch frameworks. ([source 1](https://hono.dev/docs/api/hono#mount), [source 2](https://hono.dev/docs/api/routing#grouping))
+- **Relative to Hayate:** FastAPI: Parity; Django: Hayate advantage; Hono: Parity.
 
 ### Native Cloudflare Workers path without ASGI
 

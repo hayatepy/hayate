@@ -23,7 +23,13 @@ def test_workers_import_does_not_load_asgi_adapter():
 
 
 def test_public_asgi_adapter_export_remains_available():
-    from hayate.adapters import ASGIAdapter
-    from hayate.adapters.asgi import ASGIAdapter as DirectASGIAdapter
+    from hayate.adapters import ASGIAdapter, ASGIPathDispatcher
+    from hayate.adapters.asgi import (
+        ASGIAdapter as DirectASGIAdapter,
+    )
+    from hayate.adapters.asgi import (
+        ASGIPathDispatcher as DirectASGIPathDispatcher,
+    )
 
     assert ASGIAdapter is DirectASGIAdapter
+    assert ASGIPathDispatcher is DirectASGIPathDispatcher

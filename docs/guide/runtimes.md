@@ -15,6 +15,60 @@ uvicorn main:app
 HTTP, WebSocket, and lifespan (`@app.on_start` / `@app.on_stop`) are handled.
 You never see `scope` / `receive` / `send`.
 
+### Keep Django or FastAPI during an incremental migration
+
+`ASGIPathDispatcher` keeps independent ASGI applications under explicit path
+prefixes while Hayate owns the remaining routes:
+
+```python title="application.py"
+import os
+
+from django.core.asgi import get_asgi_application
+from hayate.adapters import ASGIPathDispatcher
+
+from main import app
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "legacy.settings")
+django_application = get_asgi_application()
+
+application = ASGIPathDispatcher(
+    app,
+    {"/legacy": django_application},
+)
+```
+
+Run `uvicorn application:application`. A Django URL such as `admin/` is now
+available at `/legacy/admin/`; Hayate routes remain at their original paths.
+The dispatcher uses longest path-segment matching and extends ASGI
+`root_path`, so nested applications see the prefix without adding it to their
+own route declarations. The same composition works for a FastAPI application:
+
+```python
+from hayate.adapters import ASGIPathDispatcher
+from legacy_api import app as legacy_api
+from main import app
+
+application = ASGIPathDispatcher(
+    app,
+    {"/legacy-api": legacy_api},
+)
+```
+
+This boundary lets an ASGI deployment retain Django admin, models, migrations,
+or existing FastAPI endpoints while new HTTP/MCP paths move independently.
+Django's asynchronous ORM methods can be called from Hayate handlers; wrap
+transactional synchronous ORM sections with `sync_to_async()` as described in
+the [Django async documentation](https://docs.djangoproject.com/en/6.0/topics/async/).
+
+Mounted applications are independent:
+
+- their middleware, authentication, CORS, and OpenAPI documents are not merged
+  into Hayate;
+- the root application owns the ASGI lifespan scope. Initialize and stop any
+  mounted application's lifecycle resources in the composition root;
+- mounted prefixes are an ASGI deployment feature. Cloudflare Workers keeps
+  the direct Fetch adapter below and does not bundle or execute Django/FastAPI.
+
 ## Cloudflare Python Workers
 
 ```python title="entry.py"

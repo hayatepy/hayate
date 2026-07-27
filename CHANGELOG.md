@@ -6,6 +6,13 @@ All notable changes to hayate are documented here.
 
 ### Added
 
+- Add a zero-dependency `ASGIPathDispatcher` for longest-prefix composition
+  with existing Django, FastAPI, or other ASGI applications. Mounted HTTP and
+  WebSocket scopes receive corrected `path`, `raw_path`, and `root_path`
+  values; the root remains the explicit lifespan owner, and the direct
+  Cloudflare Fetch path remains unchanged.
+- Add locked real-framework gates that serve Django 6.0 admin, FastAPI 0.140
+  endpoints/OpenAPI, and Hayate routes through one composed ASGI callable.
 - Add a dated, machine-validated competitive capability matrix for Hayate,
   FastAPI, Django, and Hono. Every Hayate first-party claim requires checked
   local evidence, every competitor claim requires a documentation source, and
