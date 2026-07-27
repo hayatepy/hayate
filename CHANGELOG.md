@@ -4,11 +4,14 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-07-28
+
 ### Added
 
 - Add zero-dependency request ID middleware with bounded log-safe incoming ID
-  validation, secure fallback generation, per-request Context access,
-  response correlation across handled errors, and native Workers coverage.
+  validation, secure fallback generation, platform precedence and custom
+  generators, per-request Context access, and response correlation across
+  ASGI, native Workers, and Lambda, including handled errors.
 - Add a digest-pinned AWS Lambda Python 3.14 packaged-runtime gate that builds
   the current wheel and verifies the native payload-v2 adapter through the
   Lambda Runtime Interface Emulator without ASGI or Mangum.
@@ -18,6 +21,13 @@ All notable changes to hayate are documented here.
   failures with Lambda error trailers. The packaged-runtime gate proves on the
   wire that the first chunk reaches the Runtime API before a delayed second
   chunk, without ASGI or Lambda Web Adapter.
+
+### Changed
+
+- Refresh the competitive capability matrix with verified relational-admin,
+  localization, accessibility, scalable-operations, adoption, and safe
+  request-correlation evidence while retaining Django's full-stack and Hono's
+  JavaScript-runtime advantages.
 
 ### Fixed
 
