@@ -58,6 +58,15 @@ the [pre-optimization baseline](results/2026-07-27-macos-arm64.md), and
 every other dated result remain in the same directory rather than being
 overwritten.
 
+[`current.toml`](current.toml) declares the current result used by the public
+benchmark page. Regenerate and verify that publication after recording a new
+release baseline:
+
+```sh
+uv run python benchmarks/competitive/publish.py
+uv run python benchmarks/competitive/publish.py --check
+```
+
 ## Common workload
 
 Each implementation registers the same 67 routes and response data:

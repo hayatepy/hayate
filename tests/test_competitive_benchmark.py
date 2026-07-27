@@ -26,6 +26,10 @@ competitive_runner = _load_module(
     "competitive_runner",
     ROOT / "benchmarks/competitive/runner.py",
 )
+competitive_publish = _load_module(
+    "competitive_publish",
+    ROOT / "benchmarks/competitive/publish.py",
+)
 _locked_node_package_version = competitive_runner._locked_node_package_version
 _render_markdown = competitive_runner.render_markdown
 _setup = competitive_runner.setup
@@ -92,6 +96,10 @@ def test_recorded_baseline_summary_matches_raw_report():
     assert report["git_commit"] == "0612ee509706f74d3ca651b26a88ab6c713d7b1e"
     assert report["configuration"]["node_transport"] == ("@hono/node-server 2.0.12 / HTTP/1.1")
     assert (results / "2026-07-27-macos-arm64.md").read_text() == _render_markdown(report)
+
+
+def test_current_publication_is_generated_from_raw_evidence():
+    competitive_publish.check()
 
 
 def test_transport_profile_reports_hayate_share_of_raw_ceiling():

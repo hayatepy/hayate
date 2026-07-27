@@ -108,42 +108,52 @@ The monthly and manually dispatchable
 uploads the raw JSON and Markdown summary. Shared-runner measurements are not
 used as a hard regression gate because host contention is uncontrolled.
 
-### Recorded ASGI-optimized baseline (2026-07-27)
+<!-- competitive-current:start -->
+### Current released baseline (Hayate 0.13.0, 2026-07-27)
 
-Apple M2 Pro, macOS 26.5.1, arm64, CPython 3.14.6, Node 24.18.0;
-50 connections, 10 seconds per scenario, three rotating rounds. The source
-under test is commit `697b20d`; every one of the 60 throughput samples
-completed with zero errors, timeouts, or non-2xx responses.
+Apple M2 Pro, macOS 26.5.1, arm64, CPython 3.14.6, Node 24.18.0; 50 connections, 10
+seconds per scenario, 3 rotating rounds. The source under test is commit `6d0d75b`. All
+60 throughput samples completed with zero errors, timeouts, or non-2xx responses.
 
 | Framework | Version | App import | Cold start | Production packages | gzip payload | Throughput geo mean | HTTP contract |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| **hayate** | 0.12.1 | 84.8 ms | **114.2 ms** | **5** | 289.8 KiB | **14,451 req/s** | **14/14 (100%)** |
-| FastAPI | 0.140.0 | 406.1 ms | 429.3 ms | 13 | 2,802.2 KiB | 9,578 req/s | 12/14 (85.7%) |
-| Django | 6.0.7 | 346.1 ms | 352.9 ms | 6 | 5,147.2 KiB | 2,883 req/s | 12/14 (85.7%) |
-| Hono | 4.12.32 | **56.3 ms** | **64.9 ms** | **2** | **281.5 KiB** | **60,424 req/s** | 12/14 (85.7%) |
+| Hayate | 0.13.0 | 82.7 ms | 139.9 ms | 5 | 294.1 KiB | 15,430 req/s | 14/14 (100.0%) |
+| FastAPI | 0.140.0 | 429.1 ms | 483.7 ms | 13 | 2,802.2 KiB | 10,020 req/s | 12/14 (85.7%) |
+| Django | 6.0.7 | 338.5 ms | 362.2 ms | 6 | 5,147.1 KiB | 2,751 req/s | 12/14 (85.7%) |
+| Hono | 4.12.32 | 55.0 ms | 62.8 ms | 2 | 281.5 KiB | 63,933 req/s | 12/14 (85.7%) |
 
-On this workload, hayate delivered 1.51x FastAPI's and 5.01x Django's
-throughput. FastAPI and Django took 3.76x and 3.09x as long to cold-start,
-respectively. Hono delivered 4.18x Hayate's throughput, and Hayate took 1.76x
-as long to cold-start. hayate's runtime-excluded compressed payload was 2.9%
-larger than Hono's official Node stack while using three more production
-packages; it was 9.67x smaller than FastAPI's and 17.76x smaller than Django's.
+On this workload, Hayate delivered 1.54x FastAPI's and 5.61x Django's throughput.
+FastAPI and Django took 3.46x and 2.59x as long to cold-start. Hono delivered 4.14x
+Hayate's throughput, and Hayate took 2.23x as long to cold-start.
 
-The same run measured the raw Uvicorn/asyncio/h11 workload ceiling at
-16,010 req/s. Hayate reached **90.3%** of that ceiling overall and
-88.5–90.9% across the four workloads, up from 86.3% in the preserved
-pre-optimization run. Hono was 3.77x faster than raw Uvicorn itself, so most
-of the remaining Hono gap belongs to the runtime/transport boundary rather
-than Hayate's framework core.
+Hayate's runtime-excluded compressed payload was 4.5% larger than Hono's official Node
+stack while using 3 more production packages. FastAPI's and Django's payloads were 9.53x
+and 17.50x Hayate's.
 
-The full [raw report](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-asgi-optimized-macos-arm64.json)
-and [rendered summary](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-asgi-optimized-macos-arm64.md)
-contain every sample, latency percentile, resolved package version, and
-machine field. These numbers are a reproducible baseline, not a claim about
-all applications or hardware.
+The same run measured the raw Uvicorn/asyncio/h11 workload ceiling at 17,236 req/s.
+Hayate reached **89.5%** of that ceiling overall and 85.4% to 92.7% across the four
+workloads. Hono was 3.71x faster than raw Uvicorn itself, so most of the remaining Hono
+gap belongs to the runtime/transport boundary rather than Hayate's framework core.
 
-The [pre-optimization report](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-macos-arm64.md)
-remains immutable so the efficiency change can be audited.
+The full reports contain every sample, latency percentile, resolved package version, and
+machine field. These numbers are a reproducible baseline, not a claim about all
+applications or hardware.
+
+- [Raw JSON](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-hayate-0.13-macos-arm64.json)
+- [Rendered summary](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-hayate-0.13-macos-arm64.md)
+
+Historical evidence remains immutable:
+
+- [Hayate 0.12.1 optimized baseline](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-asgi-optimized-macos-arm64.md)
+- [pre-optimization baseline](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-macos-arm64.md)
+
+This section is generated from `benchmarks/competitive/current.toml` and the selected
+raw report. Regenerate it with:
+
+```sh
+uv run python benchmarks/competitive/publish.py
+```
+<!-- competitive-current:end -->
 
 The suite also measures a raw ASGI implementation of the same four workloads
 inside hayate's locked Python environment. This separates framework overhead
