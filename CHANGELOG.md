@@ -4,6 +4,18 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Add a digest-pinned AWS Lambda Python 3.14 packaged-runtime gate that builds
+  the current wheel and verifies the native payload-v2 adapter through the
+  Lambda Runtime Interface Emulator without ASGI or Mangum.
+
+### Fixed
+
+- Reject unsupported Lambda event payload versions with actionable errors,
+  honor case-insensitive forwarded host/scheme headers, and safely base64
+  encode invalid UTF-8 bodies even when their declared media type is textual.
+
 ## [0.13.0] - 2026-07-27
 
 ### Added

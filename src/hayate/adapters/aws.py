@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from ..headers import Headers
@@ -45,19 +46,42 @@ def _is_textual(content_type: str) -> bool:
     )
 
 
+def _payload_v2_http(event: Mapping[str, Any]) -> Mapping[str, Any]:
+    if event.get("version") != "2.0":
+        raise ValueError(
+            "hayate's Lambda adapter requires an API Gateway HTTP API or "
+            "Function URL payload in format version 2.0"
+        )
+    request_context = event.get("requestContext")
+    if not isinstance(request_context, Mapping):
+        raise ValueError("Lambda payload v2.0 is missing requestContext")
+    http = request_context.get("http")
+    if not isinstance(http, Mapping):
+        raise ValueError("Lambda payload v2.0 is missing requestContext.http")
+    return http
+
+
 async def _handle(app: Hayate, event: dict[str, Any]) -> dict[str, Any]:
-    http = event["requestContext"]["http"]
+    http = _payload_v2_http(event)
     method = http.get("method", "GET")
     path = event.get("rawPath") or "/"
     query = event.get("rawQueryString") or ""
-    header_map: dict[str, str] = event.get("headers") or {}
+    raw_headers = event.get("headers")
+    if raw_headers is not None and not isinstance(raw_headers, Mapping):
+        raise ValueError("Lambda payload v2.0 headers must be an object")
+    header_map = raw_headers or {}
     pairs = list(header_map.items())
     request_cookies = event.get("cookies")
     if request_cookies:
         pairs.append(("cookie", "; ".join(request_cookies)))
 
-    host = header_map.get("host") or event["requestContext"].get("domainName", "lambda")
-    target = f"https://{host}{path}"
+    request_headers = Headers(pairs, guard="immutable")
+    request_context = event["requestContext"]
+    host = request_headers.get("host") or request_context.get("domainName", "lambda")
+    scheme = (request_headers.get("x-forwarded-proto") or "https").lower()
+    if scheme not in ("http", "https"):
+        scheme = "https"
+    target = f"{scheme}://{host}{path}"
     if query:
         target += f"?{query}"
 
@@ -70,7 +94,7 @@ async def _handle(app: Hayate, event: dict[str, Any]) -> dict[str, Any]:
     else:
         body = raw_body
 
-    request = Request(target, method=method, headers=Headers(pairs, guard="immutable"), body=body)
+    request = Request(target, method=method, headers=request_headers, body=body)
     response = await app.fetch(request)
     background = response._background
     if background is not None:
@@ -102,8 +126,12 @@ async def _handle(app: Hayate, event: dict[str, Any]) -> dict[str, Any]:
             result["body"] = base64.b64encode(payload).decode("ascii")
             result["isBase64Encoded"] = True
         else:
-            result["body"] = payload.decode("utf-8")
-            result["isBase64Encoded"] = False
+            try:
+                result["body"] = payload.decode("utf-8")
+                result["isBase64Encoded"] = False
+            except UnicodeDecodeError:
+                result["body"] = base64.b64encode(payload).decode("ascii")
+                result["isBase64Encoded"] = True
     return result
 
 

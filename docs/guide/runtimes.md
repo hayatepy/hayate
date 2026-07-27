@@ -222,7 +222,24 @@ handler = to_lambda(app)
 
 Binary bodies are base64-encoded per the payload contract; `Set-Cookie`
 headers map to the `cookies` list so they are never comma-joined;
-`c.wait_until` work is drained before the invocation returns.
+`c.wait_until` work is drained before the invocation returns. Payload format
+1.0 and non-HTTP events fail with an actionable error rather than being
+silently misinterpreted.
+
+The release gate builds the current wheel, installs it into AWS's
+[Python base image](https://docs.aws.amazon.com/lambda/latest/dg/python-image.html)
+at a pinned multi-architecture digest, starts the included Lambda Runtime
+Interface Emulator, and invokes the packaged handler:
+
+```sh
+bash scripts/check_lambda_runtime.sh
+```
+
+It verifies method/path/query, JSON, request and response cookies,
+forwarded scheme, text, binary/base64, and RFC 9457 problem responses without
+ASGI, Mangum, Uvicorn, AWS credentials, or a deployed network. This proves the
+packaged runtime boundary; local Runtime Interface Emulator timings are not
+presented as deployed Lambda cold-start or latency measurements.
 
 ## Testing
 

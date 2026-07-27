@@ -7,6 +7,8 @@ plain sync functions.
 import base64
 import json
 
+import pytest
+
 from hayate import Context, Hayate
 from hayate.adapters.aws import to_lambda
 
@@ -21,11 +23,14 @@ def make_event(
     body: str | None = None,
     is_base64: bool = False,
 ) -> dict:
+    event_headers = dict(headers or {})
+    if not any(name.lower() == "host" for name in event_headers):
+        event_headers["host"] = "fn.example"
     event = {
         "version": "2.0",
         "rawPath": path,
         "rawQueryString": query,
-        "headers": {"host": "fn.example", **(headers or {})},
+        "headers": event_headers,
         "requestContext": {"domainName": "fn.example", "http": {"method": method}},
     }
     if cookies is not None:
@@ -61,6 +66,25 @@ def test_query_and_url():
     handler = to_lambda(app)
     result = handler(make_event(path="/q", query="v=1"), None)
     assert json.loads(result["body"]) == {"v": "1", "host": "fn.example"}
+
+
+def test_forwarded_scheme_and_case_insensitive_host():
+    app = Hayate()
+
+    @app.get("/url")
+    async def url(c: Context):
+        return c.json({"url": str(c.req.url)})
+
+    handler = to_lambda(app)
+    result = handler(
+        make_event(
+            path="/url",
+            query="a=1",
+            headers={"Host": "custom.example", "X-Forwarded-Proto": "http"},
+        ),
+        None,
+    )
+    assert json.loads(result["body"]) == {"url": "http://custom.example/url?a=1"}
 
 
 def test_binary_response_is_base64():
@@ -112,3 +136,28 @@ def test_not_found_is_problem_json():
     result = handler(make_event(path="/missing"), None)
     assert result["statusCode"] == 404
     assert json.loads(result["body"])["title"] == "Not Found"
+
+
+def test_invalid_utf8_text_response_falls_back_to_base64():
+    app = Hayate()
+
+    @app.get("/invalid-text")
+    async def invalid_text(c: Context):
+        return c.body(b"\xff", headers={"content-type": "text/plain"})
+
+    result = to_lambda(app)(make_event(path="/invalid-text"), None)
+    assert result["isBase64Encoded"] is True
+    assert base64.b64decode(result["body"]) == b"\xff"
+
+
+@pytest.mark.parametrize(
+    ("event", "message"),
+    [
+        ({"version": "1.0"}, "payload in format version 2.0"),
+        ({"version": "2.0"}, "missing requestContext"),
+        ({"version": "2.0", "requestContext": {}}, "missing requestContext.http"),
+    ],
+)
+def test_unsupported_or_malformed_event_is_actionable(event, message):
+    with pytest.raises(ValueError, match=message):
+        to_lambda(Hayate())(event, None)
