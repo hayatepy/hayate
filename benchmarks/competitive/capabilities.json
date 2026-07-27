@@ -201,7 +201,7 @@
       "support": {
         "hayate": {
           "status": "first_party",
-          "note": "hayate-openapi 0.5 provides explicit source markers, response contracts, providers, and Scalar.",
+          "note": "hayate-openapi 0.6 provides explicit source markers, portable typed constraints, response contracts, pluggable schema providers, OpenAPI 3.1.1, and Scalar on CPython and Python Workers.",
           "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md"]
         },
         "fastapi": {

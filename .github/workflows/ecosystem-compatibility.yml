@@ -4,7 +4,9 @@ on:
   pull_request:
     paths:
       - ".github/workflows/ecosystem-compatibility.yml"
+      - "benchmarks/competitive/**"
       - "benchmarks/ecosystem/**"
+      - "docs/capabilities.md"
       - "docs/ecosystem-compatibility.md"
       - "mkdocs.yml"
       - "pyproject.toml"
