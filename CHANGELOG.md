@@ -11,7 +11,8 @@ All notable changes to hayate are documented here.
   beyond a configurable memory threshold to temporary files, while
   Workers/Pyodide remains disk-free and fails closed at the same explicit
   limits. Uploaded `File` values retain `bytes()`/`text()` compatibility and
-  add async chunk streaming plus deterministic cleanup.
+  add async chunk streaming plus deterministic cleanup. Form validator
+  middleware closes successfully parsed uploads after downstream handling.
 - Add a zero-dependency `ASGIPathDispatcher` for longest-prefix composition
   with existing Django, FastAPI, or other ASGI applications. Mounted HTTP and
   WebSocket scopes receive corrected `path`, `raw_path`, and `root_path`

@@ -82,6 +82,8 @@ automatically.
 ## Validation
 
 The core `validator("form", ...)` converts malformed forms to RFC 9457 `400`
-responses and configured limit failures to `413`. `hayate-openapi` typed form
-parameters use the same `FormData` and `File` values; multipart schemas do not
-create a second upload type.
+responses and configured limit failures to `413`. It keeps uploaded files open
+through the downstream handler and closes them on success or failure when the
+middleware unwinds. `hayate-openapi` typed form parameters use the same
+`FormData` and `File` values; multipart schemas do not create a second upload
+type.

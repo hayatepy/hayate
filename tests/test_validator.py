@@ -1,8 +1,10 @@
 """The validator hook and schema-library integration."""
 
+from collections.abc import AsyncIterator
+
 import pytest
 
-from hayate import Context, FormDataLimitError, FormDataLimits, Hayate, Request
+from hayate import Context, File, FormDataLimitError, FormDataLimits, Hayate, Request
 from hayate.validator import validator
 
 
@@ -84,6 +86,51 @@ async def test_form_validation():
     )
     assert res.status == 200
     assert await res.json() == {"title": "hello"}
+
+
+async def test_form_validator_closes_spooled_files_after_handler():
+    app = Hayate()
+    captured: list[File] = []
+    boundary = "validator-cleanup"
+    payload = b"x" * (1024 * 1024 + 1)
+    body = (
+        (
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="file"; filename="large.bin"\r\n\r\n'
+        ).encode()
+        + payload
+        + f"\r\n--{boundary}--\r\n".encode()
+    )
+
+    def capture(data: dict[str, object]) -> dict[str, object]:
+        file = data["file"]
+        assert isinstance(file, File)
+        captured.append(file)
+        return data
+
+    @app.post("/upload", validator("form", capture))
+    async def upload(c: Context):
+        file = c.req.valid("form")["file"]
+        assert isinstance(file, File)
+        assert file.closed is False
+        assert await file.bytes() == payload
+        return c.json({"spooled": file.spooled})
+
+    async def chunked() -> AsyncIterator[bytes]:
+        for offset in range(0, len(body), 4093):
+            yield body[offset : offset + 4093]
+
+    response = await app.request(
+        "/upload",
+        method="POST",
+        headers={"content-type": f"multipart/form-data; boundary={boundary}"},
+        body=chunked(),
+    )
+
+    assert response.status == 200
+    assert await response.json() == {"spooled": True}
+    assert len(captured) == 1
+    assert captured[0].closed is True
 
 
 async def test_form_parse_error_is_problem():
