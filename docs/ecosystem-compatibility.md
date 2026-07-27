@@ -57,6 +57,26 @@ breadth, and a much more mature extension ecosystem. Hayate's narrower
 first-party advantage is the ready-made combination of saved views, keyset
 continuations, and bounded, independently authorized CSV export.
 
+Main commit
+[`aedd4c4`](https://github.com/hayatepy/hayate-admin/commit/aedd4c47cbbe7c7d26cdf39b6c65fa201996369d)
+then adds immutable per-site message catalogs with English defaults and
+localized package navigation, forms, validation, history, relationship, bulk,
+empty, and error states. Branding accepts only escaped plain text and
+contrast-checked color/density tokens; the deterministic stylesheet is
+authorized by an exact CSP hash rather than `unsafe-inline`. Landmarks, skip
+navigation, visible focus, reduced-motion behavior, labels, tables, and live
+status/error semantics are exercised with pinned axe-core 4.12.1 at each real
+CRUD, relationship, inline, bulk, saved-view, history, and delete state.
+
+The exact merge passed
+[Python 3.12-3.14, SQLite, native D1, package, dependency, and workflow checks](https://github.com/hayatepy/hayate-admin/actions/runs/30295637986),
+[Chromium plus WCAG A/AA axe checks](https://github.com/hayatepy/hayate-admin/actions/runs/30295638023),
+and
+[CodeQL](https://github.com/hayatepy/hayate-admin/actions/runs/30295638207).
+The native Workers/D1 upload was 1257.86 KiB / gzip 287.47 KiB. This surface is
+merged but not yet a stable/publication claim: the package's PyPI Trusted
+Publisher registration and external adoption evidence remain outstanding.
+
 ## Reproduce
 
 Prerequisites are CPython 3.12 or newer, uv, Git, Node.js 24, and the normal
