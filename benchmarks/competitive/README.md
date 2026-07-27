@@ -46,10 +46,12 @@ python3 benchmarks/competitive/runner.py all \
 `setup`, `verify`, and `run` subcommands are also available. `run` reuses
 the isolated environments created by `setup`.
 
-The publication-profile baseline is committed as
-[raw JSON](results/2026-07-27-macos-arm64.json) and a
-[Markdown summary](results/2026-07-27-macos-arm64.md). The previous dated
-result remains in the same directory rather than being overwritten.
+The current publication-profile baseline is committed as
+[raw JSON](results/2026-07-27-asgi-optimized-macos-arm64.json) and a
+[Markdown summary](results/2026-07-27-asgi-optimized-macos-arm64.md). The
+[pre-optimization baseline](results/2026-07-27-macos-arm64.md) and every
+other dated result remain in the same directory rather than being
+overwritten.
 
 ## Common workload
 

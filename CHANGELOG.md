@@ -20,7 +20,8 @@ All notable changes to hayate are documented here.
   advantages instead of declaring a universal winner.
 - Record a new publication-profile competitive benchmark for Hayate 0.12.1,
   including the exact source commit, raw samples, resolved dependency versions,
-  common HTTP contract, and raw-ASGI transport ceiling.
+  common HTTP contract, and raw-ASGI transport ceiling. The optimized ASGI path
+  reaches 90.3% of that ceiling across the shared workload.
 
 ### Changed
 
