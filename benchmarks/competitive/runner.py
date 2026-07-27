@@ -784,7 +784,9 @@ def render_markdown(report: dict[str, Any]) -> str:
         "Throughput geo mean (req/s) | HTTP contract |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
-    for name, result in report["frameworks"].items():
+    for framework in FRAMEWORKS:
+        name = framework.name
+        result = report["frameworks"][name]
         payload = result["payload"]
         startup = result["startup"]
         contract = result["http_contract"]
@@ -808,7 +810,9 @@ def render_markdown(report: dict[str, Any]) -> str:
             "|---|---:|---:|---:|---:|",
         ]
     )
-    for name, result in report["frameworks"].items():
+    for framework in FRAMEWORKS:
+        name = framework.name
+        result = report["frameworks"][name]
         scenarios = result["throughput"]["scenarios"]
         lines.append(
             f"| {name} | {scenarios['static-text']['requests_per_second']:,.0f} | "

@@ -47,8 +47,9 @@ python3 benchmarks/competitive/runner.py all \
 the isolated environments created by `setup`.
 
 The publication-profile baseline is committed as
-[raw JSON](results/2026-07-26-macos-arm64.json) and a
-[Markdown summary](results/2026-07-26-macos-arm64.md).
+[raw JSON](results/2026-07-27-macos-arm64.json) and a
+[Markdown summary](results/2026-07-27-macos-arm64.md). The previous dated
+result remains in the same directory rather than being overwritten.
 
 ## Common workload
 
