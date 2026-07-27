@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "as_of": "2026-07-27",
+  "as_of": "2026-07-28",
   "universal_winner": null,
   "profiles": [
     {
@@ -44,7 +44,7 @@
       "id": "traditional_full_stack",
       "title": "Traditional database-backed full stack",
       "position": "competitor_advantaged",
-      "summary": "Django remains functionally ahead for ORM-derived relationships and inline editing, ORM/migrations, and integrated forms/templates. Hayate now has a first-party explicit operational admin with bounded CRUD, bulk actions, and redacted history on SQLite and native Workers/D1, while retaining a Django admin/ORM application under an ASGI prefix during incremental migration.",
+      "summary": "Django remains functionally ahead for its model-driven ORM/migrations, integrated forms/templates, and mature extension ecosystem. Hayate now has a first-party explicit operational admin with bounded CRUD, bulk actions, redacted history, searchable relationships, and inline editing on SQLite and native Workers/D1, while retaining a Django admin/ORM application under an ASGI prefix during incremental migration.",
       "capabilities": [
         "application_composition",
         "operational_admin",
@@ -527,7 +527,7 @@
       "support": {
         "hayate": {
           "status": "first_party",
-          "note": "hayate-admin provides explicit CRUD, search/filter/sort, bounded bulk actions, and redacted object history with per-object authorization on SQLite and native Workers/D1.",
+          "note": "hayate-admin provides explicit CRUD, search/filter/sort, bounded bulk actions, redacted object history, searchable relationships, and inline editing with per-object authorization on SQLite and native Workers/D1.",
           "sources": ["docs/ecosystem-compatibility.md"]
         },
         "fastapi": {
@@ -558,8 +558,8 @@
       "definition": "The admin UI derives or explicitly declares bounded relationship choices and inline editing for related records.",
       "support": {
         "hayate": {
-          "status": "not_first_party",
-          "note": "hayate-admin tracks explicit relationships, bounded autocomplete, and inline editing as its remaining Phase 2 administration gap.",
+          "status": "first_party",
+          "note": "hayate-admin explicitly declares bounded searchable to-one choices and reverse inline create/update/delete with preloaded labels, exact authorization, redacted audit, and checked SQLite/D1 writes.",
           "sources": ["docs/ecosystem-compatibility.md"]
         },
         "fastapi": {
@@ -579,9 +579,9 @@
         }
       },
       "comparisons": {
-        "fastapi": "parity",
-        "django": "competitor_advantage",
-        "hono": "parity"
+        "fastapi": "advantage",
+        "django": "parity",
+        "hono": "advantage"
       }
     },
     {
