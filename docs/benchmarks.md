@@ -98,6 +98,11 @@ universal standards score. hayate's WPT-based URL and URLPattern results are
 reported on the [conformance page](conformance.md); unsupported public APIs in
 other frameworks are not converted into artificial zeroes.
 
+Framework capability breadth is tracked separately in the dated,
+source-backed [competitive capability matrix](capabilities.md). It has no
+weighted score and keeps Django's full-stack strengths and Hono's
+JavaScript-edge strengths visible.
+
 The monthly and manually dispatchable
 [Competitive benchmark workflow](https://github.com/hayatepy/hayate/actions/workflows/competitive-benchmark.yml)
 uploads the raw JSON and Markdown summary. Shared-runner measurements are not

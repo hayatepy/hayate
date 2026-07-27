@@ -1,0 +1,612 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-07-27",
+  "universal_winner": null,
+  "profiles": [
+    {
+      "id": "portable_agent_api",
+      "title": "Portable Python agent API",
+      "position": "advantaged",
+      "summary": "Hayate has the clearest first-party path when one Python application must run on ASGI and native Cloudflare Workers while combining typed HTTP contracts, cached dependency graphs, MCP 2025-11-25, authorization, and checked SQLite/D1 access.",
+      "capabilities": [
+        "fetch_core",
+        "asgi",
+        "native_workers",
+        "typed_openapi",
+        "dependency_graph",
+        "mcp",
+        "agent_authorization",
+        "checked_sql",
+        "direct_testing",
+        "realtime"
+      ]
+    },
+    {
+      "id": "typed_python_api",
+      "title": "Conventional typed Python API",
+      "position": "competitive",
+      "summary": "Hayate now meets FastAPI's central typed request/response, OpenAPI, dependency-graph, direct-test, realtime, and lifecycle capabilities. FastAPI retains a much larger adoption ecosystem; that is a material adoption advantage, not a missing Hayate endpoint feature.",
+      "capabilities": [
+        "asgi",
+        "typed_openapi",
+        "dependency_graph",
+        "direct_testing",
+        "realtime",
+        "lifecycle_background",
+        "production_scaffold"
+      ]
+    },
+    {
+      "id": "traditional_full_stack",
+      "title": "Traditional database-backed full stack",
+      "position": "competitor_advantaged",
+      "summary": "Django remains functionally ahead for model-driven admin, ORM/migrations, and integrated forms/templates. Hayate intentionally offers composable checked SQL and htmx/Jinja paths instead of reproducing Django's monolith.",
+      "capabilities": [
+        "model_admin",
+        "model_orm",
+        "html_forms",
+        "production_scaffold"
+      ]
+    },
+    {
+      "id": "javascript_edge",
+      "title": "JavaScript and TypeScript edge application",
+      "position": "competitor_advantaged",
+      "summary": "Hono remains functionally ahead for multi-JavaScript-runtime reach and route-inferred TypeScript RPC, and its JavaScript Workers runtime has materially better startup, memory, CPU, and upload size than Python Workers.",
+      "capabilities": [
+        "fetch_core",
+        "native_workers",
+        "realtime",
+        "javascript_runtime_reach",
+        "typed_client",
+        "production_scaffold"
+      ]
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "fetch_core",
+      "title": "Web-standard Fetch core",
+      "definition": "Application handlers use standard Request/Response/URL/Headers concepts rather than a Python-only server protocol.",
+      "support": {
+        "hayate": {
+          "status": "core",
+          "note": "Fetch-shaped request/response core with ASGI and Workers as adapters.",
+          "sources": ["src/hayate/app.py", "tests/test_request.py", "tests/test_response.py"]
+        },
+        "fastapi": {
+          "status": "not_first_party",
+          "note": "The documented application model is Starlette on ASGI, not a Fetch core.",
+          "sources": ["https://fastapi.tiangolo.com/features/"]
+        },
+        "django": {
+          "status": "not_first_party",
+          "note": "Django documents its own HttpRequest/HttpResponse stack over WSGI or ASGI.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/ref/request-response/"]
+        },
+        "hono": {
+          "status": "core",
+          "note": "Hono explicitly uses Web Standards and the Fetch API.",
+          "sources": ["https://hono.dev/docs/concepts/web-standard"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "advantage",
+        "django": "advantage",
+        "hono": "parity"
+      }
+    },
+    {
+      "id": "asgi",
+      "title": "ASGI server compatibility",
+      "definition": "The application can run behind ordinary Python ASGI servers.",
+      "support": {
+        "hayate": {
+          "status": "core",
+          "note": "Hayate is directly ASGI-callable and validates HTTP, WebSocket, lifespan, and background work.",
+          "sources": ["src/hayate/adapters/asgi.py", "tests/test_asgi.py"]
+        },
+        "fastapi": {
+          "status": "core",
+          "note": "FastAPI is an ASGI framework built on Starlette.",
+          "sources": ["https://fastapi.tiangolo.com/features/"]
+        },
+        "django": {
+          "status": "core",
+          "note": "Django documents an async request stack under ASGI.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/topics/async/"]
+        },
+        "hono": {
+          "status": "not_applicable",
+          "note": "Hono targets JavaScript runtimes and their adapters rather than Python ASGI.",
+          "sources": ["https://hono.dev/docs/concepts/web-standard"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "parity",
+        "django": "parity",
+        "hono": "different_scope"
+      }
+    },
+    {
+      "id": "native_workers",
+      "title": "Native Cloudflare Workers path without ASGI",
+      "definition": "The framework connects Fetch requests directly to its application model without an ASGI protocol bridge.",
+      "support": {
+        "hayate": {
+          "status": "core",
+          "note": "Class and global Python Workers entrypoints convert one Fetch boundary and retain bindings.",
+          "sources": ["src/hayate/adapters/workers.py", "benchmarks/competitive/workers/runner.py"]
+        },
+        "fastapi": {
+          "status": "platform_adapter",
+          "note": "Cloudflare supports FastAPI through its Python Workers ASGI server and asgi.fetch bridge.",
+          "sources": ["https://developers.cloudflare.com/workers/languages/python/packages/fastapi/"]
+        },
+        "django": {
+          "status": "not_first_party",
+          "note": "Django documents WSGI/ASGI deployment; no native Fetch adapter is in its framework surface.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/howto/deployment/asgi/"]
+        },
+        "hono": {
+          "status": "core",
+          "note": "Cloudflare Workers is a primary Hono runtime and uses app.fetch.",
+          "sources": ["https://hono.dev/docs/getting-started/cloudflare-workers"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "advantage",
+        "django": "advantage",
+        "hono": "parity"
+      }
+    },
+    {
+      "id": "typed_openapi",
+      "title": "Typed request and response OpenAPI contracts",
+      "definition": "Types drive input validation, response validation/serialization, OpenAPI 3.1, interactive docs, and client generation.",
+      "support": {
+        "hayate": {
+          "status": "first_party",
+          "note": "hayate-openapi 0.5 provides explicit source markers, response contracts, providers, and Scalar.",
+          "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md"]
+        },
+        "fastapi": {
+          "status": "core",
+          "note": "Type-driven validation, OpenAPI, JSON Schema, and interactive docs are central FastAPI features.",
+          "sources": ["https://fastapi.tiangolo.com/features/"]
+        },
+        "django": {
+          "status": "external",
+          "note": "API schemas and typed REST contracts are provided by projects such as Django REST Framework rather than Django core.",
+          "sources": ["https://www.django-rest-framework.org/topics/documenting-your-api/"]
+        },
+        "hono": {
+          "status": "first_party",
+          "note": "@hono/zod-openapi combines validation, types, and OpenAPI generation.",
+          "sources": ["https://hono.dev/examples/zod-openapi"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "parity",
+        "django": "advantage",
+        "hono": "parity"
+      }
+    },
+    {
+      "id": "dependency_graph",
+      "title": "Nested dependency graph with request cache",
+      "definition": "Endpoint dependencies may have subdependencies and shared results are cached once per request.",
+      "support": {
+        "hayate": {
+          "status": "first_party",
+          "note": "hayate-openapi Depends resolves sync/async subdependencies with per-request caching.",
+          "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md"]
+        },
+        "fastapi": {
+          "status": "core",
+          "note": "FastAPI documents arbitrarily deep subdependencies and one-call-per-request caching.",
+          "sources": ["https://fastapi.tiangolo.com/tutorial/dependencies/sub-dependencies/"]
+        },
+        "django": {
+          "status": "not_first_party",
+          "note": "Django's documented core feature set does not include a general endpoint dependency-injection graph.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/contents/"]
+        },
+        "hono": {
+          "status": "external",
+          "note": "Hono documents DI options such as Hono Simple DI in its third-party middleware catalog.",
+          "sources": ["https://hono.dev/docs/middleware/third-party"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "parity",
+        "django": "advantage",
+        "hono": "advantage"
+      }
+    },
+    {
+      "id": "mcp",
+      "title": "First-party MCP Streamable HTTP",
+      "definition": "The framework organization maintains an MCP transport that mounts into the web app and works on its edge runtime.",
+      "support": {
+        "hayate": {
+          "status": "first_party",
+          "note": "hayate-mcp tests MCP 2025-11-25 on ASGI and native Python Workers with the official conformance runner.",
+          "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md"]
+        },
+        "fastapi": {
+          "status": "external",
+          "note": "FastAPI-MCP is a separate community project that mounts through ASGI.",
+          "sources": ["https://github.com/tadata-org/fastapi_mcp"]
+        },
+        "django": {
+          "status": "not_first_party",
+          "note": "MCP is not part of Django's documented first-party module set.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/py-modindex"]
+        },
+        "hono": {
+          "status": "first_party",
+          "note": "@hono/mcp is maintained in the honojs middleware repository and implements Streamable HTTP.",
+          "sources": ["https://www.npmjs.com/package/@hono/mcp"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "advantage",
+        "django": "advantage",
+        "hono": "parity"
+      }
+    },
+    {
+      "id": "agent_authorization",
+      "title": "OAuth authorization server, resource server, and DPoP",
+      "definition": "One maintained stack supplies authorization-server metadata/endpoints, resource protection, scopes, and proof-of-possession support for agent APIs.",
+      "support": {
+        "hayate": {
+          "status": "first_party",
+          "note": "hayate-auth and hayate-mcp share principals, scopes, OAuth metadata, and DPoP verification.",
+          "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md"]
+        },
+        "fastapi": {
+          "status": "not_first_party",
+          "note": "FastAPI provides OpenAPI-integrated security primitives and tutorials, not a maintained authorization-server product.",
+          "sources": ["https://fastapi.tiangolo.com/tutorial/security/"]
+        },
+        "django": {
+          "status": "not_first_party",
+          "note": "Django core provides user/password/session authentication and permissions, not OAuth AS plus DPoP.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/topics/auth/default/"]
+        },
+        "hono": {
+          "status": "not_first_party",
+          "note": "Hono ships auth middleware and MCP auth routing helpers, but not the complete authorization-server and DPoP stack.",
+          "sources": ["https://hono.dev/docs/guides/middleware", "https://www.npmjs.com/package/@hono/mcp"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "advantage",
+        "django": "advantage",
+        "hono": "advantage"
+      }
+    },
+    {
+      "id": "checked_sql",
+      "title": "One checked SQL contract on SQLite and D1",
+      "definition": "The same SQL declarations are cardinality-checked and generate typed Python calls for local SQLite and Cloudflare D1.",
+      "support": {
+        "hayate": {
+          "status": "first_party",
+          "note": "hayate-sql plus the golden app compile one migration/query set and execute it on SQLite and real D1.",
+          "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md"]
+        },
+        "fastapi": {
+          "status": "not_first_party",
+          "note": "FastAPI is database-agnostic and delegates database contracts to external packages.",
+          "sources": ["https://fastapi.tiangolo.com/tutorial/sql-databases/"]
+        },
+        "django": {
+          "status": "not_first_party",
+          "note": "Django has a first-party ORM for documented SQL backends, but not a shared SQLite/Cloudflare D1 checked-SQL path.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/ref/databases/"]
+        },
+        "hono": {
+          "status": "not_first_party",
+          "note": "Hono exposes D1 through the runtime; checked SQL/code generation is delegated to database libraries.",
+          "sources": ["https://hono.dev/examples/cloudflare-d1"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "advantage",
+        "django": "advantage",
+        "hono": "advantage"
+      }
+    },
+    {
+      "id": "direct_testing",
+      "title": "Direct application request testing",
+      "definition": "Tests can call the application without starting a socket server.",
+      "support": {
+        "hayate": {
+          "status": "core",
+          "note": "app.request executes the Fetch core directly and accepts runtime env bindings.",
+          "sources": ["src/hayate/app.py", "tests/test_app.py"]
+        },
+        "fastapi": {
+          "status": "core",
+          "note": "FastAPI documents TestClient for direct application tests.",
+          "sources": ["https://fastapi.tiangolo.com/tutorial/testing/"]
+        },
+        "django": {
+          "status": "core",
+          "note": "Django provides synchronous and asynchronous test clients.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/topics/testing/tools/"]
+        },
+        "hono": {
+          "status": "core",
+          "note": "app.request accepts Request data and optional runtime env values.",
+          "sources": ["https://hono.dev/docs/guides/testing"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "parity",
+        "django": "parity",
+        "hono": "parity"
+      }
+    },
+    {
+      "id": "realtime",
+      "title": "WebSocket, streaming, and SSE",
+      "definition": "The maintained application surface supports bidirectional sockets and incremental HTTP responses.",
+      "support": {
+        "hayate": {
+          "status": "core",
+          "note": "ASGI and Workers adapters preserve WebSockets, streaming bodies, abort signals, and SSE.",
+          "sources": ["src/hayate/websocket.py", "tests/test_sse.py", "tests/test_workers_adapter.py"]
+        },
+        "fastapi": {
+          "status": "core",
+          "note": "FastAPI inherits Starlette WebSockets and streaming responses.",
+          "sources": ["https://fastapi.tiangolo.com/advanced/websockets/", "https://fastapi.tiangolo.com/features/"]
+        },
+        "django": {
+          "status": "external",
+          "note": "Django supports streaming HTTP, while WebSocket routing is supplied by Django Channels.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/ref/request-response/#streaminghttpresponse-objects", "https://channels.readthedocs.io/en/stable/"]
+        },
+        "hono": {
+          "status": "core",
+          "note": "Hono ships runtime WebSocket helpers and stream/streamSSE helpers.",
+          "sources": ["https://hono.dev/docs/helpers/websocket", "https://hono.dev/docs/helpers/streaming"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "parity",
+        "django": "advantage",
+        "hono": "parity"
+      }
+    },
+    {
+      "id": "lifecycle_background",
+      "title": "Lifecycle and background work",
+      "definition": "The framework exposes startup/shutdown or runtime lifecycle hooks and a supported path for post-response/background work.",
+      "support": {
+        "hayate": {
+          "status": "core",
+          "note": "ASGI lifespan hooks and c.wait_until map to server draining or Workers ctx.waitUntil.",
+          "sources": ["tests/test_asgi.py", "docs/guide/runtimes.md"]
+        },
+        "fastapi": {
+          "status": "core",
+          "note": "FastAPI documents lifespan events and BackgroundTasks.",
+          "sources": ["https://fastapi.tiangolo.com/advanced/events/", "https://fastapi.tiangolo.com/tutorial/background-tasks/"]
+        },
+        "django": {
+          "status": "core",
+          "note": "Django 6.0 includes async lifecycle support and a Tasks contract, with execution delegated to infrastructure.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/topics/async/", "https://docs.djangoproject.com/en/6.0/ref/tasks/"]
+        },
+        "hono": {
+          "status": "core",
+          "note": "Hono exposes runtime execution context including waitUntil on Workers.",
+          "sources": ["https://hono.dev/docs/api/context#executionctx"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "parity",
+        "django": "parity",
+        "hono": "parity"
+      }
+    },
+    {
+      "id": "model_admin",
+      "title": "Model-driven administrative UI",
+      "definition": "Model metadata produces a maintained internal CRUD administration interface.",
+      "support": {
+        "hayate": {
+          "status": "not_first_party",
+          "note": "Hayate does not currently ship a model-driven admin product.",
+          "sources": ["DESIGN.md"]
+        },
+        "fastapi": {
+          "status": "not_first_party",
+          "note": "An administrative UI is not part of FastAPI's documented core feature set.",
+          "sources": ["https://fastapi.tiangolo.com/features/"]
+        },
+        "django": {
+          "status": "core",
+          "note": "Django's automatic, customizable model admin is enabled by the default project template.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/ref/contrib/admin/"]
+        },
+        "hono": {
+          "status": "not_first_party",
+          "note": "A model-driven admin is not part of Hono's documented framework and helper surface.",
+          "sources": ["https://hono.dev/docs/"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "parity",
+        "django": "competitor_advantage",
+        "hono": "parity"
+      }
+    },
+    {
+      "id": "model_orm",
+      "title": "Model-driven ORM and migrations",
+      "definition": "Framework models drive relationships, queries, schema migration generation, and migration execution.",
+      "support": {
+        "hayate": {
+          "status": "not_first_party",
+          "note": "Hayate intentionally provides checked SQL rather than a model-driven ORM.",
+          "sources": ["DESIGN.md"]
+        },
+        "fastapi": {
+          "status": "not_first_party",
+          "note": "FastAPI is database-agnostic and its SQL tutorial composes an external model library.",
+          "sources": ["https://fastapi.tiangolo.com/tutorial/sql-databases/"]
+        },
+        "django": {
+          "status": "core",
+          "note": "Django models, QuerySets, relationships, and migration commands are first-party core features.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/topics/db/models/", "https://docs.djangoproject.com/en/6.0/ref/django-admin/#makemigrations"]
+        },
+        "hono": {
+          "status": "external",
+          "note": "Hono delegates ORM and migrations to runtime-compatible database packages.",
+          "sources": ["https://hono.dev/docs/middleware/third-party"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "parity",
+        "django": "competitor_advantage",
+        "hono": "parity"
+      }
+    },
+    {
+      "id": "html_forms",
+      "title": "Maintained HTML, forms, and progressive enhancement path",
+      "definition": "The ecosystem supplies server rendering, form handling, validation, and an executable full-stack starter.",
+      "support": {
+        "hayate": {
+          "status": "first_party",
+          "note": "hayate-htmx plus create-hayate provide Jinja, CSRF, fragments, SSE, and tested browser flows.",
+          "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md"]
+        },
+        "fastapi": {
+          "status": "external",
+          "note": "FastAPI documents Jinja templates through Starlette and the external Jinja package; form parsing is supported.",
+          "sources": ["https://fastapi.tiangolo.com/advanced/templates/", "https://fastapi.tiangolo.com/tutorial/request-forms/"]
+        },
+        "django": {
+          "status": "core",
+          "note": "Django includes templates, forms, validation, generic editing views, messages, and CSRF integration.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/topics/forms/", "https://docs.djangoproject.com/en/6.0/topics/templates/"]
+        },
+        "hono": {
+          "status": "core",
+          "note": "Hono includes JSX/html helpers and validators across form and request sources.",
+          "sources": ["https://hono.dev/docs/guides/jsx", "https://hono.dev/docs/guides/validation"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "advantage",
+        "django": "competitor_advantage",
+        "hono": "parity"
+      }
+    },
+    {
+      "id": "javascript_runtime_reach",
+      "title": "Multi-JavaScript-runtime portability",
+      "definition": "The same application runs across Workers, Deno, Bun, Node.js, Fastly, Lambda, and other Fetch runtimes.",
+      "support": {
+        "hayate": {
+          "status": "not_applicable",
+          "note": "Hayate targets Python runtimes rather than JavaScript runtimes.",
+          "sources": ["docs/guide/runtimes.md"]
+        },
+        "fastapi": {
+          "status": "not_applicable",
+          "note": "FastAPI targets Python ASGI runtimes.",
+          "sources": ["https://fastapi.tiangolo.com/features/"]
+        },
+        "django": {
+          "status": "not_applicable",
+          "note": "Django targets Python WSGI and ASGI runtimes.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/howto/deployment/"]
+        },
+        "hono": {
+          "status": "core",
+          "note": "Hono documents one Web-standards application across a broad JavaScript runtime set.",
+          "sources": ["https://hono.dev/docs/concepts/web-standard"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "different_scope",
+        "django": "different_scope",
+        "hono": "competitor_advantage"
+      }
+    },
+    {
+      "id": "typed_client",
+      "title": "Maintained typed client path",
+      "definition": "Server contracts produce a supported TypeScript client or types without manually duplicating request/response shapes.",
+      "support": {
+        "hayate": {
+          "status": "first_party",
+          "note": "create-hayate pins OpenAPI TypeScript generation and checks generated artifacts.",
+          "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md"]
+        },
+        "fastapi": {
+          "status": "core",
+          "note": "OpenAPI is built in and the documentation describes automatic client generation.",
+          "sources": ["https://fastapi.tiangolo.com/features/"]
+        },
+        "django": {
+          "status": "external",
+          "note": "Typed API client generation depends on an external schema stack.",
+          "sources": ["https://www.django-rest-framework.org/topics/documenting-your-api/"]
+        },
+        "hono": {
+          "status": "core",
+          "note": "Hono RPC infers input and output types directly from the chained route type.",
+          "sources": ["https://hono.dev/docs/guides/rpc"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "parity",
+        "django": "advantage",
+        "hono": "competitor_advantage"
+      }
+    },
+    {
+      "id": "production_scaffold",
+      "title": "Maintained production scaffold",
+      "definition": "The framework project maintains a generator or template with runnable tests and production-oriented configuration.",
+      "support": {
+        "hayate": {
+          "status": "first_party",
+          "note": "create-hayate composes API, Workers, MCP, auth, SQL, OpenAPI, and htmx profiles and validates generated applications.",
+          "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md"]
+        },
+        "fastapi": {
+          "status": "first_party",
+          "note": "The FastAPI organization maintains a full-stack production template.",
+          "sources": ["https://github.com/fastapi/full-stack-fastapi-template"]
+        },
+        "django": {
+          "status": "core",
+          "note": "django-admin startproject/startapp generate the standard project and application structure.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/ref/django-admin/#startproject"]
+        },
+        "hono": {
+          "status": "first_party",
+          "note": "create-hono generates runtime-specific starters.",
+          "sources": ["https://hono.dev/docs/getting-started/basic"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "parity",
+        "django": "parity",
+        "hono": "parity"
+      }
+    }
+  ]
+}

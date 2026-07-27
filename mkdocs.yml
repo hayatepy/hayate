@@ -64,5 +64,6 @@ nav:
   - Playground: playground.md
   - API reference: api.md
   - Conformance: conformance.md
+  - Capabilities: capabilities.md
   - Benchmarks: benchmarks.md
   - Ecosystem compatibility: ecosystem-compatibility.md

@@ -32,6 +32,7 @@ jobs:
       - run: uv run ruff format --check src tests benchmarks
       - run: uv run mypy src typing_tests
       - run: uv run pytest -q
+      - run: uv run python benchmarks/competitive/capabilities.py --check
 
   # Free-threaded build: the core must stay free of global mutable state.
   test-free-threaded:

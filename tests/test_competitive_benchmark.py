@@ -21,10 +21,12 @@ raw_asgi = _load_module(
     "competitive_raw_asgi",
     ROOT / "benchmarks/competitive/apps/hayate/raw_asgi.py",
 ).app
-_transport_profile = _load_module(
+competitive_runner = _load_module(
     "competitive_runner",
     ROOT / "benchmarks/competitive/runner.py",
-)._transport_profile
+)
+_locked_node_package_version = competitive_runner._locked_node_package_version
+_transport_profile = competitive_runner._transport_profile
 
 
 async def _raw_request(method: str, path: str, body: bytes = b"") -> tuple[int, bytes]:
@@ -56,6 +58,10 @@ async def test_raw_asgi_executes_the_common_workload():
         "/echo",
         b'{"message":"hello"}',
     ) == (200, b'{"message":"hello","length":5}')
+
+
+def test_node_transport_version_comes_from_lockfile():
+    assert _locked_node_package_version("@hono/node-server") == "2.0.12"
 
 
 def test_transport_profile_reports_hayate_share_of_raw_ceiling():

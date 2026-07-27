@@ -79,6 +79,9 @@ app.use(cors(origin_resolver=allowed_origin, credentials=True))
   start, throughput, and an HTTP contract. Framework-only ASGI overhead is
   also benchmarked against Starlette — see
   [docs/benchmarks.md](docs/benchmarks.md).
+- A dated, source-backed [capability matrix](docs/capabilities.md) separates
+  Hayate's portable agent/API advantage from Django's full-stack advantage and
+  Hono's JavaScript-edge advantage without inventing a universal score.
 - Every core change is tested against the public auth, fetch, MCP, OpenAPI,
   and generated Workers heads using the exact unpublished wheel — see
   [docs/ecosystem-compatibility.md](docs/ecosystem-compatibility.md).
