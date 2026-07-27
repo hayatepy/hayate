@@ -28,27 +28,34 @@ Worker.
 
 ## First-party administration evidence
 
-[`hayate-admin`](https://github.com/hayatepy/hayate-admin) is a pre-release,
+[`hayate-admin`](https://github.com/hayatepy/hayate-admin) is a versioned,
 first-party ecosystem package rather than part of the core-wheel compatibility
-gate above. At commit
-[`eddd621`](https://github.com/hayatepy/hayate-admin/commit/eddd6213d1ebcd98d9b54a89fde883a349484ba0),
+gate above. At the tagged 0.2.0 commit
+[`2fdc1c6`](https://github.com/hayatepy/hayate-admin/commit/2fdc1c6349308157f1cbea0ac1aff11a42c0d023),
 its explicit resource contract covers CRUD, search, declared filters and
 sorting, bounded bulk actions, and separately authorized redacted object
 history. It also covers searchable to-one relationship choices and bounded
 reverse inline create/update/delete with exact parent/child authorization,
 preloaded labels, tenant-scoped ID resolution, and repository-owned atomic
-writes. The same generated checked-SQL definition runs against local SQLite and
-native Cloudflare Workers/D1 without ASGI.
+writes. Version 0.2 adds static saved views, query-bound forward keyset
+continuations, and separately authorized CSV callbacks with field allowlists,
+per-object authorization, spreadsheet-formula neutralization, and exact
+row/UTF-8-byte ceilings. The same generated checked-SQL definition runs against
+local SQLite and native Cloudflare Workers/D1 without ASGI.
 
 The recorded main-branch gates passed
-[unit, typing, generated SQL, native D1, and distribution checks](https://github.com/hayatepy/hayate-admin/actions/runs/30286373844)
+[unit, typing, 25 generated SQL queries, native D1, and distribution checks](https://github.com/hayatepy/hayate-admin/actions/runs/30292195326)
 and the
-[Chromium flow](https://github.com/hayatepy/hayate-admin/actions/runs/30286375270).
-[`hayate-admin#9`](https://github.com/hayatepy/hayate-admin/issues/9) and
-[`hayate-admin#12`](https://github.com/hayatepy/hayate-admin/pull/12) record the
-accepted scope and implementation. General Django admin parity is not claimed:
+[Chromium flow](https://github.com/hayatepy/hayate-admin/actions/runs/30292194366).
+The offline generator then carried the exact snapshot and owner-scoped cursor
+and export SQL into fresh projects in
+[`create-hayate#46`](https://github.com/hayatepy/create-hayate/pull/46);
+[its matrix](https://github.com/hayatepy/create-hayate/actions/runs/30293451580)
+proved class/global Workers and D1. General Django admin parity is not claimed:
 Django retains ORM-derived configuration, many-to-many/generic relationship
-breadth, and a much more mature extension ecosystem.
+breadth, and a much more mature extension ecosystem. Hayate's narrower
+first-party advantage is the ready-made combination of saved views, keyset
+continuations, and bounded, independently authorized CSV export.
 
 ## Reproduce
 
