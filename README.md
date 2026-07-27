@@ -45,6 +45,11 @@ Run with any ASGI server:
 uvicorn main:app
 ```
 
+On ASGI, `ASGIPathDispatcher` can retain Django admin/ORM or existing FastAPI
+endpoints under explicit prefixes while new routes use Hayate. Cloudflare
+Workers continues to use Hayate's direct Fetch adapter with no ASGI detour.
+See the [runtime guide](docs/guide/runtimes.md#keep-django-or-fastapi-during-an-incremental-migration).
+
 ## Testing without a server
 
 The app core performs no I/O, so tests call it directly — no test client, no sockets:

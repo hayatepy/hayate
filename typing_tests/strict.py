@@ -4,6 +4,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from hayate import Context, Hayate, Next, Response
+from hayate.adapters import ASGIPathDispatcher
 
 app = Hayate()
 
@@ -41,3 +42,5 @@ async def handle_error(error: Exception, c: Context) -> Response:
 
 
 error_handler: Callable[[Exception, Context], Coroutine[Any, Any, Response]] = handle_error
+
+application = ASGIPathDispatcher(app, {"/legacy": app})

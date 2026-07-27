@@ -25,9 +25,10 @@
       "id": "typed_python_api",
       "title": "Conventional typed Python API",
       "position": "competitive",
-      "summary": "Hayate now meets FastAPI's central typed request/response, OpenAPI, dependency-graph, direct-test, realtime, and lifecycle capabilities. FastAPI retains a much larger adoption ecosystem; that is a material adoption advantage, not a missing Hayate endpoint feature.",
+      "summary": "Hayate now meets FastAPI's central typed request/response, OpenAPI, dependency-graph, direct-test, realtime, lifecycle, and sub-application composition capabilities. FastAPI retains a much larger adoption ecosystem; that is a material adoption advantage, not a missing Hayate endpoint feature.",
       "capabilities": [
         "asgi",
+        "application_composition",
         "typed_openapi",
         "dependency_graph",
         "direct_testing",
@@ -40,8 +41,9 @@
       "id": "traditional_full_stack",
       "title": "Traditional database-backed full stack",
       "position": "competitor_advantaged",
-      "summary": "Django remains functionally ahead for model-driven admin, ORM/migrations, and integrated forms/templates. Hayate intentionally offers composable checked SQL and htmx/Jinja paths instead of reproducing Django's monolith.",
+      "summary": "Django remains functionally ahead for model-driven admin, ORM/migrations, and integrated forms/templates. Hayate offers composable checked SQL and htmx paths, and can now retain a Django admin/ORM application under an ASGI prefix during incremental migration instead of reproducing Django's monolith.",
       "capabilities": [
+        "application_composition",
         "model_admin",
         "model_orm",
         "html_forms",
@@ -126,6 +128,38 @@
         "fastapi": "parity",
         "django": "parity",
         "hono": "different_scope"
+      }
+    },
+    {
+      "id": "application_composition",
+      "title": "Independent sub-application composition",
+      "definition": "An application can dispatch an independent framework application under a path prefix with correct sub-application path semantics.",
+      "support": {
+        "hayate": {
+          "status": "core",
+          "note": "ASGIPathDispatcher mounts Django, FastAPI, or another ASGI application by longest prefix while keeping the Fetch core and Workers adapter unchanged.",
+          "sources": ["src/hayate/adapters/asgi.py", "tests/test_asgi_composition.py", "tests/interop/frameworks.py"]
+        },
+        "fastapi": {
+          "status": "core",
+          "note": "FastAPI mounts independent sub-applications with their own routes, OpenAPI, and automatic documentation.",
+          "sources": ["https://fastapi.tiangolo.com/advanced/sub-applications/"]
+        },
+        "django": {
+          "status": "not_first_party",
+          "note": "Django can be embedded in an outer ASGI composition, but its documented core does not provide a path dispatcher for independent applications.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/howto/deployment/asgi/#applying-asgi-middleware"]
+        },
+        "hono": {
+          "status": "core",
+          "note": "Hono route() composes Hono applications and mount() integrates applications from other Fetch frameworks.",
+          "sources": ["https://hono.dev/docs/api/hono#mount", "https://hono.dev/docs/api/routing#grouping"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "parity",
+        "django": "advantage",
+        "hono": "parity"
       }
     },
     {
