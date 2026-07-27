@@ -84,6 +84,45 @@ async def test_post_body_echo():
     assert response_body(messages) == b"payload"
 
 
+async def test_post_stream_preserves_asgi_chunks():
+    app = Hayate()
+
+    @app.post("/stream")
+    async def stream(c: Context):
+        assert c.req.raw.body is not None
+        chunks = [chunk async for chunk in c.req.raw.body]
+        return c.json({"chunks": [chunk.decode() for chunk in chunks]})
+
+    messages: list[dict[str, Any]] = []
+    inbox = [
+        {"type": "http.request", "body": b"one", "more_body": True},
+        {"type": "http.request", "body": b"", "more_body": True},
+        {"type": "http.request", "body": b"two", "more_body": False},
+    ]
+
+    async def receive() -> dict[str, Any]:
+        return inbox.pop(0)
+
+    async def send(message: dict[str, Any]) -> None:
+        messages.append(message)
+
+    await app(
+        {
+            "type": "http",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/stream",
+            "raw_path": b"/stream",
+            "query_string": b"",
+            "headers": [(b"host", b"testserver"), (b"transfer-encoding", b"chunked")],
+        },
+        receive,
+        send,
+    )
+
+    assert response_body(messages) == b'{"chunks":["one","two"]}'
+
+
 async def test_query_string_reaches_url():
     app = Hayate()
 

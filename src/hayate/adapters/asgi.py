@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import inspect
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
@@ -137,18 +137,53 @@ class ASGIPathDispatcher:
         await self._default(scope, receive, send)
 
 
-async def _request_body(receive: Receive, signal: AbortSignal) -> AsyncIterator[bytes]:
-    while True:
-        message = await receive()
-        if message["type"] == "http.request":
-            chunk = message.get("body", b"")
-            if chunk:
-                yield chunk
-            if not message.get("more_body", False):
-                return
-        elif message["type"] == "http.disconnect":
-            signal._abort("client disconnected")
-            return
+class _ASGIRequestBody:
+    """One-shot ASGI receive channel exposed as a Fetch body.
+
+    A concrete async iterator avoids creating an async-generator object and
+    registering its event-loop finalizer for every request with a body.
+    Buffered readers use the same receive channel directly; applications that
+    iterate ``request.body`` still observe each non-empty ASGI chunk.
+    """
+
+    __slots__ = ("_done", "_receive", "_signal")
+
+    def __init__(self, receive: Receive, signal: AbortSignal) -> None:
+        self._receive = receive
+        self._signal = signal
+        self._done = False
+
+    def __aiter__(self) -> _ASGIRequestBody:
+        return self
+
+    async def __anext__(self) -> bytes:
+        while not self._done:
+            message = await self._receive()
+            if message["type"] == "http.request":
+                chunk = bytes(message.get("body", b""))
+                if not message.get("more_body", False):
+                    self._done = True
+                if chunk:
+                    return chunk
+            elif message["type"] == "http.disconnect":
+                self._done = True
+                self._signal._abort("client disconnected")
+        raise StopAsyncIteration
+
+    async def bytes(self) -> bytes:
+        first = await anext(self, None)
+        if first is None:
+            return b""
+        second = await anext(self, None)
+        if second is None:
+            return bytes(first)
+        chunks = [bytes(first), bytes(second)]
+        async for chunk in self:
+            chunks.append(bytes(chunk))
+        return b"".join(chunks)
+
+    async def text(self) -> str:
+        return (await self.bytes()).decode("utf-8", errors="replace")
 
 
 async def _call_hook(hook: Callable[[], Any]) -> None:
@@ -193,21 +228,22 @@ class ASGIAdapter:
         if expects_body:
             active_signal = AbortSignal()
             signal: AbortSignal | None = active_signal
-            body: Any = _request_body(receive, active_signal)
+            platform_body: _ASGIRequestBody | None = _ASGIRequestBody(receive, active_signal)
         else:
             # No content-length / transfer-encoding means no request body
             # (RFC 9112) — a null body per Fetch; skip stream and signal.
             signal = None
-            body = None
+            platform_body = None
         href, routing_path = _build_request_target(scope, host)
         request = Request(
             href,
             method=scope["method"].upper(),
             headers=Headers._from_wire(raw_headers, guard="immutable"),
-            body=body,
             signal=signal,
             _trusted_pathname=routing_path,
         )
+        if platform_body is not None:
+            request._init_platform_body(platform_body)
         response = await self._app.fetch(request)
         try:
             await _send_response(scope, send, response)
