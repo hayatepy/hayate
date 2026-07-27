@@ -106,6 +106,50 @@ async def test_host_header_feeds_url():
     assert response_body(messages) == b"api.example.com"
 
 
+async def test_url_is_lazy_until_application_code_reads_it():
+    app = Hayate()
+
+    @app.get("/lazy")
+    async def lazy(c: Context):
+        assert isinstance(c.req.raw._url, str)
+        return c.json(
+            {
+                "href": c.req.url.href,
+                "pathname": c.req.url.pathname,
+                "query": c.req.query("x"),
+            }
+        )
+
+    messages = await call_asgi(
+        app,
+        path="/before/%2e%2e/lazy",
+        query=b"x=a%2Fb",
+        headers=(("host", "API.EXAMPLE.COM:80"),),
+    )
+    assert response_body(messages) == (
+        b'{"href":"http://api.example.com/lazy?x=a%2Fb","pathname":"/lazy","query":"a/b"}'
+    )
+
+
+async def test_sending_response_does_not_materialize_its_headers():
+    app = Hayate()
+    produced: list[Response] = []
+
+    @app.get("/")
+    async def root(c: Context):
+        response = c.text("hello")
+        produced.append(response)
+        return response
+
+    messages = await call_asgi(app)
+
+    assert response_headers(messages) == {
+        b"content-type": b"text/plain;charset=utf-8",
+        b"content-length": b"5",
+    }
+    assert produced[0]._headers is None
+
+
 async def test_streaming_response_chunks():
     app = Hayate()
 

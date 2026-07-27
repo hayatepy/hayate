@@ -22,6 +22,14 @@ All notable changes to hayate are documented here.
   including the exact source commit, raw samples, resolved dependency versions,
   common HTTP contract, and raw-ASGI transport ceiling.
 
+### Changed
+
+- Defer ASGI request URL construction until application code observes
+  `c.req.url`, preserve the trusted canonical pathname for routing, and send
+  response header pairs without materializing a mutable `Headers` object.
+  The no-global-middleware route hit path also avoids a redundant resolver
+  tuple while retaining the same Fetch API and HTTP behavior.
+
 ## [0.12.1] - 2026-07-27
 
 ### Fixed

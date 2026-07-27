@@ -231,23 +231,37 @@ class Hayate:
         """
         c = Context(HayateRequest(request), env if env is not None else self._env, ctx)
         try:
-            chain, handler, inline = self._resolve(c)
-            if chain:
-                await self._compose(c, chain, handler, inline)
+            matched = None
+            if not self._middleware:
+                method = request.method
+                path = request._pathname_for_routing()
+                matched = self._router.match(method, path)
+                if matched is None and method == "HEAD":
+                    matched = self._router.match("GET", path)
+
+            if matched is not None:
+                route, params = matched
+                c.req._params = params
+                if route.middleware:
+                    await self._compose(c, route.middleware, route.handler, route.inline)
+                else:
+                    result = (
+                        cast(Response | None, route.handler(c))
+                        if route.inline
+                        else await cast(Awaitable[Response | None], route.handler(c))
+                    )
+                    self._accept_handler_result(c, result)
             else:
-                result = (
-                    cast(Response | None, handler(c))
-                    if inline
-                    else await cast(Awaitable[Response | None], handler(c))
-                )
-                if result is not None:
-                    if not isinstance(result, Response):
-                        raise TypeError(
-                            f"handler must return a Response or None, got {type(result).__name__}"
-                        )
-                    c._res = result
-                elif c._res is None:
-                    raise TypeError("handler returned None and no response was set on c.res")
+                chain, handler, inline = self._resolve(c)
+                if chain:
+                    await self._compose(c, chain, handler, inline)
+                else:
+                    result = (
+                        cast(Response | None, handler(c))
+                        if inline
+                        else await cast(Awaitable[Response | None], handler(c))
+                    )
+                    self._accept_handler_result(c, result)
         except Exception as exc:
             c._res = await self._handle_error(exc, c)
         return self._finalize_context(c)

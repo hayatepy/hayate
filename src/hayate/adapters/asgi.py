@@ -18,7 +18,7 @@ from ..context import Context
 from ..headers import Headers
 from ..request import HayateRequest, Request
 from ..router import WEBSOCKET_METHOD
-from ..url import URL
+from ..url import _needs_dot_removal, _remove_dot_segments
 from ..websocket import WebSocket, WebSocketClosed
 
 if TYPE_CHECKING:
@@ -199,12 +199,14 @@ class ASGIAdapter:
             # (RFC 9112) — a null body per Fetch; skip stream and signal.
             signal = None
             body = None
+        href, routing_path = _build_request_target(scope, host)
         request = Request(
-            _build_url(scope, host),
-            method=scope["method"],
+            href,
+            method=scope["method"].upper(),
             headers=Headers._from_wire(raw_headers, guard="immutable"),
             body=body,
             signal=signal,
+            _trusted_pathname=routing_path,
         )
         response = await self._app.fetch(request)
         try:
@@ -234,9 +236,11 @@ class ASGIAdapter:
             if name == b"host":
                 host = value
                 break
+        href, routing_path = _build_request_target(scope, host)
         request = Request(
-            _build_url(scope, host),
+            href,
             headers=Headers._from_wire(raw_headers, guard="immutable"),
+            _trusted_pathname=routing_path,
         )
         hayate_request = HayateRequest(request)
         hayate_request._params = params
@@ -277,7 +281,15 @@ class ASGIAdapter:
                 return
 
 
-def _build_url(scope: dict[str, Any], host_header: bytes | None) -> URL:
+def _build_request_target(scope: dict[str, Any], host_header: bytes | None) -> tuple[str, str]:
+    """Return a serialized request URL and its canonical routing pathname.
+
+    ASGI servers have already parsed the request target and validated the
+    wire header shape. Keep that trusted serialized URL on ``Request`` so
+    routing does not eagerly allocate a complete WHATWG ``URL`` object.
+    Application code still gets the same canonical object on first
+    ``c.req.url`` access.
+    """
     scheme = scope.get("scheme", "http")
     if host_header:
         host = host_header.decode("latin-1")
@@ -295,8 +307,15 @@ def _build_url(scope: dict[str, Any], host_header: bytes | None) -> URL:
         path = raw_path.decode("latin-1")
     else:
         path = quote(scope.get("path", "/"), safe=_PATH_SAFE)
+    if not path:
+        path = "/"
+    elif _needs_dot_removal(path):
+        path = _remove_dot_segments(path)
     query = scope.get("query_string", b"").decode("latin-1")
-    return URL._from_server(scheme, host, path, query)
+    href = f"{scheme}://{host}{path}"
+    if query:
+        href = f"{href}?{query}"
+    return href, path
 
 
 # Response header pairs repeat massively across requests (content-type,
@@ -320,11 +339,13 @@ def _wire_pair(pair: tuple[str, str]) -> tuple[bytes, bytes]:
 async def _send_response(scope: dict[str, Any], send: Send, response: Response) -> None:
     status = response.status
     body = response.body
-    headers = [_wire_pair(pair) for pair in response.headers.raw()]
+    pairs = response._header_pairs_for_adapter()
+    headers = [_wire_pair(pair) for pair in pairs]
     body_allowed = status >= 200 and status not in (204, 304)
-    if body_allowed and not response.headers.has("content-length"):
+    has_content_length = any(name == "content-length" for name, _ in pairs)
+    if body_allowed and not has_content_length:
         if isinstance(body, bytes):
-            headers.append((b"content-length", str(len(body)).encode("latin-1")))
+            headers.append(_wire_pair(("content-length", str(len(body)))))
         elif body is None:
             headers.append((b"content-length", b"0"))
         # Stream bodies get no content-length; the server frames them.
