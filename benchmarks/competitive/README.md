@@ -13,6 +13,10 @@ The separate [native Cloudflare Workers profile](workers/README.md) removes
 ASGI entirely and runs Hayate, an SDK-only Python control, and Hono through
 the same locked Wrangler/workerd runtime.
 
+The [multipart upload profile](uploads/README.md) runs an identical 1 MiB and
+64 MiB file workload on Hayate, FastAPI, Django, and Hono, recording
+throughput, fresh-process peak RSS, and logical temporary-file bytes.
+
 ## Run
 
 Prerequisites:
