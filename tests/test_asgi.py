@@ -150,11 +150,14 @@ async def test_url_is_lazy_until_application_code_reads_it():
 
     @app.get("/lazy")
     async def lazy(c: Context):
-        assert isinstance(c.req.raw._url, str)
+        assert c.req.raw._url_loader is not None
+        url = c.req.url
+        assert c.req.raw._url_loader is None
+        assert c.req.raw._url_source is None
         return c.json(
             {
-                "href": c.req.url.href,
-                "pathname": c.req.url.pathname,
+                "href": url.href,
+                "pathname": url.pathname,
                 "query": c.req.query("x"),
             }
         )

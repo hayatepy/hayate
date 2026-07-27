@@ -24,9 +24,10 @@ All notable changes to hayate are documented here.
 
 ### Changed
 
-- Defer ASGI request URL construction until application code observes
-  `c.req.url`, preserve the trusted canonical pathname for routing, and send
-  response header pairs without materializing a mutable `Headers` object.
+- Defer complete ASGI request URL construction, including scheme, authority,
+  and query decoding, until application code observes `c.req.url`; preserve
+  the trusted canonical pathname for routing; and send response header pairs
+  without materializing a mutable `Headers` object.
   Body reads use a concrete one-shot ASGI iterator instead of registering an
   async-generator finalizer for every request. The no-global-middleware route
   hit path also avoids a redundant resolver tuple while retaining the same

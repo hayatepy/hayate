@@ -10,7 +10,7 @@ from __future__ import annotations
 import inspect
 import logging
 from collections.abc import Awaitable, Callable, Mapping
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import quote
 
 from ..abort import AbortSignal
@@ -18,7 +18,7 @@ from ..context import Context
 from ..headers import Headers
 from ..request import HayateRequest, Request
 from ..router import WEBSOCKET_METHOD
-from ..url import _needs_dot_removal, _remove_dot_segments
+from ..url import URL, _needs_dot_removal, _remove_dot_segments
 from ..websocket import WebSocket, WebSocketClosed
 
 if TYPE_CHECKING:
@@ -234,14 +234,15 @@ class ASGIAdapter:
             # (RFC 9112) — a null body per Fetch; skip stream and signal.
             signal = None
             platform_body = None
-        href, routing_path = _build_request_target(scope, host)
+        routing_path = _routing_path(scope)
         request = Request(
-            href,
+            "",
             method=scope["method"].upper(),
             headers=Headers._from_wire(raw_headers, guard="immutable"),
             signal=signal,
             _trusted_pathname=routing_path,
         )
+        request._init_platform_url((scope, host, routing_path), _load_asgi_url)
         if platform_body is not None:
             request._init_platform_body(platform_body)
         response = await self._app.fetch(request)
@@ -272,12 +273,13 @@ class ASGIAdapter:
             if name == b"host":
                 host = value
                 break
-        href, routing_path = _build_request_target(scope, host)
+        routing_path = _routing_path(scope)
         request = Request(
-            href,
+            "",
             headers=Headers._from_wire(raw_headers, guard="immutable"),
             _trusted_pathname=routing_path,
         )
+        request._init_platform_url((scope, host, routing_path), _load_asgi_url)
         hayate_request = HayateRequest(request)
         hayate_request._params = params
         c = Context(hayate_request, self._app._env, None)
@@ -317,15 +319,27 @@ class ASGIAdapter:
                 return
 
 
-def _build_request_target(scope: dict[str, Any], host_header: bytes | None) -> tuple[str, str]:
-    """Return a serialized request URL and its canonical routing pathname.
+def _routing_path(scope: dict[str, Any]) -> str:
+    """Return the canonical pathname needed by the router.
 
-    ASGI servers have already parsed the request target and validated the
-    wire header shape. Keep that trusted serialized URL on ``Request`` so
-    routing does not eagerly allocate a complete WHATWG ``URL`` object.
-    Application code still gets the same canonical object on first
-    ``c.req.url`` access.
+    The remaining scheme, authority, and query components stay in the ASGI
+    scope and are decoded only when application code observes ``c.req.url``.
     """
+    raw_path = scope.get("raw_path")
+    if raw_path:
+        path = raw_path.decode("latin-1")
+    else:
+        path = quote(scope.get("path", "/"), safe=_PATH_SAFE)
+    if not path:
+        path = "/"
+    elif _needs_dot_removal(path):
+        path = _remove_dot_segments(path)
+    return cast(str, path)
+
+
+def _load_asgi_url(source: Any) -> URL:
+    """Materialize a trusted ASGI request URL on first application access."""
+    scope, host_header, path = source
     scheme = scope.get("scheme", "http")
     if host_header:
         host = host_header.decode("latin-1")
@@ -338,20 +352,8 @@ def _build_request_target(scope: dict[str, Any], host_header: bytes | None) -> t
                 host = f"{host}:{port}"
         else:
             host = "localhost"
-    raw_path = scope.get("raw_path")
-    if raw_path:
-        path = raw_path.decode("latin-1")
-    else:
-        path = quote(scope.get("path", "/"), safe=_PATH_SAFE)
-    if not path:
-        path = "/"
-    elif _needs_dot_removal(path):
-        path = _remove_dot_segments(path)
     query = scope.get("query_string", b"").decode("latin-1")
-    href = f"{scheme}://{host}{path}"
-    if query:
-        href = f"{href}?{query}"
-    return href, path
+    return URL._from_server(scheme, host, path, query)
 
 
 # Response header pairs repeat massively across requests (content-type,
