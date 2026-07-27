@@ -1,0 +1,10 @@
+schema_version = 1
+result = "results/2026-07-27-hayate-0.13-macos-arm64.json"
+
+[[historical]]
+label = "Hayate 0.12.1 optimized baseline"
+result = "results/2026-07-27-asgi-optimized-macos-arm64.json"
+
+[[historical]]
+label = "pre-optimization baseline"
+result = "results/2026-07-27-macos-arm64.json"
