@@ -4,6 +4,13 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Add opt-in compact JSON access logs with stable, query-free fields and a
+  zero-dependency request-correlation logging context. `RequestIdFilter` and
+  `current_request_id()` let application and deferred-work logs reuse the
+  validated ID without passing the request Context through every layer.
+
 ## [0.14.0] - 2026-07-28
 
 ### Added

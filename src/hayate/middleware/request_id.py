@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from collections.abc import Callable
+from contextvars import ContextVar
 from typing import cast
 
 from ..context import Context, Middleware, Next
@@ -12,6 +14,25 @@ from ..context import Context, Middleware, Next
 type RequestIdGenerator = Callable[[Context], str]
 
 _REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:+-]+$")
+_CURRENT_REQUEST_ID: ContextVar[str | None] = ContextVar(
+    "hayate_request_id",
+    default=None,
+)
+
+
+def current_request_id() -> str | None:
+    """Return the request ID bound to the current async execution context."""
+    return _CURRENT_REQUEST_ID.get()
+
+
+class RequestIdFilter(logging.Filter):
+    """Attach the current request ID to standard-library log records."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        value = current_request_id()
+        if value is not None or "request_id" not in record.__dict__:
+            record.__dict__["request_id"] = value
+        return True
 
 
 def _random_request_id(_: Context) -> str:
@@ -55,9 +76,18 @@ def request_id(
         # Stage before the inner chain so handled exceptions and 404 responses
         # carry the same correlation ID.
         c.header("x-request-id", value)
-        await next_()
+        token = _CURRENT_REQUEST_ID.set(value)
+        try:
+            await next_()
+        finally:
+            _CURRENT_REQUEST_ID.reset(token)
 
     return request_id_middleware
 
 
-__all__ = ["RequestIdGenerator", "request_id"]
+__all__ = [
+    "RequestIdFilter",
+    "RequestIdGenerator",
+    "current_request_id",
+    "request_id",
+]

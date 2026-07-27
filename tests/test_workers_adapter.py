@@ -331,13 +331,15 @@ async def test_fetch_roundtrip(workers_runtime):
 
 
 async def test_request_id_crosses_native_workers_adapter(workers_runtime):
-    from hayate.middleware import request_id
+    from hayate.middleware import current_request_id, request_id
 
     app = Hayate()
     app.use(request_id())
+    seen: list[str | None] = []
 
     @app.get("/")
     async def root(c: Context):
+        seen.append(current_request_id())
         return c.text(c.get("request_id"))
 
     js_response = await _entry(app).fetch(
@@ -349,6 +351,8 @@ async def test_request_id_crosses_native_workers_adapter(workers_runtime):
 
     assert js_response.body == b"workerd-request-123"
     assert ("x-request-id", "workerd-request-123") in js_response.headers.pairs
+    assert seen == ["workerd-request-123"]
+    assert current_request_id() is None
 
 
 async def test_fetch_runs_route_middleware_without_global_middleware(workers_runtime):

@@ -4,7 +4,7 @@ import tempfile
 from typing import Any
 
 from hayate import Context, File, FormDataError, FormDataLimits, Hayate, Response
-from hayate.middleware import request_id
+from hayate.middleware import current_request_id, request_id
 
 
 async def call_asgi(
@@ -78,9 +78,11 @@ async def test_get_roundtrip():
 async def test_request_id_crosses_asgi_adapter():
     app = Hayate()
     app.use(request_id())
+    seen: list[str | None] = []
 
     @app.get("/")
     async def root(c: Context):
+        seen.append(current_request_id())
         return c.text(c.get("request_id"))
 
     messages = await call_asgi(
@@ -89,6 +91,8 @@ async def test_request_id_crosses_asgi_adapter():
     )
     assert response_body(messages) == b"asgi-request-123"
     assert response_headers(messages)[b"x-request-id"] == b"asgi-request-123"
+    assert seen == ["asgi-request-123"]
+    assert current_request_id() is None
 
 
 async def test_post_body_echo():

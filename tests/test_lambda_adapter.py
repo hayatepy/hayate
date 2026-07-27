@@ -11,7 +11,7 @@ import pytest
 
 from hayate import Context, Hayate
 from hayate.adapters.aws import to_lambda
-from hayate.middleware import request_id
+from hayate.middleware import current_request_id, request_id
 
 
 def make_event(
@@ -60,9 +60,11 @@ def test_json_roundtrip():
 def test_request_id_crosses_lambda_adapter():
     app = Hayate()
     app.use(request_id())
+    seen: list[str | None] = []
 
     @app.get("/")
     async def root(c: Context):
+        seen.append(current_request_id())
         return c.text(c.get("request_id"))
 
     result = to_lambda(app)(
@@ -71,6 +73,8 @@ def test_request_id_crosses_lambda_adapter():
     )
     assert result["body"] == "lambda-request-123"
     assert result["headers"]["x-request-id"] == "lambda-request-123"
+    assert seen == ["lambda-request-123"]
+    assert current_request_id() is None
 
 
 def test_query_and_url():

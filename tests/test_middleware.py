@@ -1,14 +1,25 @@
 """Built-in middleware: cors, etag, basic_auth, compress, logger, request IDs."""
 
+import asyncio
 import base64
 import gzip as gzip_module
+import json
 import logging
 import re
 
 import pytest
 
 from hayate import Context, Hayate
-from hayate.middleware import basic_auth, compress, cors, etag, logger, request_id
+from hayate.middleware import (
+    RequestIdFilter,
+    basic_auth,
+    compress,
+    cors,
+    current_request_id,
+    etag,
+    logger,
+    request_id,
+)
 
 
 def _basic(user: str, password: str) -> str:
@@ -276,6 +287,76 @@ async def test_logger_emits_line(caplog: pytest.LogCaptureFixture):
     assert any("GET / -> 200" in record.getMessage() for record in caplog.records)
 
 
+async def test_structured_logger_emits_safe_correlated_json(
+    caplog: pytest.LogCaptureFixture,
+):
+    app = Hayate()
+    app.use(request_id())
+    app.use(logger(structured=True))
+
+    @app.get("/items")
+    async def items(c: Context):
+        return c.text("ok")
+
+    with caplog.at_level(logging.INFO, logger="hayate.request"):
+        response = await app.request(
+            "/items?token=must-not-be-logged",
+            headers={"x-request-id": "folio:request-42"},
+        )
+
+    record = next(record for record in caplog.records if record.name == "hayate.request")
+    payload = json.loads(record.getMessage())
+    duration_ms = payload.pop("duration_ms")
+    assert payload == {
+        "event": "http_request",
+        "method": "GET",
+        "path": "/items",
+        "status": 200,
+        "request_id": "folio:request-42",
+    }
+    assert isinstance(duration_ms, float)
+    assert duration_ms >= 0
+    assert "must-not-be-logged" not in record.getMessage()
+    assert record.__dict__["request_id"] == "folio:request-42"
+    assert response.headers.get("x-request-id") == "folio:request-42"
+
+
+async def test_structured_logger_covers_not_found_and_handled_errors(
+    caplog: pytest.LogCaptureFixture,
+):
+    app = Hayate()
+    app.use(request_id())
+    app.use(logger(structured=True))
+
+    @app.get("/error")
+    async def fail(c: Context):
+        raise RuntimeError("boom")
+
+    with caplog.at_level(logging.INFO, logger="hayate.request"):
+        missing = await app.request(
+            "/missing",
+            headers={"x-request-id": "missing-request"},
+        )
+        failed = await app.request(
+            "/error",
+            headers={"x-request-id": "failed-request"},
+        )
+
+    payloads = [
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if record.name == "hayate.request"
+    ]
+    assert [
+        (payload["path"], payload["status"], payload["request_id"]) for payload in payloads
+    ] == [
+        ("/missing", 404, "missing-request"),
+        ("/error", 500, "failed-request"),
+    ]
+    assert missing.headers.get("x-request-id") == "missing-request"
+    assert failed.headers.get("x-request-id") == "failed-request"
+
+
 # -- request ID ----------------------------------------------------------------------
 
 
@@ -373,3 +454,64 @@ async def test_request_id_fails_closed_for_invalid_generator_value():
     res = await app.request("/")
     assert res.status == 500
     assert res.headers.get("x-request-id") is None
+
+
+async def test_request_id_logging_context_is_concurrent_deferred_and_restored(
+    caplog: pytest.LogCaptureFixture,
+):
+    assert current_request_id() is None
+    application_log = logging.getLogger("hayate.test.request_context")
+    correlation_filter = RequestIdFilter()
+    application_log.addFilter(correlation_filter)
+
+    app = Hayate()
+    app.use(request_id())
+    arrivals: list[str] = []
+    both_arrived = asyncio.Event()
+
+    async def deferred(name: str) -> None:
+        await asyncio.sleep(0)
+        application_log.info("background:%s", name)
+
+    @app.get("/requests/:name")
+    async def correlated(c: Context):
+        name = c.req.param("name")
+        expected = c.req.header("x-request-id")
+        assert current_request_id() == expected
+        arrivals.append(name)
+        if len(arrivals) == 2:
+            both_arrived.set()
+        await both_arrived.wait()
+        application_log.info("handler:%s", name)
+        c.wait_until(deferred(name))
+        return c.text(name)
+
+    try:
+        with caplog.at_level(logging.INFO, logger=application_log.name):
+            left, right = await asyncio.gather(
+                app.request(
+                    "/requests/left",
+                    headers={"x-request-id": "left-request"},
+                ),
+                app.request(
+                    "/requests/right",
+                    headers={"x-request-id": "right-request"},
+                ),
+            )
+    finally:
+        application_log.removeFilter(correlation_filter)
+
+    assert left.headers.get("x-request-id") == "left-request"
+    assert right.headers.get("x-request-id") == "right-request"
+    assert current_request_id() is None
+    correlated_records = {
+        record.getMessage(): record.__dict__["request_id"]
+        for record in caplog.records
+        if record.name == application_log.name
+    }
+    assert correlated_records == {
+        "handler:left": "left-request",
+        "handler:right": "right-request",
+        "background:left": "left-request",
+        "background:right": "right-request",
+    }
