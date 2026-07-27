@@ -13,6 +13,7 @@
         "asgi",
         "native_workers",
         "typed_openapi",
+        "bounded_uploads",
         "dependency_graph",
         "mcp",
         "agent_authorization",
@@ -30,6 +31,7 @@
         "asgi",
         "application_composition",
         "typed_openapi",
+        "bounded_uploads",
         "dependency_graph",
         "direct_testing",
         "realtime",
@@ -47,6 +49,7 @@
         "model_admin",
         "model_orm",
         "html_forms",
+        "bounded_uploads",
         "production_scaffold"
       ]
     },
@@ -59,6 +62,7 @@
         "fetch_core",
         "native_workers",
         "realtime",
+        "bounded_uploads",
         "javascript_runtime_reach",
         "typed_client",
         "production_scaffold"
@@ -201,8 +205,8 @@
       "support": {
         "hayate": {
           "status": "first_party",
-          "note": "hayate-openapi 0.6 provides explicit source markers, portable typed constraints, response contracts, pluggable schema providers, OpenAPI 3.1.1, and Scalar on CPython and Python Workers.",
-          "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md"]
+          "note": "hayate-openapi 0.7 provides explicit source markers, portable typed constraints, typed binary files, response contracts, pluggable schema providers, OpenAPI 3.1.1, and Scalar on CPython and Python Workers.",
+          "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md", "https://github.com/hayatepy/hayate-openapi/blob/v0.7.0/README.md"]
         },
         "fastapi": {
           "status": "core",
@@ -224,6 +228,38 @@
         "fastapi": "parity",
         "django": "advantage",
         "hono": "parity"
+      }
+    },
+    {
+      "id": "bounded_uploads",
+      "title": "Resource-bounded multipart file uploads",
+      "definition": "Multipart files can be consumed incrementally with explicit resource limits, bounded memory, deterministic cleanup, and a disk-free edge path.",
+      "support": {
+        "hayate": {
+          "status": "core",
+          "note": "FormDataLimits caps total body, file, field, part count, and headers; native ASGI parsing streams to a configurable temporary-file threshold while Workers stays bounded without disk, and typed OpenAPI files reuse the same contract.",
+          "sources": ["src/hayate/formdata.py", "tests/test_asgi.py", "benchmarks/competitive/uploads/runner.py", "benchmarks/competitive/results/2026-07-27-uploads-macos-arm64.md", "https://github.com/hayatepy/hayate-openapi/blob/v0.7.0/README.md"]
+        },
+        "fastapi": {
+          "status": "core",
+          "note": "UploadFile provides a spooled file, metadata, and async reads; multipart parsing depends on the separately installed python-multipart package.",
+          "sources": ["https://fastapi.tiangolo.com/tutorial/request-files/"]
+        },
+        "django": {
+          "status": "core",
+          "note": "Django upload handlers stream incoming data and switch between memory and temporary files, with settings and custom handlers for resource policy.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/topics/http/file-uploads/"]
+        },
+        "hono": {
+          "status": "core",
+          "note": "Hono exposes Fetch form parsing and whole-body limit middleware, but framework-level multipart spill, per-file, field, part, and header controls are not part of that documented path.",
+          "sources": ["https://hono.dev/docs/api/request", "https://hono.dev/docs/middleware/builtin/body-limit"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "parity",
+        "django": "parity",
+        "hono": "advantage"
       }
     },
     {

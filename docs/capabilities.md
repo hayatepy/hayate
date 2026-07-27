@@ -12,33 +12,33 @@ Support levels: **Core** is in the framework package; **First-party** is maintai
 
 **Hayate advantaged** — Hayate has the clearest first-party path when one Python application must run on ASGI and native Cloudflare Workers while combining typed HTTP contracts, cached dependency graphs, MCP 2025-11-25, authorization, and checked SQLite/D1 access.
 
-- Against FastAPI: Hayate advantage 5, Parity 5.
-- Against Django: Hayate advantage 8, Parity 2.
-- Against Hono: Hayate advantage 3, Parity 6, Different scope 1.
+- Against FastAPI: Hayate advantage 5, Parity 6.
+- Against Django: Hayate advantage 8, Parity 3.
+- Against Hono: Hayate advantage 4, Parity 6, Different scope 1.
 
 ### Conventional typed Python API
 
 **Competitive / mixed** — Hayate now meets FastAPI's central typed request/response, OpenAPI, dependency-graph, direct-test, realtime, lifecycle, and sub-application composition capabilities. FastAPI retains a much larger adoption ecosystem; that is a material adoption advantage, not a missing Hayate endpoint feature.
 
-- Against FastAPI: Parity 8.
-- Against Django: Hayate advantage 4, Parity 4.
-- Against Hono: Hayate advantage 1, Parity 6, Different scope 1.
+- Against FastAPI: Parity 9.
+- Against Django: Hayate advantage 4, Parity 5.
+- Against Hono: Hayate advantage 2, Parity 6, Different scope 1.
 
 ### Traditional database-backed full stack
 
 **Competitor advantaged** — Django remains functionally ahead for model-driven admin, ORM/migrations, and integrated forms/templates. Hayate offers composable checked SQL and htmx paths, and can now retain a Django admin/ORM application under an ASGI prefix during incremental migration instead of reproducing Django's monolith.
 
-- Against FastAPI: Hayate advantage 1, Parity 4.
-- Against Django: Hayate advantage 1, Parity 1, Competitor advantage 3.
-- Against Hono: Parity 5.
+- Against FastAPI: Hayate advantage 1, Parity 5.
+- Against Django: Hayate advantage 1, Parity 2, Competitor advantage 3.
+- Against Hono: Hayate advantage 1, Parity 5.
 
 ### JavaScript and TypeScript edge application
 
 **Competitor advantaged** — Hono remains functionally ahead for multi-JavaScript-runtime reach and route-inferred TypeScript RPC, and its JavaScript Workers runtime has materially better startup, memory, CPU, and upload size than Python Workers.
 
-- Against FastAPI: Hayate advantage 2, Parity 3, Different scope 1.
-- Against Django: Hayate advantage 4, Parity 1, Different scope 1.
-- Against Hono: Parity 4, Competitor advantage 2.
+- Against FastAPI: Hayate advantage 2, Parity 4, Different scope 1.
+- Against Django: Hayate advantage 4, Parity 2, Different scope 1.
+- Against Hono: Hayate advantage 1, Parity 4, Competitor advantage 2.
 
 ## Capability matrix
 
@@ -48,7 +48,8 @@ Support levels: **Core** is in the framework package; **First-party** is maintai
 | **ASGI server compatibility**<br>The application can run behind ordinary Python ASGI servers. | **Core** — Hayate is directly ASGI-callable and validates HTTP, WebSocket, lifespan, and background work. | **Core** — FastAPI is an ASGI framework built on Starlette. | **Core** — Django documents an async request stack under ASGI. | **Different scope** — Hono targets JavaScript runtimes and their adapters rather than Python ASGI. |
 | **Independent sub-application composition**<br>An application can dispatch an independent framework application under a path prefix with correct sub-application path semantics. | **Core** — ASGIPathDispatcher mounts Django, FastAPI, or another ASGI application by longest prefix while keeping the Fetch core and Workers adapter unchanged. | **Core** — FastAPI mounts independent sub-applications with their own routes, OpenAPI, and automatic documentation. | **No first-party path** — Django can be embedded in an outer ASGI composition, but its documented core does not provide a path dispatcher for independent applications. | **Core** — Hono route() composes Hono applications and mount() integrates applications from other Fetch frameworks. |
 | **Native Cloudflare Workers path without ASGI**<br>The framework connects Fetch requests directly to its application model without an ASGI protocol bridge. | **Core** — Class and global Python Workers entrypoints convert one Fetch boundary and retain bindings. | **Platform adapter** — Cloudflare supports FastAPI through its Python Workers ASGI server and asgi.fetch bridge. | **No first-party path** — Django documents WSGI/ASGI deployment; no native Fetch adapter is in its framework surface. | **Core** — Cloudflare Workers is a primary Hono runtime and uses app.fetch. |
-| **Typed request and response OpenAPI contracts**<br>Types drive input validation, response validation/serialization, OpenAPI 3.1, interactive docs, and client generation. | **First-party** — hayate-openapi 0.6 provides explicit source markers, portable typed constraints, response contracts, pluggable schema providers, OpenAPI 3.1.1, and Scalar on CPython and Python Workers. | **Core** — Type-driven validation, OpenAPI, JSON Schema, and interactive docs are central FastAPI features. | **External** — API schemas and typed REST contracts are provided by projects such as Django REST Framework rather than Django core. | **First-party** — @hono/zod-openapi combines validation, types, and OpenAPI generation. |
+| **Typed request and response OpenAPI contracts**<br>Types drive input validation, response validation/serialization, OpenAPI 3.1, interactive docs, and client generation. | **First-party** — hayate-openapi 0.7 provides explicit source markers, portable typed constraints, typed binary files, response contracts, pluggable schema providers, OpenAPI 3.1.1, and Scalar on CPython and Python Workers. | **Core** — Type-driven validation, OpenAPI, JSON Schema, and interactive docs are central FastAPI features. | **External** — API schemas and typed REST contracts are provided by projects such as Django REST Framework rather than Django core. | **First-party** — @hono/zod-openapi combines validation, types, and OpenAPI generation. |
+| **Resource-bounded multipart file uploads**<br>Multipart files can be consumed incrementally with explicit resource limits, bounded memory, deterministic cleanup, and a disk-free edge path. | **Core** — FormDataLimits caps total body, file, field, part count, and headers; native ASGI parsing streams to a configurable temporary-file threshold while Workers stays bounded without disk, and typed OpenAPI files reuse the same contract. | **Core** — UploadFile provides a spooled file, metadata, and async reads; multipart parsing depends on the separately installed python-multipart package. | **Core** — Django upload handlers stream incoming data and switch between memory and temporary files, with settings and custom handlers for resource policy. | **Core** — Hono exposes Fetch form parsing and whole-body limit middleware, but framework-level multipart spill, per-file, field, part, and header controls are not part of that documented path. |
 | **Nested dependency graph with request cache**<br>Endpoint dependencies may have subdependencies and shared results are cached once per request. | **First-party** — hayate-openapi Depends resolves sync/async subdependencies with per-request caching. | **Core** — FastAPI documents arbitrarily deep subdependencies and one-call-per-request caching. | **No first-party path** — Django's documented core feature set does not include a general endpoint dependency-injection graph. | **External** — Hono documents DI options such as Hono Simple DI in its third-party middleware catalog. |
 | **First-party MCP Streamable HTTP**<br>The framework organization maintains an MCP transport that mounts into the web app and works on its edge runtime. | **First-party** — hayate-mcp tests MCP 2025-11-25 on ASGI and native Python Workers with the official conformance runner. | **External** — FastAPI-MCP is a separate community project that mounts through ASGI. | **No first-party path** — MCP is not part of Django's documented first-party module set. | **First-party** — @hono/mcp is maintained in the honojs middleware repository and implements Streamable HTTP. |
 | **OAuth authorization server, resource server, and DPoP**<br>One maintained stack supplies authorization-server metadata/endpoints, resource protection, scopes, and proof-of-possession support for agent APIs. | **First-party** — hayate-auth and hayate-mcp share principals, scopes, OAuth metadata, and DPoP verification. | **No first-party path** — FastAPI provides OpenAPI-integrated security primitives and tutorials, not a maintained authorization-server product. | **No first-party path** — Django core provides user/password/session authentication and permissions, not OAuth AS plus DPoP. | **No first-party path** — Hono ships auth middleware and MCP auth routing helpers, but not the complete authorization-server and DPoP stack. |
@@ -99,11 +100,19 @@ Support levels: **Core** is in the framework package; **First-party** is maintai
 
 ### Typed request and response OpenAPI contracts
 
-- **Hayate — First-party:** hayate-openapi 0.6 provides explicit source markers, portable typed constraints, response contracts, pluggable schema providers, OpenAPI 3.1.1, and Scalar on CPython and Python Workers. ([evidence 1](https://github.com/hayatepy/hayate/blob/main/benchmarks/ecosystem/runner.py), [evidence 2](https://github.com/hayatepy/hayate/blob/main/docs/ecosystem-compatibility.md))
+- **Hayate — First-party:** hayate-openapi 0.7 provides explicit source markers, portable typed constraints, typed binary files, response contracts, pluggable schema providers, OpenAPI 3.1.1, and Scalar on CPython and Python Workers. ([evidence 1](https://github.com/hayatepy/hayate/blob/main/benchmarks/ecosystem/runner.py), [evidence 2](https://github.com/hayatepy/hayate/blob/main/docs/ecosystem-compatibility.md), [source 3](https://github.com/hayatepy/hayate-openapi/blob/v0.7.0/README.md))
 - **FastAPI — Core:** Type-driven validation, OpenAPI, JSON Schema, and interactive docs are central FastAPI features. ([source 1](https://fastapi.tiangolo.com/features/))
 - **Django — External:** API schemas and typed REST contracts are provided by projects such as Django REST Framework rather than Django core. ([source 1](https://www.django-rest-framework.org/topics/documenting-your-api/))
 - **Hono — First-party:** @hono/zod-openapi combines validation, types, and OpenAPI generation. ([source 1](https://hono.dev/examples/zod-openapi))
 - **Relative to Hayate:** FastAPI: Parity; Django: Hayate advantage; Hono: Parity.
+
+### Resource-bounded multipart file uploads
+
+- **Hayate — Core:** FormDataLimits caps total body, file, field, part count, and headers; native ASGI parsing streams to a configurable temporary-file threshold while Workers stays bounded without disk, and typed OpenAPI files reuse the same contract. ([evidence 1](https://github.com/hayatepy/hayate/blob/main/src/hayate/formdata.py), [evidence 2](https://github.com/hayatepy/hayate/blob/main/tests/test_asgi.py), [evidence 3](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/uploads/runner.py), [evidence 4](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-uploads-macos-arm64.md), [source 5](https://github.com/hayatepy/hayate-openapi/blob/v0.7.0/README.md))
+- **FastAPI — Core:** UploadFile provides a spooled file, metadata, and async reads; multipart parsing depends on the separately installed python-multipart package. ([source 1](https://fastapi.tiangolo.com/tutorial/request-files/))
+- **Django — Core:** Django upload handlers stream incoming data and switch between memory and temporary files, with settings and custom handlers for resource policy. ([source 1](https://docs.djangoproject.com/en/6.0/topics/http/file-uploads/))
+- **Hono — Core:** Hono exposes Fetch form parsing and whole-body limit middleware, but framework-level multipart spill, per-file, field, part, and header controls are not part of that documented path. ([source 1](https://hono.dev/docs/api/request), [source 2](https://hono.dev/docs/middleware/builtin/body-limit))
+- **Relative to Hayate:** FastAPI: Parity; Django: Parity; Hono: Hayate advantage.
 
 ### Nested dependency graph with request cache
 
