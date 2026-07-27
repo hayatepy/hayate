@@ -389,6 +389,7 @@ class Hayate:
             c._res = problem(500, detail="no response was produced")
         if c._header_ops:
             c._apply_header_ops()
+        c._run_response_finalizers()
         response = c._res
         if not c._external_exec and c._exec is not None:
             response._background = c._exec

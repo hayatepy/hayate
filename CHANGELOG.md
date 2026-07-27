@@ -4,6 +4,14 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Emit request access logs after Hayate has produced the final response, so
+  middleware exceptions and custom error handlers record their actual status
+  instead of a premature 500. Request correlation now remains available to
+  application error handlers, and logging-sink failures no longer replace the
+  application response.
+
 ## [0.15.0] - 2026-07-28
 
 ### Added

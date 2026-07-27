@@ -9,7 +9,7 @@ import re
 
 import pytest
 
-from hayate import Context, Hayate
+from hayate import Context, Hayate, HTTPException, Next
 from hayate.middleware import (
     RequestIdFilter,
     basic_auth,
@@ -332,6 +332,14 @@ async def test_structured_logger_covers_not_found_and_handled_errors(
     async def fail(c: Context):
         raise RuntimeError("boom")
 
+    handled_request_ids: list[str | None] = []
+
+    @app.on_error
+    async def handle_error(error: Exception, c: Context):
+        assert isinstance(error, RuntimeError)
+        handled_request_ids.append(current_request_id())
+        return c.json({"handled": True}, status=502)
+
     with caplog.at_level(logging.INFO, logger="hayate.request"):
         missing = await app.request(
             "/missing",
@@ -351,10 +359,62 @@ async def test_structured_logger_covers_not_found_and_handled_errors(
         (payload["path"], payload["status"], payload["request_id"]) for payload in payloads
     ] == [
         ("/missing", 404, "missing-request"),
-        ("/error", 500, "failed-request"),
+        ("/error", 502, "failed-request"),
     ]
     assert missing.headers.get("x-request-id") == "missing-request"
     assert failed.headers.get("x-request-id") == "failed-request"
+    assert handled_request_ids == ["failed-request"]
+    assert current_request_id() is None
+
+
+async def test_structured_logger_uses_final_middleware_http_exception_status(
+    caplog: pytest.LogCaptureFixture,
+):
+    app = Hayate()
+    app.use(request_id())
+    app.use(logger(structured=True))
+
+    @app.use
+    async def reject(c: Context, next_: Next):
+        del c, next_
+        raise HTTPException(401, title="Authentication required")
+
+    @app.get("/")
+    async def root(c: Context):
+        return c.text("unreachable")
+
+    with caplog.at_level(logging.INFO, logger="hayate.request"):
+        response = await app.request(
+            "/",
+            headers={"x-request-id": "rejected-request"},
+        )
+
+    assert response.status == 401
+    event = json.loads(
+        next(record.getMessage() for record in caplog.records if record.name == "hayate.request")
+    )
+    assert event["status"] == 401
+    assert event["request_id"] == "rejected-request"
+
+
+async def test_request_logger_failure_does_not_replace_the_response():
+    class FailingHandler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            del record
+            raise RuntimeError("logging sink failed")
+
+    target = logging.Logger("failing-request-log", level=logging.INFO)
+    target.addHandler(FailingHandler())
+    app = Hayate()
+    app.use(logger(target, structured=True))
+
+    @app.get("/")
+    async def root(c: Context):
+        return c.text("ok")
+
+    response = await app.request("/")
+    assert response.status == 200
+    assert await response.text() == "ok"
 
 
 # -- request ID ----------------------------------------------------------------------
@@ -388,6 +448,53 @@ async def test_request_id_preserves_safe_incoming_value():
     res = await app.request("/", headers={"x-request-id": "edge:abc-123_4.5"})
     assert await res.text() == "edge:abc-123_4.5"
     assert res.headers.get("x-request-id") == "edge:abc-123_4.5"
+
+
+async def test_request_id_restores_context_when_a_request_is_cancelled():
+    app = Hayate()
+    app.use(request_id())
+    entered = asyncio.Event()
+    blocked = asyncio.Event()
+    restored: list[str | None] = []
+
+    @app.get("/")
+    async def root(c: Context):
+        del c
+        entered.set()
+        await blocked.wait()
+
+    async def invoke() -> None:
+        try:
+            await app.request(
+                "/",
+                headers={"x-request-id": "cancelled-request"},
+            )
+        finally:
+            restored.append(current_request_id())
+
+    task = asyncio.create_task(invoke())
+    await entered.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert restored == [None]
+
+
+async def test_nested_request_id_contexts_restore_in_onion_order():
+    app = Hayate()
+    app.use(request_id(accept_incoming=False, generator=lambda _c: "outer-request"))
+    app.use(request_id(accept_incoming=False, generator=lambda _c: "inner-request"))
+
+    @app.get("/")
+    async def root(c: Context):
+        assert current_request_id() == "inner-request"
+        return c.text(c.get("request_id"))
+
+    response = await app.request("/")
+    assert await response.text() == "inner-request"
+    assert response.headers.get("x-request-id") == "inner-request"
+    assert current_request_id() is None
 
 
 @pytest.mark.parametrize("incoming", ["contains space", "café", "x" * 129])

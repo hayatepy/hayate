@@ -1,10 +1,12 @@
 """ASGI adapter: driven directly with in-test scope/receive/send."""
 
+import json
+import logging
 import tempfile
 from typing import Any
 
 from hayate import Context, File, FormDataError, FormDataLimits, Hayate, Response
-from hayate.middleware import current_request_id, request_id
+from hayate.middleware import current_request_id, logger, request_id
 
 
 async def call_asgi(
@@ -75,9 +77,10 @@ async def test_get_roundtrip():
     assert headers[b"content-length"] == b"2"
 
 
-async def test_request_id_crosses_asgi_adapter():
+async def test_request_id_and_final_access_log_cross_asgi_adapter(caplog):
     app = Hayate()
     app.use(request_id())
+    app.use(logger(structured=True))
     seen: list[str | None] = []
 
     @app.get("/")
@@ -85,14 +88,19 @@ async def test_request_id_crosses_asgi_adapter():
         seen.append(current_request_id())
         return c.text(c.get("request_id"))
 
-    messages = await call_asgi(
-        app,
-        headers=(("x-request-id", "asgi-request-123"),),
-    )
+    with caplog.at_level(logging.INFO, logger="hayate.request"):
+        messages = await call_asgi(
+            app,
+            headers=(("x-request-id", "asgi-request-123"),),
+        )
     assert response_body(messages) == b"asgi-request-123"
     assert response_headers(messages)[b"x-request-id"] == b"asgi-request-123"
     assert seen == ["asgi-request-123"]
     assert current_request_id() is None
+    event = json.loads(
+        next(record.getMessage() for record in caplog.records if record.name == "hayate.request")
+    )
+    assert (event["status"], event["request_id"]) == (200, "asgi-request-123")
 
 
 async def test_post_body_echo():
