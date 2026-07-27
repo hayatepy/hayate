@@ -11,6 +11,7 @@ import pytest
 
 from hayate import Context, Hayate
 from hayate.adapters.aws import to_lambda
+from hayate.middleware import request_id
 
 
 def make_event(
@@ -54,6 +55,22 @@ def test_json_roundtrip():
     assert result["isBase64Encoded"] is False
     assert json.loads(result["body"]) == {"got": {"a": 1}}
     assert result["headers"]["content-type"] == "application/json"
+
+
+def test_request_id_crosses_lambda_adapter():
+    app = Hayate()
+    app.use(request_id())
+
+    @app.get("/")
+    async def root(c: Context):
+        return c.text(c.get("request_id"))
+
+    result = to_lambda(app)(
+        make_event(headers={"x-request-id": "lambda-request-123"}),
+        None,
+    )
+    assert result["body"] == "lambda-request-123"
+    assert result["headers"]["x-request-id"] == "lambda-request-123"
 
 
 def test_query_and_url():

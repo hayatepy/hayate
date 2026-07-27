@@ -10,6 +10,7 @@ from .cors import cors
 from .etag import etag
 from .logger import logger
 from .rate_limit import MemoryRateLimitStore, RateLimitStore, rate_limit
+from .request_id import RequestIdGenerator, request_id
 from .secure_headers import secure_headers
 from .static_files import static_files
 from .timeout import timeout
@@ -17,6 +18,7 @@ from .timeout import timeout
 __all__ = [
     "MemoryRateLimitStore",
     "RateLimitStore",
+    "RequestIdGenerator",
     "basic_auth",
     "body_limit",
     "cache",
@@ -25,6 +27,7 @@ __all__ = [
     "etag",
     "logger",
     "rate_limit",
+    "request_id",
     "secure_headers",
     "static_files",
     "timeout",
