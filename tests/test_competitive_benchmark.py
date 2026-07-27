@@ -1,6 +1,7 @@
 """Competitive benchmark boundary tests."""
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -21,10 +22,13 @@ raw_asgi = _load_module(
     "competitive_raw_asgi",
     ROOT / "benchmarks/competitive/apps/hayate/raw_asgi.py",
 ).app
-_transport_profile = _load_module(
+competitive_runner = _load_module(
     "competitive_runner",
     ROOT / "benchmarks/competitive/runner.py",
-)._transport_profile
+)
+_locked_node_package_version = competitive_runner._locked_node_package_version
+_render_markdown = competitive_runner.render_markdown
+_transport_profile = competitive_runner._transport_profile
 
 
 async def _raw_request(method: str, path: str, body: bytes = b"") -> tuple[int, bytes]:
@@ -56,6 +60,19 @@ async def test_raw_asgi_executes_the_common_workload():
         "/echo",
         b'{"message":"hello"}',
     ) == (200, b'{"message":"hello","length":5}')
+
+
+def test_node_transport_version_comes_from_lockfile():
+    assert _locked_node_package_version("@hono/node-server") == "2.0.12"
+
+
+def test_recorded_baseline_summary_matches_raw_report():
+    results = ROOT / "benchmarks/competitive/results"
+    report = json.loads((results / "2026-07-27-macos-arm64.json").read_text())
+
+    assert report["git_commit"] == "0612ee509706f74d3ca651b26a88ab6c713d7b1e"
+    assert report["configuration"]["node_transport"] == ("@hono/node-server 2.0.12 / HTTP/1.1")
+    assert (results / "2026-07-27-macos-arm64.md").read_text() == _render_markdown(report)
 
 
 def test_transport_profile_reports_hayate_share_of_raw_ceiling():

@@ -98,40 +98,45 @@ universal standards score. hayate's WPT-based URL and URLPattern results are
 reported on the [conformance page](conformance.md); unsupported public APIs in
 other frameworks are not converted into artificial zeroes.
 
+Framework capability breadth is tracked separately in the dated,
+source-backed [competitive capability matrix](capabilities.md). It has no
+weighted score and keeps Django's full-stack strengths and Hono's
+JavaScript-edge strengths visible.
+
 The monthly and manually dispatchable
 [Competitive benchmark workflow](https://github.com/hayatepy/hayate/actions/workflows/competitive-benchmark.yml)
 uploads the raw JSON and Markdown summary. Shared-runner measurements are not
 used as a hard regression gate because host contention is uncontrolled.
 
-### Recorded baseline (2026-07-26)
+### Recorded baseline (2026-07-27)
 
-Apple M2 Pro, macOS 26.5.1, arm64, CPython 3.14.6, Node 26.5.0;
+Apple M2 Pro, macOS 26.5.1, arm64, CPython 3.14.6, Node 24.18.0;
 50 connections, 10 seconds per scenario, three rotating rounds. The source
-under test is commit `ecd091d`; every one of the 60 throughput samples
+under test is commit `0612ee5`; every one of the 60 throughput samples
 completed with zero errors, timeouts, or non-2xx responses.
 
 | Framework | Version | App import | Cold start | Production packages | gzip payload | Throughput geo mean | HTTP contract |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| **hayate** | 0.10.0 | 79.4 ms | **114.1 ms** | **5** | **280.3 KiB** | **13,438 req/s** | **14/14 (100%)** |
-| FastAPI | 0.140.0 | 198.7 ms | 214.7 ms | 13 | 2,802.1 KiB | 9,631 req/s | 12/14 (85.7%) |
-| Django | 6.0.7 | 141.6 ms | 151.0 ms | 6 | 5,147.1 KiB | 2,805 req/s | 12/14 (85.7%) |
-| Hono | 4.12.32 | **53.6 ms** | **61.8 ms** | **2** | 281.5 KiB | **63,069 req/s** | 12/14 (85.7%) |
+| **hayate** | 0.12.1 | 96.1 ms | **130.3 ms** | **5** | 287.5 KiB | **13,995 req/s** | **14/14 (100%)** |
+| FastAPI | 0.140.0 | 210.5 ms | 220.5 ms | 13 | 2,802.1 KiB | 10,161 req/s | 12/14 (85.7%) |
+| Django | 6.0.7 | 151.0 ms | 155.5 ms | 6 | 5,147.1 KiB | 2,719 req/s | 12/14 (85.7%) |
+| Hono | 4.12.32 | **48.3 ms** | **55.0 ms** | **2** | **281.5 KiB** | **63,198 req/s** | 12/14 (85.7%) |
 
-On this workload, hayate delivered 1.40x FastAPI's and 4.79x Django's
-throughput. Its cold start was 1.88x faster than FastAPI's and 1.32x faster
-than Django's. Hono remained 4.69x faster in throughput and 1.85x faster at
-cold start. hayate's runtime-excluded compressed payload was approximately
-the same size as Hono's official Node stack, while using three more production
-packages.
+On this workload, hayate delivered 1.38x FastAPI's and 5.15x Django's
+throughput. FastAPI and Django took 1.69x and 1.19x as long to cold-start,
+respectively. Hono delivered 4.52x Hayate's throughput, and Hayate took 2.37x
+as long to cold-start. hayate's runtime-excluded compressed payload was 2.1%
+larger than Hono's official Node stack while using three more production
+packages; it was 9.75x smaller than FastAPI's and 17.91x smaller than Django's.
 
 The same run measured the raw Uvicorn/asyncio/h11 workload ceiling at
-16,094 req/s. Hayate reached 83.5% of that ceiling overall and 81.2–87.1%
-across the four workloads. Hono was 3.92x faster than raw Uvicorn itself, so
+16,225 req/s. Hayate reached 86.3% of that ceiling overall and 84.0–87.7%
+across the four workloads. Hono was 3.90x faster than raw Uvicorn itself, so
 most of the remaining Hono gap belongs to the runtime/transport boundary
 rather than Hayate's framework core.
 
-The full [raw report](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-26-macos-arm64.json)
-and [rendered summary](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-26-macos-arm64.md)
+The full [raw report](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-macos-arm64.json)
+and [rendered summary](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-macos-arm64.md)
 contain every sample, latency percentile, resolved package version, and
 machine field. These numbers are a reproducible baseline, not a claim about
 all applications or hardware.

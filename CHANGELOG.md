@@ -4,6 +4,17 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Add a dated, machine-validated competitive capability matrix for Hayate,
+  FastAPI, Django, and Hono. Every Hayate first-party claim requires checked
+  local evidence, every competitor claim requires a documentation source, and
+  generated conclusions retain Django's full-stack and Hono's JavaScript-edge
+  advantages instead of declaring a universal winner.
+- Record a new publication-profile competitive benchmark for Hayate 0.12.1,
+  including the exact source commit, raw samples, resolved dependency versions,
+  common HTTP contract, and raw-ASGI transport ceiling.
+
 ## [0.12.1] - 2026-07-27
 
 ### Fixed

@@ -467,10 +467,10 @@ def measure_payload(framework: Framework) -> dict[str, Any]:
         text=True,
         stdout=subprocess.PIPE,
     )
-    payload = json.loads(result.stdout)
+    python_payload: dict[str, Any] = json.loads(result.stdout)
     assert framework.distribution is not None
-    payload["framework_version"] = payload["versions"][framework.distribution.lower()]
-    return payload
+    python_payload["framework_version"] = python_payload["versions"][framework.distribution.lower()]
+    return python_payload
 
 
 def verify_contract(framework: Framework) -> dict[str, Any]:
@@ -707,6 +707,12 @@ def _machine_metadata() -> dict[str, Any]:
     }
 
 
+def _locked_node_package_version(package: str) -> str:
+    lock = json.loads((APPS / "hono" / "package-lock.json").read_text())
+    details = lock["packages"][f"node_modules/{package}"]
+    return str(details["version"])
+
+
 def _git_commit() -> str:
     result = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -733,7 +739,9 @@ def measure(args: argparse.Namespace) -> dict[str, Any]:
             "cold_start_rounds": args.cold_rounds,
             "load_generator": f"oha {OHA_VERSION} / HTTP/1.1",
             "python_transport": "uvicorn 0.51.0 / asyncio / h11 / lifespan off",
-            "node_transport": "@hono/node-server 2.0.11 / HTTP/1.1",
+            "node_transport": (
+                f"@hono/node-server {_locked_node_package_version('@hono/node-server')} / HTTP/1.1"
+            ),
         },
         "frameworks": {},
     }
@@ -776,7 +784,9 @@ def render_markdown(report: dict[str, Any]) -> str:
         "Throughput geo mean (req/s) | HTTP contract |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
-    for name, result in report["frameworks"].items():
+    for framework in FRAMEWORKS:
+        name = framework.name
+        result = report["frameworks"][name]
         payload = result["payload"]
         startup = result["startup"]
         contract = result["http_contract"]
@@ -800,7 +810,9 @@ def render_markdown(report: dict[str, Any]) -> str:
             "|---|---:|---:|---:|---:|",
         ]
     )
-    for name, result in report["frameworks"].items():
+    for framework in FRAMEWORKS:
+        name = framework.name
+        result = report["frameworks"][name]
         scenarios = result["throughput"]["scenarios"]
         lines.append(
             f"| {name} | {scenarios['static-text']['requests_per_second']:,.0f} | "
