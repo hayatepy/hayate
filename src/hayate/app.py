@@ -289,7 +289,7 @@ class Hayate:
                 if matched is not None:
                     route, params = matched
                     c.req._params = params
-                    chain = _EMPTY_MIDDLEWARE
+                    chain = route.middleware or _EMPTY_MIDDLEWARE
                     handler = route.handler
                     inline = route.inline
                 else:

@@ -4,6 +4,15 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-07-27
+
+### Fixed
+
+- Preserve route-level middleware in the optimized adapter path when an
+  application has no global middleware. Native Workers now execute validators
+  and every other route middleware through the same contract as `fetch()` and
+  ASGI.
+
 ## [0.12.0] - 2026-07-27
 
 ### Added
