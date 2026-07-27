@@ -44,11 +44,12 @@
       "id": "traditional_full_stack",
       "title": "Traditional database-backed full stack",
       "position": "competitor_advantaged",
-      "summary": "Django remains functionally ahead for its model-driven ORM/migrations, integrated forms/templates, and mature extension ecosystem. Hayate now has a first-party explicit operational admin with bounded CRUD, bulk actions, redacted history, searchable relationships, and inline editing on SQLite and native Workers/D1, while retaining a Django admin/ORM application under an ASGI prefix during incremental migration.",
+      "summary": "Django remains functionally ahead for its model-driven ORM/migrations, integrated forms/templates, and mature extension ecosystem. Hayate now has a first-party explicit operational admin with bounded CRUD, bulk actions, redacted history, searchable relationships, inline editing, saved views, keyset continuations, and bounded CSV export on SQLite and native Workers/D1, while retaining a Django admin/ORM application under an ASGI prefix during incremental migration.",
       "capabilities": [
         "application_composition",
         "operational_admin",
         "relational_admin",
+        "scalable_admin_operations",
         "model_orm",
         "html_forms",
         "bounded_uploads",
@@ -581,6 +582,38 @@
       "comparisons": {
         "fastapi": "advantage",
         "django": "parity",
+        "hono": "advantage"
+      }
+    },
+    {
+      "id": "scalable_admin_operations",
+      "title": "Scalable and export-safe admin lists",
+      "definition": "The maintained admin surface combines named reusable list views, forward keyset continuations, and separately authorized, field/row/byte-bounded CSV exports.",
+      "support": {
+        "hayate": {
+          "status": "first_party",
+          "note": "hayate-admin ships static saved views, query-bound opaque keyset continuations, and explicit CSV callbacks with field allowlists, per-object authorization, formula neutralization, and exact row and UTF-8 byte ceilings on SQLite and native Workers/D1.",
+          "sources": ["docs/ecosystem-compatibility.md"]
+        },
+        "fastapi": {
+          "status": "not_first_party",
+          "note": "FastAPI does not document a first-party operational admin surface, saved admin views, keyset admin pagination, or CSV export policy.",
+          "sources": ["https://fastapi.tiangolo.com/features/"]
+        },
+        "django": {
+          "status": "core",
+          "note": "Django admin includes filters, sorting, search, and offset pagination; reusable named views and CSV downloads are application customizations built with ModelAdmin and custom actions rather than one built-in bounded export contract.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/intro/tutorial07/", "https://docs.djangoproject.com/en/6.0/ref/contrib/admin/actions/"]
+        },
+        "hono": {
+          "status": "not_first_party",
+          "note": "Hono does not document a first-party operational admin surface or a combined saved-view, keyset-list, and bounded-export contract.",
+          "sources": ["https://hono.dev/docs/"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "advantage",
+        "django": "advantage",
         "hono": "advantage"
       }
     },
