@@ -2,18 +2,6 @@ name: Ecosystem compatibility
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/ecosystem-compatibility.yml"
-      - "benchmarks/competitive/**"
-      - "benchmarks/ecosystem/**"
-      - "docs/capabilities.md"
-      - "docs/ecosystem-compatibility.md"
-      - "mkdocs.yml"
-      - "pyproject.toml"
-      - "src/**"
-      - "tests/fixtures/ecosystem/**"
-      - "tests/test_ecosystem_compatibility.py"
-      - "uv.lock"
   schedule:
     - cron: "17 5 * * 1"
   workflow_dispatch:
