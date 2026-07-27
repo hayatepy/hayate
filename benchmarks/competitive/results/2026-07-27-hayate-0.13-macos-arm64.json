@@ -1,0 +1,1034 @@
+{
+  "configuration": {
+    "cold_start_rounds": 7,
+    "connections": 50,
+    "duration_seconds": 10,
+    "load_generator": "oha 1.15.0 / HTTP/1.1",
+    "node_transport": "@hono/node-server 2.0.12 / HTTP/1.1",
+    "python_transport": "uvicorn 0.51.0 / asyncio / h11 / lifespan off",
+    "throughput_rounds": 3
+  },
+  "frameworks": {
+    "django": {
+      "http_contract": {
+        "cases": {
+          "405 response advertises GET in Allow": true,
+          "GET path parameter returns 200": true,
+          "GET path parameter returns exact JSON": true,
+          "GET text has text/plain media type": true,
+          "GET text returns 200": true,
+          "GET text returns the exact body": true,
+          "HEAD has GET status": false,
+          "HEAD has no response body": true,
+          "HEAD preserves GET media type": false,
+          "POST JSON has application/json media type": true,
+          "POST JSON returns 200": true,
+          "POST JSON returns exact JSON": true,
+          "known route with wrong method returns 405": true,
+          "unknown route returns 404": true
+        },
+        "passed": 12,
+        "rate_percent": 85.7,
+        "total": 14
+      },
+      "payload": {
+        "framework_version": "6.0.7",
+        "production_packages": 6,
+        "production_payload_bytes": 24584920,
+        "production_payload_gzip_bytes": 5270676,
+        "runtime_version": "CPython 3.14.6",
+        "versions": {
+          "asgiref": "3.12.1",
+          "click": "8.4.2",
+          "django": "6.0.7",
+          "h11": "0.16.0",
+          "sqlparse": "0.5.5",
+          "uvicorn": "0.51.0"
+        }
+      },
+      "startup": {
+        "app_import_ms": 338.532,
+        "cold_start_ms": 362.224,
+        "samples": {
+          "app_import_ms": [
+            324.721,
+            343.66,
+            331.784,
+            338.532,
+            315.164,
+            372.581,
+            355.372
+          ],
+          "cold_start_ms": [
+            355.459,
+            372.716,
+            362.224,
+            355.554,
+            349.96,
+            391.921,
+            387.661
+          ],
+          "server_ready_ms": [
+            354.279,
+            371.573,
+            361.043,
+            354.412,
+            348.869,
+            390.61,
+            386.196
+          ]
+        },
+        "server_ready_ms": 361.043
+      },
+      "throughput": {
+        "geometric_mean_requests_per_second": 2751.3,
+        "scenarios": {
+          "dynamic-json": {
+            "latency_p50_ms": 15.976,
+            "latency_p99_ms": 33.06,
+            "requests_per_second": 2996.4,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 47.74075,
+                "latency_p99_ms": 84.764375,
+                "non_2xx": 0.0,
+                "requests_per_second": 1021.3319108148884,
+                "throughput_bytes_per_second": 30639.957324446652,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 15.789000000000001,
+                "latency_p99_ms": 31.551625,
+                "non_2xx": 0.0,
+                "requests_per_second": 3038.596513508292,
+                "throughput_bytes_per_second": 91157.89540524877,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 15.975667,
+                "latency_p99_ms": 33.060375,
+                "non_2xx": 0.0,
+                "requests_per_second": 2996.444381187328,
+                "throughput_bytes_per_second": 89893.33143561984,
+                "timeouts": 0.0
+              }
+            ]
+          },
+          "json-echo": {
+            "latency_p50_ms": 16.945,
+            "latency_p99_ms": 35.122,
+            "requests_per_second": 2779.8,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 49.230292,
+                "latency_p99_ms": 94.16704200000001,
+                "non_2xx": 0.0,
+                "requests_per_second": 1021.0339223617217,
+                "throughput_bytes_per_second": 30631.01767085165,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 16.945124999999997,
+                "latency_p99_ms": 35.121832999999995,
+                "non_2xx": 0.0,
+                "requests_per_second": 2779.8496978756225,
+                "throughput_bytes_per_second": 83395.49093626867,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 16.855584,
+                "latency_p99_ms": 32.998542,
+                "non_2xx": 0.0,
+                "requests_per_second": 2845.0748833023486,
+                "throughput_bytes_per_second": 85352.24649907046,
+                "timeouts": 0.0
+              }
+            ]
+          },
+          "many-routes-64": {
+            "latency_p50_ms": 19.109,
+            "latency_p99_ms": 48.885,
+            "requests_per_second": 2461.0,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 55.587833,
+                "latency_p99_ms": 119.407167,
+                "non_2xx": 0.0,
+                "requests_per_second": 837.3766559450472,
+                "throughput_bytes_per_second": 1674.7533118900944,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 19.109167,
+                "latency_p99_ms": 48.885083,
+                "non_2xx": 0.0,
+                "requests_per_second": 2461.0193775708417,
+                "throughput_bytes_per_second": 4922.038755141683,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 18.014833,
+                "latency_p99_ms": 40.013082999999995,
+                "non_2xx": 0.0,
+                "requests_per_second": 2643.8723953630683,
+                "throughput_bytes_per_second": 5287.744790726137,
+                "timeouts": 0.0
+              }
+            ]
+          },
+          "static-text": {
+            "latency_p50_ms": 17.192,
+            "latency_p99_ms": 37.54,
+            "requests_per_second": 2795.3,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 17.191959,
+                "latency_p99_ms": 70.846667,
+                "non_2xx": 0.0,
+                "requests_per_second": 2439.2427766574474,
+                "throughput_bytes_per_second": 12196.213883287237,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 17.348625,
+                "latency_p99_ms": 37.540041,
+                "non_2xx": 0.0,
+                "requests_per_second": 2795.3437294881205,
+                "throughput_bytes_per_second": 13976.718647440603,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 15.935457999999999,
+                "latency_p99_ms": 30.315458,
+                "non_2xx": 0.0,
+                "requests_per_second": 3020.0393077498425,
+                "throughput_bytes_per_second": 15100.196538749213,
+                "timeouts": 0.0
+              }
+            ]
+          }
+        }
+      }
+    },
+    "fastapi": {
+      "http_contract": {
+        "cases": {
+          "405 response advertises GET in Allow": true,
+          "GET path parameter returns 200": true,
+          "GET path parameter returns exact JSON": true,
+          "GET text has text/plain media type": true,
+          "GET text returns 200": true,
+          "GET text returns the exact body": true,
+          "HEAD has GET status": false,
+          "HEAD has no response body": true,
+          "HEAD preserves GET media type": false,
+          "POST JSON has application/json media type": true,
+          "POST JSON returns 200": true,
+          "POST JSON returns exact JSON": true,
+          "known route with wrong method returns 405": true,
+          "unknown route returns 404": true
+        },
+        "passed": 12,
+        "rate_percent": 85.7,
+        "total": 14
+      },
+      "payload": {
+        "framework_version": "0.140.0",
+        "production_packages": 13,
+        "production_payload_bytes": 9377419,
+        "production_payload_gzip_bytes": 2869404,
+        "runtime_version": "CPython 3.14.6",
+        "versions": {
+          "annotated-doc": "0.0.4",
+          "annotated-types": "0.8.0",
+          "anyio": "4.14.2",
+          "click": "8.4.2",
+          "fastapi": "0.140.0",
+          "h11": "0.16.0",
+          "idna": "3.18",
+          "pydantic": "2.13.4",
+          "pydantic_core": "2.46.4",
+          "starlette": "1.3.1",
+          "typing-inspection": "0.4.2",
+          "typing_extensions": "4.16.0",
+          "uvicorn": "0.51.0"
+        }
+      },
+      "startup": {
+        "app_import_ms": 429.075,
+        "cold_start_ms": 483.695,
+        "samples": {
+          "app_import_ms": [
+            452.901,
+            429.261,
+            425.775,
+            434.312,
+            425.332,
+            425.592,
+            429.075
+          ],
+          "cold_start_ms": [
+            478.23,
+            493.019,
+            485.094,
+            480.694,
+            487.524,
+            483.695,
+            477.185
+          ],
+          "server_ready_ms": [
+            477.305,
+            492.111,
+            484.169,
+            479.36,
+            486.645,
+            482.787,
+            476.217
+          ]
+        },
+        "server_ready_ms": 482.787
+      },
+      "throughput": {
+        "geometric_mean_requests_per_second": 10020.0,
+        "scenarios": {
+          "dynamic-json": {
+            "latency_p50_ms": 4.836,
+            "latency_p99_ms": 5.556,
+            "requests_per_second": 10295.2,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 4.836166,
+                "latency_p99_ms": 5.81275,
+                "non_2xx": 0.0,
+                "requests_per_second": 10295.231382763735,
+                "throughput_bytes_per_second": 308856.94148291205,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 4.9996670000000005,
+                "latency_p99_ms": 5.555542,
+                "non_2xx": 0.0,
+                "requests_per_second": 10249.07908281115,
+                "throughput_bytes_per_second": 307472.37248433445,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 4.489291000000001,
+                "latency_p99_ms": 5.481667,
+                "non_2xx": 0.0,
+                "requests_per_second": 10660.886510208049,
+                "throughput_bytes_per_second": 319826.5953062415,
+                "timeouts": 0.0
+              }
+            ]
+          },
+          "json-echo": {
+            "latency_p50_ms": 4.771,
+            "latency_p99_ms": 5.745,
+            "requests_per_second": 10145.1,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 4.771167,
+                "latency_p99_ms": 6.278084,
+                "non_2xx": 0.0,
+                "requests_per_second": 10145.111556184043,
+                "throughput_bytes_per_second": 304353.3466855213,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 5.293791,
+                "latency_p99_ms": 5.7455,
+                "non_2xx": 0.0,
+                "requests_per_second": 9644.813881320539,
+                "throughput_bytes_per_second": 289344.4164396162,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 4.608791999999999,
+                "latency_p99_ms": 5.725333,
+                "non_2xx": 0.0,
+                "requests_per_second": 10346.99610932987,
+                "throughput_bytes_per_second": 310409.8832798961,
+                "timeouts": 0.0
+              }
+            ]
+          },
+          "many-routes-64": {
+            "latency_p50_ms": 6.127,
+            "latency_p99_ms": 7.06,
+            "requests_per_second": 8163.9,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 6.067292,
+                "latency_p99_ms": 7.059542,
+                "non_2xx": 0.0,
+                "requests_per_second": 8171.226098282589,
+                "throughput_bytes_per_second": 16342.452196565178,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 6.281208,
+                "latency_p99_ms": 6.878334,
+                "non_2xx": 0.0,
+                "requests_per_second": 8032.3338609143375,
+                "throughput_bytes_per_second": 16064.667721828675,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 6.126792,
+                "latency_p99_ms": 8.28525,
+                "non_2xx": 0.0,
+                "requests_per_second": 8163.8523371029405,
+                "throughput_bytes_per_second": 16327.704674205881,
+                "timeouts": 0.0
+              }
+            ]
+          },
+          "static-text": {
+            "latency_p50_ms": 4.24,
+            "latency_p99_ms": 4.946,
+            "requests_per_second": 11821.6,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 4.239542,
+                "latency_p99_ms": 4.911667,
+                "non_2xx": 0.0,
+                "requests_per_second": 11821.641445663314,
+                "throughput_bytes_per_second": 59108.20722831657,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 4.390083000000001,
+                "latency_p99_ms": 5.03025,
+                "non_2xx": 0.0,
+                "requests_per_second": 11556.304632517471,
+                "throughput_bytes_per_second": 57781.52316258736,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 3.850708,
+                "latency_p99_ms": 4.945625000000001,
+                "non_2xx": 0.0,
+                "requests_per_second": 12402.842378005573,
+                "throughput_bytes_per_second": 62014.211890027866,
+                "timeouts": 0.0
+              }
+            ]
+          }
+        }
+      }
+    },
+    "hayate": {
+      "http_contract": {
+        "cases": {
+          "405 response advertises GET in Allow": true,
+          "GET path parameter returns 200": true,
+          "GET path parameter returns exact JSON": true,
+          "GET text has text/plain media type": true,
+          "GET text returns 200": true,
+          "GET text returns the exact body": true,
+          "HEAD has GET status": true,
+          "HEAD has no response body": true,
+          "HEAD preserves GET media type": true,
+          "POST JSON has application/json media type": true,
+          "POST JSON returns 200": true,
+          "POST JSON returns exact JSON": true,
+          "known route with wrong method returns 405": true,
+          "unknown route returns 404": true
+        },
+        "passed": 14,
+        "rate_percent": 100.0,
+        "total": 14
+      },
+      "payload": {
+        "framework_version": "0.13.0",
+        "production_packages": 5,
+        "production_payload_bytes": 1211759,
+        "production_payload_gzip_bytes": 301145,
+        "runtime_version": "CPython 3.14.6",
+        "versions": {
+          "click": "8.4.2",
+          "h11": "0.16.0",
+          "hayate": "0.13.0",
+          "uts46": "0.2.0",
+          "uvicorn": "0.51.0"
+        }
+      },
+      "startup": {
+        "app_import_ms": 82.701,
+        "cold_start_ms": 139.899,
+        "samples": {
+          "app_import_ms": [
+            77.472,
+            82.701,
+            84.417,
+            104.328,
+            78.638,
+            80.842,
+            90.179
+          ],
+          "cold_start_ms": [
+            142.932,
+            139.899,
+            138.496,
+            139.273,
+            141.281,
+            149.952,
+            137.26
+          ],
+          "server_ready_ms": [
+            140.003,
+            136.686,
+            135.125,
+            136.554,
+            137.944,
+            147.012,
+            134.293
+          ]
+        },
+        "server_ready_ms": 136.686
+      },
+      "throughput": {
+        "geometric_mean_requests_per_second": 15429.9,
+        "scenarios": {
+          "dynamic-json": {
+            "latency_p50_ms": 3.079,
+            "latency_p99_ms": 3.84,
+            "requests_per_second": 15808.5,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 3.0239160000000003,
+                "latency_p99_ms": 3.696375,
+                "non_2xx": 0.0,
+                "requests_per_second": 15927.575327736467,
+                "throughput_bytes_per_second": 477827.259832094,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 3.2632920000000003,
+                "latency_p99_ms": 3.843792,
+                "non_2xx": 0.0,
+                "requests_per_second": 15517.576355430961,
+                "throughput_bytes_per_second": 465527.29066292883,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 3.0792089999999996,
+                "latency_p99_ms": 3.840292,
+                "non_2xx": 0.0,
+                "requests_per_second": 15808.487620392496,
+                "throughput_bytes_per_second": 474254.6286117749,
+                "timeouts": 0.0
+              }
+            ]
+          },
+          "json-echo": {
+            "latency_p50_ms": 3.613,
+            "latency_p99_ms": 4.487,
+            "requests_per_second": 13280.6,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 3.6130839999999997,
+                "latency_p99_ms": 4.486917,
+                "non_2xx": 0.0,
+                "requests_per_second": 13280.615099780287,
+                "throughput_bytes_per_second": 398418.4529934086,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 3.536875,
+                "latency_p99_ms": 4.419958,
+                "non_2xx": 0.0,
+                "requests_per_second": 13514.860043134475,
+                "throughput_bytes_per_second": 405445.8012940343,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 4.015417,
+                "latency_p99_ms": 4.5064589999999995,
+                "non_2xx": 0.0,
+                "requests_per_second": 12575.80354247586,
+                "throughput_bytes_per_second": 377274.1062742758,
+                "timeouts": 0.0
+              }
+            ]
+          },
+          "many-routes-64": {
+            "latency_p50_ms": 3.002,
+            "latency_p99_ms": 3.748,
+            "requests_per_second": 16104.4,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 3.001667,
+                "latency_p99_ms": 3.747542,
+                "non_2xx": 0.0,
+                "requests_per_second": 16104.434356379823,
+                "throughput_bytes_per_second": 32208.868712759646,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 2.874584,
+                "latency_p99_ms": 4.162209,
+                "non_2xx": 0.0,
+                "requests_per_second": 16787.208506795876,
+                "throughput_bytes_per_second": 33574.41701359175,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 3.236709,
+                "latency_p99_ms": 3.721959,
+                "non_2xx": 0.0,
+                "requests_per_second": 15672.55916919214,
+                "throughput_bytes_per_second": 31345.11833838428,
+                "timeouts": 0.0
+              }
+            ]
+          },
+          "static-text": {
+            "latency_p50_ms": 2.893,
+            "latency_p99_ms": 3.613,
+            "requests_per_second": 16764.6,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 2.892792,
+                "latency_p99_ms": 3.613333,
+                "non_2xx": 0.0,
+                "requests_per_second": 16764.63265954446,
+                "throughput_bytes_per_second": 83823.1632977223,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 2.8519579999999998,
+                "latency_p99_ms": 3.55625,
+                "non_2xx": 0.0,
+                "requests_per_second": 17057.339817401735,
+                "throughput_bytes_per_second": 85286.69908700867,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 3.210584,
+                "latency_p99_ms": 3.6476249999999997,
+                "non_2xx": 0.0,
+                "requests_per_second": 15751.697958558716,
+                "throughput_bytes_per_second": 78758.48979279358,
+                "timeouts": 0.0
+              }
+            ]
+          }
+        }
+      }
+    },
+    "hono": {
+      "http_contract": {
+        "cases": {
+          "405 response advertises GET in Allow": false,
+          "GET path parameter returns 200": true,
+          "GET path parameter returns exact JSON": true,
+          "GET text has text/plain media type": true,
+          "GET text returns 200": true,
+          "GET text returns the exact body": true,
+          "HEAD has GET status": true,
+          "HEAD has no response body": true,
+          "HEAD preserves GET media type": true,
+          "POST JSON has application/json media type": true,
+          "POST JSON returns 200": true,
+          "POST JSON returns exact JSON": true,
+          "known route with wrong method returns 405": false,
+          "unknown route returns 404": true
+        },
+        "passed": 12,
+        "rate_percent": 85.7,
+        "total": 14
+      },
+      "payload": {
+        "framework_version": "4.12.32",
+        "production_packages": 2,
+        "production_payload_bytes": 1477395,
+        "production_payload_gzip_bytes": 288207,
+        "runtime_version": "v24.18.0",
+        "versions": {
+          "@hono/node-server": "2.0.12",
+          "hono": "4.12.32"
+        }
+      },
+      "startup": {
+        "app_import_ms": 54.989,
+        "cold_start_ms": 62.809,
+        "samples": {
+          "app_import_ms": [
+            54.963,
+            54.989,
+            55.674,
+            64.875,
+            54.136,
+            56.269,
+            53.463
+          ],
+          "cold_start_ms": [
+            65.605,
+            58.606,
+            64.136,
+            60.613,
+            62.843,
+            62.809,
+            60.509
+          ],
+          "server_ready_ms": [
+            60.206,
+            53.405,
+            56.986,
+            55.318,
+            57.477,
+            57.302,
+            55.013
+          ]
+        },
+        "server_ready_ms": 56.986
+      },
+      "throughput": {
+        "geometric_mean_requests_per_second": 63933.4,
+        "scenarios": {
+          "dynamic-json": {
+            "latency_p50_ms": 0.794,
+            "latency_p99_ms": 1.63,
+            "requests_per_second": 62014.3,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 0.794084,
+                "latency_p99_ms": 1.629625,
+                "non_2xx": 0.0,
+                "requests_per_second": 62014.3405212991,
+                "throughput_bytes_per_second": 1860430.2156389728,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 0.8220000000000001,
+                "latency_p99_ms": 1.704375,
+                "non_2xx": 0.0,
+                "requests_per_second": 58604.16588789775,
+                "throughput_bytes_per_second": 1758124.9766369325,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 0.736208,
+                "latency_p99_ms": 1.575542,
+                "non_2xx": 0.0,
+                "requests_per_second": 64652.23528487064,
+                "throughput_bytes_per_second": 1939567.0585461194,
+                "timeouts": 0.0
+              }
+            ]
+          },
+          "json-echo": {
+            "latency_p50_ms": 0.846,
+            "latency_p99_ms": 1.741,
+            "requests_per_second": 56535.1,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 0.84625,
+                "latency_p99_ms": 1.7407080000000001,
+                "non_2xx": 0.0,
+                "requests_per_second": 56535.13434577797,
+                "throughput_bytes_per_second": 1696054.030373339,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 0.8980830000000001,
+                "latency_p99_ms": 1.873,
+                "non_2xx": 0.0,
+                "requests_per_second": 53614.79487121934,
+                "throughput_bytes_per_second": 1608443.8461365802,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 0.839833,
+                "latency_p99_ms": 1.7325000000000002,
+                "non_2xx": 0.0,
+                "requests_per_second": 57234.70903349871,
+                "throughput_bytes_per_second": 1717041.271004961,
+                "timeouts": 0.0
+              }
+            ]
+          },
+          "many-routes-64": {
+            "latency_p50_ms": 0.761,
+            "latency_p99_ms": 1.567,
+            "requests_per_second": 64631.0,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 0.6572089999999999,
+                "latency_p99_ms": 1.435791,
+                "non_2xx": 0.0,
+                "requests_per_second": 71200.99492722728,
+                "throughput_bytes_per_second": 142401.98985445456,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 0.783291,
+                "latency_p99_ms": 1.600167,
+                "non_2xx": 0.0,
+                "requests_per_second": 62266.3983359073,
+                "throughput_bytes_per_second": 124532.7966718146,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 0.761208,
+                "latency_p99_ms": 1.5670840000000001,
+                "non_2xx": 0.0,
+                "requests_per_second": 64631.000210866696,
+                "throughput_bytes_per_second": 129262.00042173339,
+                "timeouts": 0.0
+              }
+            ]
+          },
+          "static-text": {
+            "latency_p50_ms": 0.631,
+            "latency_p99_ms": 1.443,
+            "requests_per_second": 73732.6,
+            "samples": [
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 0.7394580000000001,
+                "latency_p99_ms": 10.671958,
+                "non_2xx": 0.0,
+                "requests_per_second": 37348.73299602153,
+                "throughput_bytes_per_second": 186743.66498010766,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 0.630834,
+                "latency_p99_ms": 1.362625,
+                "non_2xx": 0.0,
+                "requests_per_second": 73732.58528972311,
+                "throughput_bytes_per_second": 368662.92644861556,
+                "timeouts": 0.0
+              },
+              {
+                "errors": 0.0,
+                "latency_p50_ms": 0.616166,
+                "latency_p99_ms": 1.442792,
+                "non_2xx": 0.0,
+                "requests_per_second": 74645.89776397502,
+                "throughput_bytes_per_second": 373229.4888198751,
+                "timeouts": 0.0
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "git_commit": "6d0d75b2dc91ef39b05fa3a81e95320414928c2e",
+  "machine": {
+    "architecture": "arm64",
+    "cpu": "Apple M2 Pro",
+    "logical_cpus": 12,
+    "node": "v24.18.0",
+    "npm": "11.16.0",
+    "oha": "oha 1.15.0",
+    "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "python": "3.14.6",
+    "uv": "uv 0.11.28 (Homebrew 2026-07-07 aarch64-apple-darwin)"
+  },
+  "measured_at": "2026-07-27T12:18:57.707661+00:00",
+  "python_transport_profile": {
+    "boundary": "raw ASGI app / same workload / hayate locked Uvicorn environment",
+    "hayate_efficiency_percent": {
+      "geometric_mean": 89.5,
+      "scenarios": {
+        "dynamic-json": 92.7,
+        "json-echo": 85.4,
+        "many-routes-64": 88.3,
+        "static-text": 91.9
+      }
+    },
+    "raw_asgi": {
+      "geometric_mean_requests_per_second": 17236.5,
+      "scenarios": {
+        "dynamic-json": {
+          "latency_p50_ms": 2.875,
+          "latency_p99_ms": 3.489,
+          "requests_per_second": 17047.8,
+          "samples": [
+            {
+              "errors": 0.0,
+              "latency_p50_ms": 2.875208,
+              "latency_p99_ms": 3.519,
+              "non_2xx": 0.0,
+              "requests_per_second": 17047.837024065484,
+              "throughput_bytes_per_second": 511435.1107219645,
+              "timeouts": 0.0
+            },
+            {
+              "errors": 0.0,
+              "latency_p50_ms": 3.054791,
+              "latency_p99_ms": 3.489458,
+              "non_2xx": 0.0,
+              "requests_per_second": 16630.378091719893,
+              "throughput_bytes_per_second": 498911.3427515968,
+              "timeouts": 0.0
+            },
+            {
+              "errors": 0.0,
+              "latency_p50_ms": 2.70375,
+              "latency_p99_ms": 3.312792,
+              "non_2xx": 0.0,
+              "requests_per_second": 17828.81275985618,
+              "throughput_bytes_per_second": 534864.3827956854,
+              "timeouts": 0.0
+            }
+          ]
+        },
+        "json-echo": {
+          "latency_p50_ms": 3.09,
+          "latency_p99_ms": 3.866,
+          "requests_per_second": 15549.5,
+          "samples": [
+            {
+              "errors": 0.0,
+              "latency_p50_ms": 3.087792,
+              "latency_p99_ms": 3.766625,
+              "non_2xx": 0.0,
+              "requests_per_second": 15549.54150291421,
+              "throughput_bytes_per_second": 466486.2450874263,
+              "timeouts": 0.0
+            },
+            {
+              "errors": 0.0,
+              "latency_p50_ms": 3.090083,
+              "latency_p99_ms": 3.865917,
+              "non_2xx": 0.0,
+              "requests_per_second": 15678.430669840664,
+              "throughput_bytes_per_second": 470352.92009521986,
+              "timeouts": 0.0
+            },
+            {
+              "errors": 0.0,
+              "latency_p50_ms": 3.171875,
+              "latency_p99_ms": 3.9749169999999996,
+              "non_2xx": 0.0,
+              "requests_per_second": 15186.06416577703,
+              "throughput_bytes_per_second": 455581.9249733109,
+              "timeouts": 0.0
+            }
+          ]
+        },
+        "many-routes-64": {
+          "latency_p50_ms": 2.632,
+          "latency_p99_ms": 3.318,
+          "requests_per_second": 18244.9,
+          "samples": [
+            {
+              "errors": 0.0,
+              "latency_p50_ms": 2.630208,
+              "latency_p99_ms": 3.237875,
+              "non_2xx": 0.0,
+              "requests_per_second": 18271.154346490068,
+              "throughput_bytes_per_second": 36542.308692980136,
+              "timeouts": 0.0
+            },
+            {
+              "errors": 0.0,
+              "latency_p50_ms": 2.631958,
+              "latency_p99_ms": 3.578875,
+              "non_2xx": 0.0,
+              "requests_per_second": 18244.914047341295,
+              "throughput_bytes_per_second": 36489.82809468259,
+              "timeouts": 0.0
+            },
+            {
+              "errors": 0.0,
+              "latency_p50_ms": 2.666959,
+              "latency_p99_ms": 3.318333,
+              "non_2xx": 0.0,
+              "requests_per_second": 18028.622596851215,
+              "throughput_bytes_per_second": 36057.24519370243,
+              "timeouts": 0.0
+            }
+          ]
+        },
+        "static-text": {
+          "latency_p50_ms": 2.64,
+          "latency_p99_ms": 3.211,
+          "requests_per_second": 18250.3,
+          "samples": [
+            {
+              "errors": 0.0,
+              "latency_p50_ms": 2.894584,
+              "latency_p99_ms": 3.36725,
+              "non_2xx": 0.0,
+              "requests_per_second": 17444.14179641384,
+              "throughput_bytes_per_second": 87220.70898206922,
+              "timeouts": 0.0
+            },
+            {
+              "errors": 0.0,
+              "latency_p50_ms": 2.580542,
+              "latency_p99_ms": 3.2005,
+              "non_2xx": 0.0,
+              "requests_per_second": 18817.382135878142,
+              "throughput_bytes_per_second": 94086.91067939071,
+              "timeouts": 0.0
+            },
+            {
+              "errors": 0.0,
+              "latency_p50_ms": 2.639542,
+              "latency_p99_ms": 3.211458,
+              "non_2xx": 0.0,
+              "requests_per_second": 18250.292857108696,
+              "throughput_bytes_per_second": 91251.46428554348,
+              "timeouts": 0.0
+            }
+          ]
+        }
+      }
+    }
+  },
+  "schema_version": 2
+}
