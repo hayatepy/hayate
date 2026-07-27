@@ -28,6 +28,18 @@ def make_app() -> Hayate:
     async def form(c: Context):
         return c.json(c.req.valid("form"))
 
+    @app.get("/authors/:title", validator("param", _require_title))
+    async def route_param(c: Context):
+        return c.json(c.req.valid("param"))
+
+    @app.get("/header", validator("header", _require_title))
+    async def header(c: Context):
+        return c.json(c.req.valid("header"))
+
+    @app.get("/cookie", validator("cookie", _require_title))
+    async def cookie(c: Context):
+        return c.json(c.req.valid("cookie"))
+
     return app
 
 
@@ -74,9 +86,47 @@ async def test_form_validation():
     assert await res.json() == {"title": "hello"}
 
 
+async def test_route_parameter_validation_uses_decoded_values():
+    app = make_app()
+    res = await app.request("/authors/The%20Dispossessed")
+    assert res.status == 200
+    assert await res.json() == {"title": "The Dispossessed"}
+
+
+async def test_header_validation_uses_lowercase_fetch_combined_values():
+    app = make_app()
+    res = await app.request(
+        "/header",
+        headers=[("TITLE", "The Left Hand"), ("Title", "of Darkness")],
+    )
+    assert res.status == 200
+    assert await res.json() == {"title": "The Left Hand, of Darkness"}
+
+
+async def test_cookie_validation_uses_parsed_cookie_pairs():
+    app = make_app()
+    res = await app.request("/cookie", headers={"cookie": "title=Kindred; theme=dark"})
+    assert res.status == 200
+    assert await res.json() == {"title": "Kindred"}
+
+
+@pytest.mark.parametrize(
+    ("path", "headers"),
+    [
+        ("/header", {}),
+        ("/cookie", {}),
+    ],
+)
+async def test_non_body_target_validation_failure_is_problem(path, headers):
+    app = make_app()
+    res = await app.request(path, headers=headers)
+    assert res.status == 400
+    assert (await res.json())["title"] == "Validation failed"
+
+
 def test_unknown_target_rejected():
     with pytest.raises(ValueError):
-        validator("header", _require_title)  # type: ignore[arg-type]
+        validator("body", _require_title)  # type: ignore[arg-type]
 
 
 async def test_msgspec_integration():
