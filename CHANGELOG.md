@@ -4,6 +4,8 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-07-28
+
 ### Fixed
 
 - Emit request access logs after Hayate has produced the final response, so
