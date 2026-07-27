@@ -330,6 +330,27 @@ async def test_fetch_roundtrip(workers_runtime):
     assert ("content-type", "application/json") in js_response.headers.pairs
 
 
+async def test_fetch_runs_route_middleware_without_global_middleware(workers_runtime):
+    app = Hayate()
+    calls = []
+
+    async def route_middleware(c, next_):
+        calls.append("before")
+        await next_()
+        calls.append("after")
+
+    @app.get("/", route_middleware)
+    async def root(c: Context):
+        calls.append("handler")
+        return c.text("ok")
+
+    js_response = await _entry(app).fetch(FakeJsRequest("https://edge.example/"))
+
+    assert js_response.status == 200
+    assert js_response.body == b"ok"
+    assert calls == ["before", "handler", "after"]
+
+
 class FakeLegacyPyRequest:
     """A wrapper shape that does not forward ``body`` at all — the adapter
     must take the buffered fallback and read via ``bytes()``."""
