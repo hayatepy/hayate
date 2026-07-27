@@ -31,19 +31,24 @@ Worker.
 [`hayate-admin`](https://github.com/hayatepy/hayate-admin) is a pre-release,
 first-party ecosystem package rather than part of the core-wheel compatibility
 gate above. At commit
-[`3690c75`](https://github.com/hayatepy/hayate-admin/commit/3690c75ea2d02db50b623fd4459b636f2baefa14),
+[`eddd621`](https://github.com/hayatepy/hayate-admin/commit/eddd6213d1ebcd98d9b54a89fde883a349484ba0),
 its explicit resource contract covers CRUD, search, declared filters and
 sorting, bounded bulk actions, and separately authorized redacted object
-history. The same generated checked-SQL definition runs against local SQLite
-and native Cloudflare Workers/D1 without ASGI.
+history. It also covers searchable to-one relationship choices and bounded
+reverse inline create/update/delete with exact parent/child authorization,
+preloaded labels, tenant-scoped ID resolution, and repository-owned atomic
+writes. The same generated checked-SQL definition runs against local SQLite and
+native Cloudflare Workers/D1 without ASGI.
 
 The recorded main-branch gates passed
-[unit, typing, and distribution checks](https://github.com/hayatepy/hayate-admin/actions/runs/30282559357)
+[unit, typing, generated SQL, native D1, and distribution checks](https://github.com/hayatepy/hayate-admin/actions/runs/30286373844)
 and the
-[Chromium flow](https://github.com/hayatepy/hayate-admin/actions/runs/30282559819).
-General Django admin parity is not claimed: explicit relationship choices,
-bounded autocomplete, and inline editing remain tracked in
-[`hayate-admin#9`](https://github.com/hayatepy/hayate-admin/issues/9).
+[Chromium flow](https://github.com/hayatepy/hayate-admin/actions/runs/30286375270).
+[`hayate-admin#9`](https://github.com/hayatepy/hayate-admin/issues/9) and
+[`hayate-admin#12`](https://github.com/hayatepy/hayate-admin/pull/12) record the
+accepted scope and implementation. General Django admin parity is not claimed:
+Django retains ORM-derived configuration, many-to-many/generic relationship
+breadth, and a much more mature extension ecosystem.
 
 ## Reproduce
 
