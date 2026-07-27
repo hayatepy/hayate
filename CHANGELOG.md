@@ -4,6 +4,14 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-27
+
+### Added
+
+- Extend the dependency-free request validator from JSON, form, and query
+  input to decoded route parameters, Fetch-normalized headers, and parsed
+  cookies.
+
 ## [0.11.2] - 2026-07-26
 
 ### Changed

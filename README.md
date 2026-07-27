@@ -85,7 +85,7 @@ app.use(cors(origin_resolver=allowed_origin, credentials=True))
 
 ## Status
 
-Alpha (0.11.x): the surface tracks [DESIGN.md](DESIGN.md) (Japanese) and may still move
+Alpha (0.12.x): the surface tracks [DESIGN.md](DESIGN.md) (Japanese) and may still move
 before 1.0. Changes are recorded in [CHANGELOG.md](CHANGELOG.md); platform research
 lives in [docs/research/](docs/research/).
 

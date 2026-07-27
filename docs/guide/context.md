@@ -20,6 +20,27 @@ async def upload(c):
 Bodies are one-shot per the Fetch Standard (`body_used`); `c.req.raw.clone()`
 tees the stream when you need to read twice.
 
+## Validating request input
+
+`validator()` accepts any synchronous converter, so msgspec, Pydantic, or an
+application function can validate all six HTTP input surfaces without becoming
+a framework dependency:
+
+```python
+from hayate import validator
+
+@app.get("/books/:book_id", validator("param", validate_book_path))
+async def show_book(c):
+    path = c.req.valid("param")
+    return c.json({"book_id": path["book_id"]})
+```
+
+The targets are `json`, `form`, `query`, `param`, `header`, and `cookie`.
+Route parameters are percent-decoded. Header names are lowercase and repeated
+values are combined according to Fetch semantics. Form and query mappings use
+the last value for a repeated name. Validation failures are RFC 9457 responses
+with status 400.
+
 ## Building responses
 
 ```python
