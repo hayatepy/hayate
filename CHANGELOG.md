@@ -4,6 +4,8 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-07-27
+
 ### Added
 
 - Add resource-bounded streaming multipart parsing with configurable body,
