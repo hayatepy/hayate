@@ -7,11 +7,12 @@
       "id": "portable_agent_api",
       "title": "Portable Python agent API",
       "position": "advantaged",
-      "summary": "Hayate has the clearest first-party path when one Python application must run on ASGI and native Cloudflare Workers while combining typed HTTP contracts, cached dependency graphs, MCP 2025-11-25, authorization, and checked SQLite/D1 access.",
+      "summary": "Hayate has the clearest first-party path when one Python application must run on ASGI, native Cloudflare Workers, and AWS Lambda HTTP payload v2 while combining typed HTTP contracts, cached dependency graphs, MCP 2025-11-25, authorization, and checked SQLite/D1 access.",
       "capabilities": [
         "fetch_core",
         "asgi",
         "native_workers",
+        "native_lambda",
         "typed_openapi",
         "bounded_uploads",
         "dependency_graph",
@@ -190,6 +191,38 @@
           "status": "core",
           "note": "Cloudflare Workers is a primary Hono runtime and uses app.fetch.",
           "sources": ["https://hono.dev/docs/getting-started/cloudflare-workers"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "advantage",
+        "django": "advantage",
+        "hono": "parity"
+      }
+    },
+    {
+      "id": "native_lambda",
+      "title": "Native AWS Lambda HTTP payload path",
+      "definition": "The framework package translates API Gateway HTTP API v2 and Function URL events directly, without a separately governed ASGI-to-Lambda adapter.",
+      "support": {
+        "hayate": {
+          "status": "core",
+          "note": "to_lambda maps payload-v2 requests, responses, binary bodies, cookies, and background work directly to the Fetch core; CI installs the wheel in AWS's Python image and invokes it through the Runtime Interface Emulator.",
+          "sources": ["src/hayate/adapters/aws.py", "tests/test_lambda_adapter.py", "scripts/check_lambda_runtime.sh", "examples/lambda/Dockerfile"]
+        },
+        "fastapi": {
+          "status": "not_first_party",
+          "note": "FastAPI's deployment documentation delegates other cloud providers to provider guides; the framework package does not include an AWS Lambda event adapter.",
+          "sources": ["https://fastapi.tiangolo.com/deployment/cloud/"]
+        },
+        "django": {
+          "status": "not_first_party",
+          "note": "Django documents WSGI and ASGI deployment and ASGI servers, not a first-party API Gateway or Function URL event adapter.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/howto/deployment/asgi/"]
+        },
+        "hono": {
+          "status": "core",
+          "note": "hono/aws-lambda supplies the maintained Lambda handler, including binary response handling.",
+          "sources": ["https://hono.dev/docs/getting-started/aws-lambda"]
         }
       },
       "comparisons": {
