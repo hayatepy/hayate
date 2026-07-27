@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import AsyncIterable, Awaitable, Callable, Iterable, Mapping
+from contextlib import suppress
 from typing import Any
 
 from .body import BodyInit
@@ -21,6 +22,7 @@ type HeadersArg = Headers | Mapping[str, str] | Iterable[tuple[str, str]] | None
 type Handler = Callable[["Context"], Awaitable[Response | None] | Response | None]
 type Middleware = Callable[["Context", Next], Awaitable[Response | None]]
 type ErrorHandler = Callable[[Exception, "Context"], Awaitable[Response]]
+type ResponseFinalizer = Callable[[], None]
 
 _logger = logging.getLogger("hayate")
 
@@ -62,6 +64,7 @@ class Context:
         "_external_exec",
         "_header_ops",
         "_res",
+        "_response_finalizers",
         "_vars",
         "env",
         "req",
@@ -80,6 +83,7 @@ class Context:
         # or staged headers, so they should not pay for the allocations.
         self._vars: dict[str, Any] | None = None
         self._header_ops: list[tuple[str, str, bool]] | None = None
+        self._response_finalizers: list[ResponseFinalizer] | None = None
 
     @classmethod
     def _from_adapter(
@@ -102,6 +106,7 @@ class Context:
         context._res = None
         context._vars = None
         context._header_ops = None
+        context._response_finalizers = None
         return context
 
     # -- response ----------------------------------------------------------
@@ -175,6 +180,27 @@ class Context:
                 self._res.headers.append(name, value)
             else:
                 self._res.headers.set(name, value)
+
+    # -- final response observers ---------------------------------------------
+
+    def _add_response_finalizer(self, finalizer: ResponseFinalizer) -> None:
+        if self._response_finalizers is None:
+            self._response_finalizers = []
+        self._response_finalizers.append(finalizer)
+
+    def _run_response_finalizers(self) -> None:
+        finalizers, self._response_finalizers = self._response_finalizers, None
+        if finalizers is None:
+            return
+        # Middleware acquires state in registration order and must release it
+        # in reverse order, just like the normal onion unwind.
+        for finalizer in reversed(finalizers):
+            try:
+                finalizer()
+            except Exception:
+                # Diagnostics must never replace the response they observe.
+                with suppress(Exception):
+                    _logger.exception("response finalizer failed")
 
     # -- response helpers -------------------------------------------------------
 

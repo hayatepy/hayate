@@ -6,12 +6,13 @@ plain sync functions.
 
 import base64
 import json
+import logging
 
 import pytest
 
 from hayate import Context, Hayate
 from hayate.adapters.aws import to_lambda
-from hayate.middleware import current_request_id, request_id
+from hayate.middleware import current_request_id, logger, request_id
 
 
 def make_event(
@@ -57,9 +58,10 @@ def test_json_roundtrip():
     assert result["headers"]["content-type"] == "application/json"
 
 
-def test_request_id_crosses_lambda_adapter():
+def test_request_id_and_final_access_log_cross_lambda_adapter(caplog):
     app = Hayate()
     app.use(request_id())
+    app.use(logger(structured=True))
     seen: list[str | None] = []
 
     @app.get("/")
@@ -67,14 +69,19 @@ def test_request_id_crosses_lambda_adapter():
         seen.append(current_request_id())
         return c.text(c.get("request_id"))
 
-    result = to_lambda(app)(
-        make_event(headers={"x-request-id": "lambda-request-123"}),
-        None,
-    )
+    with caplog.at_level(logging.INFO, logger="hayate.request"):
+        result = to_lambda(app)(
+            make_event(headers={"x-request-id": "lambda-request-123"}),
+            None,
+        )
     assert result["body"] == "lambda-request-123"
     assert result["headers"]["x-request-id"] == "lambda-request-123"
     assert seen == ["lambda-request-123"]
     assert current_request_id() is None
+    event = json.loads(
+        next(record.getMessage() for record in caplog.records if record.name == "hayate.request")
+    )
+    assert (event["status"], event["request_id"]) == (200, "lambda-request-123")
 
 
 def test_query_and_url():

@@ -122,9 +122,14 @@ async def work(c):
     return c.text("ok")
 ```
 
-The async logging context is restored when the middleware chain exits.
-Concurrent requests stay isolated, while work created with `c.wait_until()`
-captures the request ID for deferred logs.
+The async logging context remains available to `app.on_error` and is restored
+when the final response is known. Concurrent requests stay isolated, while
+work created with `c.wait_until()` captures the request ID for deferred logs.
+
+Access events are emitted only after the final response is known. Statuses
+therefore reflect `HTTPException` and custom `app.on_error` responses even
+when the exception originated in another middleware. A logging-sink failure
+is isolated from the application response.
 
 Set `accept_incoming=False` and provide a generator when a platform-issued
 value such as a Cloudflare or Lambda request ID must take precedence.

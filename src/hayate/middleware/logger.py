@@ -21,9 +21,8 @@ def logger(log: logging.Logger | None = None, *, structured: bool = False) -> Mi
 
     async def logger_middleware(c: Context, next_: Next) -> None:
         start = time.perf_counter()
-        try:
-            await next_()
-        finally:
+
+        def emit() -> None:
             elapsed_ms = (time.perf_counter() - start) * 1000
             status = c.res.status if c.res is not None else 500
             request_id = c.get("request_id")
@@ -46,5 +45,8 @@ def logger(log: logging.Logger | None = None, *, structured: bool = False) -> Mi
                     elapsed_ms,
                     extra=fields,
                 )
+
+        c._add_response_finalizer(emit)
+        await next_()
 
     return logger_middleware

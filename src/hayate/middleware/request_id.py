@@ -77,10 +77,26 @@ def request_id(
         # carry the same correlation ID.
         c.header("x-request-id", value)
         token = _CURRENT_REQUEST_ID.set(value)
+        restored = False
+
+        def restore() -> None:
+            nonlocal restored
+            if not restored:
+                _CURRENT_REQUEST_ID.reset(token)
+                restored = True
+
+        c._add_response_finalizer(restore)
         try:
             await next_()
-        finally:
-            _CURRENT_REQUEST_ID.reset(token)
+        except Exception:
+            # Hayate resolves ordinary exceptions after middleware unwinds.
+            # Keep correlation bound for the application error handler.
+            raise
+        except BaseException:
+            # Cancellation and other non-request exits never reach response
+            # finalization, so restore their execution context immediately.
+            restore()
+            raise
 
     return request_id_middleware
 
