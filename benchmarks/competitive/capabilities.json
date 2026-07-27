@@ -44,10 +44,11 @@
       "id": "traditional_full_stack",
       "title": "Traditional database-backed full stack",
       "position": "competitor_advantaged",
-      "summary": "Django remains functionally ahead for model-driven admin, ORM/migrations, and integrated forms/templates. Hayate offers composable checked SQL and htmx paths, and can now retain a Django admin/ORM application under an ASGI prefix during incremental migration instead of reproducing Django's monolith.",
+      "summary": "Django remains functionally ahead for ORM-derived relationships and inline editing, ORM/migrations, and integrated forms/templates. Hayate now has a first-party explicit operational admin with bounded CRUD, bulk actions, and redacted history on SQLite and native Workers/D1, while retaining a Django admin/ORM application under an ASGI prefix during incremental migration.",
       "capabilities": [
         "application_composition",
-        "model_admin",
+        "operational_admin",
+        "relational_admin",
         "model_orm",
         "html_forms",
         "bounded_uploads",
@@ -520,14 +521,14 @@
       }
     },
     {
-      "id": "model_admin",
-      "title": "Model-driven administrative UI",
-      "definition": "Model metadata produces a maintained internal CRUD administration interface.",
+      "id": "operational_admin",
+      "title": "Secure operational administration",
+      "definition": "The ecosystem supplies a maintained internal CRUD UI with bounded list and mutation operations, authorization, and audit evidence.",
       "support": {
         "hayate": {
-          "status": "not_first_party",
-          "note": "Hayate does not currently ship a model-driven admin product.",
-          "sources": ["DESIGN.md"]
+          "status": "first_party",
+          "note": "hayate-admin provides explicit CRUD, search/filter/sort, bounded bulk actions, and redacted object history with per-object authorization on SQLite and native Workers/D1.",
+          "sources": ["docs/ecosystem-compatibility.md"]
         },
         "fastapi": {
           "status": "not_first_party",
@@ -536,12 +537,44 @@
         },
         "django": {
           "status": "core",
-          "note": "Django's automatic, customizable model admin is enabled by the default project template.",
+          "note": "Django's automatic, customizable model admin includes CRUD, actions, and object history.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/ref/contrib/admin/", "https://docs.djangoproject.com/en/6.0/ref/contrib/admin/actions/"]
+        },
+        "hono": {
+          "status": "not_first_party",
+          "note": "An operational admin UI is not part of Hono's documented framework and helper surface.",
+          "sources": ["https://hono.dev/docs/"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "advantage",
+        "django": "parity",
+        "hono": "advantage"
+      }
+    },
+    {
+      "id": "relational_admin",
+      "title": "Relationship-aware administrative editing",
+      "definition": "The admin UI derives or explicitly declares bounded relationship choices and inline editing for related records.",
+      "support": {
+        "hayate": {
+          "status": "not_first_party",
+          "note": "hayate-admin tracks explicit relationships, bounded autocomplete, and inline editing as its remaining Phase 2 administration gap.",
+          "sources": ["docs/ecosystem-compatibility.md"]
+        },
+        "fastapi": {
+          "status": "not_first_party",
+          "note": "An administrative relationship and inline editing surface is not part of FastAPI's documented core feature set.",
+          "sources": ["https://fastapi.tiangolo.com/features/"]
+        },
+        "django": {
+          "status": "core",
+          "note": "Django admin supplies autocomplete fields and InlineModelAdmin for foreign-key, many-to-many, and generic relationships.",
           "sources": ["https://docs.djangoproject.com/en/6.0/ref/contrib/admin/"]
         },
         "hono": {
           "status": "not_first_party",
-          "note": "A model-driven admin is not part of Hono's documented framework and helper surface.",
+          "note": "An administrative relationship and inline editing surface is not part of Hono's documented framework surface.",
           "sources": ["https://hono.dev/docs/"]
         }
       },
