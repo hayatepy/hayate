@@ -1,0 +1,356 @@
+{
+  "configuration": {
+    "native_file_memory_threshold_bytes": 1048576,
+    "peak_rss": "/usr/bin/time maximum resident set size for a fresh server process",
+    "read_chunk_bytes": 65536,
+    "request_body": "one multipart file part containing deterministic x bytes",
+    "rounds": 3,
+    "scenarios": {
+      "1-mib": {
+        "connections": 2,
+        "payload_bytes": 1048576,
+        "requests": 12
+      },
+      "64-mib": {
+        "connections": 1,
+        "payload_bytes": 67108864,
+        "requests": 3
+      }
+    },
+    "temp_disk": "logical uploaded-file bytes held by disk-backed framework storage"
+  },
+  "frameworks": {
+    "django": {
+      "lock_sha256": "98214e3fd9cd11c18c53f424655e37b5eb24dcef0f1be9b242208584cc0f56ea",
+      "scenarios": {
+        "1-mib": {
+          "logical_temp_disk_bytes_per_request": 1048576,
+          "payload_bytes_per_second": 365931250.9,
+          "peak_rss_bytes": 56950784,
+          "requests_per_second": 348.9792,
+          "samples": [
+            {
+              "connections": 2,
+              "elapsed_seconds": 0.043039,
+              "logical_temp_disk_bytes_per_request": 1048576,
+              "payload_bytes_per_second": 292360980.7,
+              "peak_rss_bytes": 56950784,
+              "requests": 12,
+              "requests_per_second": 278.8172
+            },
+            {
+              "connections": 2,
+              "elapsed_seconds": 0.033745,
+              "logical_temp_disk_bytes_per_request": 1048576,
+              "payload_bytes_per_second": 372885954.5,
+              "peak_rss_bytes": 54673408,
+              "requests": 12,
+              "requests_per_second": 355.6118
+            },
+            {
+              "connections": 2,
+              "elapsed_seconds": 0.034386,
+              "logical_temp_disk_bytes_per_request": 1048576,
+              "payload_bytes_per_second": 365931250.9,
+              "peak_rss_bytes": 58458112,
+              "requests": 12,
+              "requests_per_second": 348.9792
+            }
+          ]
+        },
+        "64-mib": {
+          "logical_temp_disk_bytes_per_request": 67108864,
+          "payload_bytes_per_second": 557263794.7,
+          "peak_rss_bytes": 53739520,
+          "requests_per_second": 8.3039,
+          "samples": [
+            {
+              "connections": 1,
+              "elapsed_seconds": 0.486637,
+              "logical_temp_disk_bytes_per_request": 67108864,
+              "payload_bytes_per_second": 413710245.6,
+              "peak_rss_bytes": 53886976,
+              "requests": 3,
+              "requests_per_second": 6.1648
+            },
+            {
+              "connections": 1,
+              "elapsed_seconds": 0.361277,
+              "logical_temp_disk_bytes_per_request": 67108864,
+              "payload_bytes_per_second": 557263794.7,
+              "peak_rss_bytes": 53313536,
+              "requests": 3,
+              "requests_per_second": 8.3039
+            },
+            {
+              "connections": 1,
+              "elapsed_seconds": 0.328685,
+              "logical_temp_disk_bytes_per_request": 67108864,
+              "payload_bytes_per_second": 612521386.8,
+              "peak_rss_bytes": 53739520,
+              "requests": 3,
+              "requests_per_second": 9.1273
+            }
+          ]
+        }
+      },
+      "versions": {
+        "Django": "6.0.7",
+        "python": "Python 3.14.6",
+        "uvicorn": "0.51.0"
+      }
+    },
+    "fastapi": {
+      "lock_sha256": "b032add618d28f95453880608480572bc57f9500e7a10cde24b111a7eba3c1bb",
+      "scenarios": {
+        "1-mib": {
+          "logical_temp_disk_bytes_per_request": 0,
+          "payload_bytes_per_second": 834138632.3,
+          "peak_rss_bytes": 60768256,
+          "requests_per_second": 795.4966,
+          "samples": [
+            {
+              "connections": 2,
+              "elapsed_seconds": 0.015085,
+              "logical_temp_disk_bytes_per_request": 0,
+              "payload_bytes_per_second": 834138632.3,
+              "peak_rss_bytes": 60522496,
+              "requests": 12,
+              "requests_per_second": 795.4966
+            },
+            {
+              "connections": 2,
+              "elapsed_seconds": 0.014881,
+              "logical_temp_disk_bytes_per_request": 0,
+              "payload_bytes_per_second": 845583180.9,
+              "peak_rss_bytes": 60768256,
+              "requests": 12,
+              "requests_per_second": 806.411
+            },
+            {
+              "connections": 2,
+              "elapsed_seconds": 0.016161,
+              "logical_temp_disk_bytes_per_request": 0,
+              "payload_bytes_per_second": 778575300.1,
+              "peak_rss_bytes": 62586880,
+              "requests": 12,
+              "requests_per_second": 742.5073
+            }
+          ]
+        },
+        "64-mib": {
+          "logical_temp_disk_bytes_per_request": 67108864,
+          "payload_bytes_per_second": 429397261.5,
+          "peak_rss_bytes": 60981248,
+          "requests_per_second": 6.3985,
+          "samples": [
+            {
+              "connections": 1,
+              "elapsed_seconds": 0.521832,
+              "logical_temp_disk_bytes_per_request": 67108864,
+              "payload_bytes_per_second": 385807571.5,
+              "peak_rss_bytes": 59883520,
+              "requests": 3,
+              "requests_per_second": 5.749
+            },
+            {
+              "connections": 1,
+              "elapsed_seconds": 0.468859,
+              "logical_temp_disk_bytes_per_request": 67108864,
+              "payload_bytes_per_second": 429397261.5,
+              "peak_rss_bytes": 61128704,
+              "requests": 3,
+              "requests_per_second": 6.3985
+            },
+            {
+              "connections": 1,
+              "elapsed_seconds": 0.46656,
+              "logical_temp_disk_bytes_per_request": 67108864,
+              "payload_bytes_per_second": 431512333.5,
+              "peak_rss_bytes": 60981248,
+              "requests": 3,
+              "requests_per_second": 6.43
+            }
+          ]
+        }
+      },
+      "versions": {
+        "fastapi": "0.140.0",
+        "python": "Python 3.14.6",
+        "python-multipart": "0.0.32",
+        "uvicorn": "0.51.0"
+      }
+    },
+    "hayate": {
+      "lock_sha256": "4ba86ade3a66dbb707644969d5345a60e9a8d416ee92959afc1837a4760efbd8",
+      "scenarios": {
+        "1-mib": {
+          "logical_temp_disk_bytes_per_request": 0,
+          "payload_bytes_per_second": 881089422.0,
+          "peak_rss_bytes": 39419904,
+          "requests_per_second": 840.2724,
+          "samples": [
+            {
+              "connections": 2,
+              "elapsed_seconds": 0.014736,
+              "logical_temp_disk_bytes_per_request": 0,
+              "payload_bytes_per_second": 853862714.7,
+              "peak_rss_bytes": 41271296,
+              "requests": 12,
+              "requests_per_second": 814.3069
+            },
+            {
+              "connections": 2,
+              "elapsed_seconds": 0.014236,
+              "logical_temp_disk_bytes_per_request": 0,
+              "payload_bytes_per_second": 883859069.0,
+              "peak_rss_bytes": 38649856,
+              "requests": 12,
+              "requests_per_second": 842.9137
+            },
+            {
+              "connections": 2,
+              "elapsed_seconds": 0.014281,
+              "logical_temp_disk_bytes_per_request": 0,
+              "payload_bytes_per_second": 881089422.0,
+              "peak_rss_bytes": 39419904,
+              "requests": 12,
+              "requests_per_second": 840.2724
+            }
+          ]
+        },
+        "64-mib": {
+          "logical_temp_disk_bytes_per_request": 67108864,
+          "payload_bytes_per_second": 622670555.8,
+          "peak_rss_bytes": 39927808,
+          "requests_per_second": 9.2785,
+          "samples": [
+            {
+              "connections": 1,
+              "elapsed_seconds": 0.465157,
+              "logical_temp_disk_bytes_per_request": 67108864,
+              "payload_bytes_per_second": 432814240.8,
+              "peak_rss_bytes": 39927808,
+              "requests": 3,
+              "requests_per_second": 6.4494
+            },
+            {
+              "connections": 1,
+              "elapsed_seconds": 0.323328,
+              "logical_temp_disk_bytes_per_request": 67108864,
+              "payload_bytes_per_second": 622670555.8,
+              "peak_rss_bytes": 39960576,
+              "requests": 3,
+              "requests_per_second": 9.2785
+            },
+            {
+              "connections": 1,
+              "elapsed_seconds": 0.316243,
+              "logical_temp_disk_bytes_per_request": 67108864,
+              "payload_bytes_per_second": 636620755.2,
+              "peak_rss_bytes": 38993920,
+              "requests": 3,
+              "requests_per_second": 9.4864
+            }
+          ]
+        }
+      },
+      "versions": {
+        "hayate": "0.13.0",
+        "python": "Python 3.14.6",
+        "uvicorn": "0.51.0"
+      }
+    },
+    "hono": {
+      "lock_sha256": "709418a97237f98a4c8e5fd21f2d1a02c671570b393e95fe6f4d66d124050677",
+      "scenarios": {
+        "1-mib": {
+          "logical_temp_disk_bytes_per_request": 0,
+          "payload_bytes_per_second": 448488076.3,
+          "peak_rss_bytes": 133545984,
+          "requests_per_second": 427.7116,
+          "samples": [
+            {
+              "connections": 2,
+              "elapsed_seconds": 0.028579,
+              "logical_temp_disk_bytes_per_request": 0,
+              "payload_bytes_per_second": 440284598.2,
+              "peak_rss_bytes": 133545984,
+              "requests": 12,
+              "requests_per_second": 419.8881
+            },
+            {
+              "connections": 2,
+              "elapsed_seconds": 0.02733,
+              "logical_temp_disk_bytes_per_request": 0,
+              "payload_bytes_per_second": 460412195.9,
+              "peak_rss_bytes": 133382144,
+              "requests": 12,
+              "requests_per_second": 439.0833
+            },
+            {
+              "connections": 2,
+              "elapsed_seconds": 0.028056,
+              "logical_temp_disk_bytes_per_request": 0,
+              "payload_bytes_per_second": 448488076.3,
+              "peak_rss_bytes": 133988352,
+              "requests": 12,
+              "requests_per_second": 427.7116
+            }
+          ]
+        },
+        "64-mib": {
+          "logical_temp_disk_bytes_per_request": 0,
+          "payload_bytes_per_second": 976957466.4,
+          "peak_rss_bytes": 565444608,
+          "requests_per_second": 14.5578,
+          "samples": [
+            {
+              "connections": 1,
+              "elapsed_seconds": 0.211934,
+              "logical_temp_disk_bytes_per_request": 0,
+              "payload_bytes_per_second": 949948170.2,
+              "peak_rss_bytes": 527024128,
+              "requests": 3,
+              "requests_per_second": 14.1553
+            },
+            {
+              "connections": 1,
+              "elapsed_seconds": 0.195556,
+              "logical_temp_disk_bytes_per_request": 0,
+              "payload_bytes_per_second": 1029508863.3,
+              "peak_rss_bytes": 565444608,
+              "requests": 3,
+              "requests_per_second": 15.3409
+            },
+            {
+              "connections": 1,
+              "elapsed_seconds": 0.206075,
+              "logical_temp_disk_bytes_per_request": 0,
+              "payload_bytes_per_second": 976957466.4,
+              "peak_rss_bytes": 604209152,
+              "requests": 3,
+              "requests_per_second": 14.5578
+            }
+          ]
+        }
+      },
+      "versions": {
+        "@hono/node-server": "2.0.12",
+        "hono": "4.12.32",
+        "node": "v24.18.0"
+      }
+    }
+  },
+  "git_commit": "2523ff6ebcc5aba86e90357a8ba1b1342b67d610",
+  "machine": {
+    "architecture": "arm64",
+    "cpu": "Apple M2 Pro",
+    "logical_cpus": 12,
+    "os": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "runner_python": "3.14.6",
+    "uv": "uv 0.11.28 (Homebrew 2026-07-07 aarch64-apple-darwin)"
+  },
+  "measured_at": "2026-07-27T11:09:32.436813+00:00",
+  "schema_version": 1
+}
