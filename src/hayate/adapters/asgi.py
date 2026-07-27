@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import inspect
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
-from typing import TYPE_CHECKING, Any
+from collections.abc import Awaitable, Callable, Mapping
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import quote
 
 from ..abort import AbortSignal
@@ -18,7 +18,7 @@ from ..context import Context
 from ..headers import Headers
 from ..request import HayateRequest, Request
 from ..router import WEBSOCKET_METHOD
-from ..url import URL
+from ..url import URL, _needs_dot_removal, _remove_dot_segments
 from ..websocket import WebSocket, WebSocketClosed
 
 if TYPE_CHECKING:
@@ -137,18 +137,53 @@ class ASGIPathDispatcher:
         await self._default(scope, receive, send)
 
 
-async def _request_body(receive: Receive, signal: AbortSignal) -> AsyncIterator[bytes]:
-    while True:
-        message = await receive()
-        if message["type"] == "http.request":
-            chunk = message.get("body", b"")
-            if chunk:
-                yield chunk
-            if not message.get("more_body", False):
-                return
-        elif message["type"] == "http.disconnect":
-            signal._abort("client disconnected")
-            return
+class _ASGIRequestBody:
+    """One-shot ASGI receive channel exposed as a Fetch body.
+
+    A concrete async iterator avoids creating an async-generator object and
+    registering its event-loop finalizer for every request with a body.
+    Buffered readers use the same receive channel directly; applications that
+    iterate ``request.body`` still observe each non-empty ASGI chunk.
+    """
+
+    __slots__ = ("_done", "_receive", "_signal")
+
+    def __init__(self, receive: Receive, signal: AbortSignal) -> None:
+        self._receive = receive
+        self._signal = signal
+        self._done = False
+
+    def __aiter__(self) -> _ASGIRequestBody:
+        return self
+
+    async def __anext__(self) -> bytes:
+        while not self._done:
+            message = await self._receive()
+            if message["type"] == "http.request":
+                chunk = bytes(message.get("body", b""))
+                if not message.get("more_body", False):
+                    self._done = True
+                if chunk:
+                    return chunk
+            elif message["type"] == "http.disconnect":
+                self._done = True
+                self._signal._abort("client disconnected")
+        raise StopAsyncIteration
+
+    async def bytes(self) -> bytes:
+        first = await anext(self, None)
+        if first is None:
+            return b""
+        second = await anext(self, None)
+        if second is None:
+            return bytes(first)
+        chunks = [bytes(first), bytes(second)]
+        async for chunk in self:
+            chunks.append(bytes(chunk))
+        return b"".join(chunks)
+
+    async def text(self) -> str:
+        return (await self.bytes()).decode("utf-8", errors="replace")
 
 
 async def _call_hook(hook: Callable[[], Any]) -> None:
@@ -193,19 +228,23 @@ class ASGIAdapter:
         if expects_body:
             active_signal = AbortSignal()
             signal: AbortSignal | None = active_signal
-            body: Any = _request_body(receive, active_signal)
+            platform_body: _ASGIRequestBody | None = _ASGIRequestBody(receive, active_signal)
         else:
             # No content-length / transfer-encoding means no request body
             # (RFC 9112) — a null body per Fetch; skip stream and signal.
             signal = None
-            body = None
+            platform_body = None
+        routing_path = _routing_path(scope)
         request = Request(
-            _build_url(scope, host),
-            method=scope["method"],
+            "",
+            method=scope["method"].upper(),
             headers=Headers._from_wire(raw_headers, guard="immutable"),
-            body=body,
             signal=signal,
+            _trusted_pathname=routing_path,
         )
+        request._init_platform_url((scope, host, routing_path), _load_asgi_url)
+        if platform_body is not None:
+            request._init_platform_body(platform_body)
         response = await self._app.fetch(request)
         try:
             await _send_response(scope, send, response)
@@ -234,10 +273,13 @@ class ASGIAdapter:
             if name == b"host":
                 host = value
                 break
+        routing_path = _routing_path(scope)
         request = Request(
-            _build_url(scope, host),
+            "",
             headers=Headers._from_wire(raw_headers, guard="immutable"),
+            _trusted_pathname=routing_path,
         )
+        request._init_platform_url((scope, host, routing_path), _load_asgi_url)
         hayate_request = HayateRequest(request)
         hayate_request._params = params
         c = Context(hayate_request, self._app._env, None)
@@ -277,7 +319,27 @@ class ASGIAdapter:
                 return
 
 
-def _build_url(scope: dict[str, Any], host_header: bytes | None) -> URL:
+def _routing_path(scope: dict[str, Any]) -> str:
+    """Return the canonical pathname needed by the router.
+
+    The remaining scheme, authority, and query components stay in the ASGI
+    scope and are decoded only when application code observes ``c.req.url``.
+    """
+    raw_path = scope.get("raw_path")
+    if raw_path:
+        path = raw_path.decode("latin-1")
+    else:
+        path = quote(scope.get("path", "/"), safe=_PATH_SAFE)
+    if not path:
+        path = "/"
+    elif _needs_dot_removal(path):
+        path = _remove_dot_segments(path)
+    return cast(str, path)
+
+
+def _load_asgi_url(source: Any) -> URL:
+    """Materialize a trusted ASGI request URL on first application access."""
+    scope, host_header, path = source
     scheme = scope.get("scheme", "http")
     if host_header:
         host = host_header.decode("latin-1")
@@ -290,11 +352,6 @@ def _build_url(scope: dict[str, Any], host_header: bytes | None) -> URL:
                 host = f"{host}:{port}"
         else:
             host = "localhost"
-    raw_path = scope.get("raw_path")
-    if raw_path:
-        path = raw_path.decode("latin-1")
-    else:
-        path = quote(scope.get("path", "/"), safe=_PATH_SAFE)
     query = scope.get("query_string", b"").decode("latin-1")
     return URL._from_server(scheme, host, path, query)
 
@@ -320,11 +377,18 @@ def _wire_pair(pair: tuple[str, str]) -> tuple[bytes, bytes]:
 async def _send_response(scope: dict[str, Any], send: Send, response: Response) -> None:
     status = response.status
     body = response.body
-    headers = [_wire_pair(pair) for pair in response.headers.raw()]
+    pairs = response._header_pairs_for_adapter()
+    headers = [_wire_pair(pair) for pair in pairs]
     body_allowed = status >= 200 and status not in (204, 304)
-    if body_allowed and not response.headers.has("content-length"):
+    # Trusted Context response helpers keep their default header pairs outside
+    # a mutable Headers object, and those pairs never contain content-length.
+    # Avoid allocating/scanning a generator on the overwhelmingly common path.
+    has_content_length = response._headers is not None and any(
+        name == "content-length" for name, _ in pairs
+    )
+    if body_allowed and not has_content_length:
         if isinstance(body, bytes):
-            headers.append((b"content-length", str(len(body)).encode("latin-1")))
+            headers.append(_wire_pair(("content-length", str(len(body)))))
         elif body is None:
             headers.append((b"content-length", b"0"))
         # Stream bodies get no content-length; the server frames them.

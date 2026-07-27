@@ -108,38 +108,42 @@ The monthly and manually dispatchable
 uploads the raw JSON and Markdown summary. Shared-runner measurements are not
 used as a hard regression gate because host contention is uncontrolled.
 
-### Recorded baseline (2026-07-27)
+### Recorded ASGI-optimized baseline (2026-07-27)
 
 Apple M2 Pro, macOS 26.5.1, arm64, CPython 3.14.6, Node 24.18.0;
 50 connections, 10 seconds per scenario, three rotating rounds. The source
-under test is commit `0612ee5`; every one of the 60 throughput samples
+under test is commit `697b20d`; every one of the 60 throughput samples
 completed with zero errors, timeouts, or non-2xx responses.
 
 | Framework | Version | App import | Cold start | Production packages | gzip payload | Throughput geo mean | HTTP contract |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| **hayate** | 0.12.1 | 96.1 ms | **130.3 ms** | **5** | 287.5 KiB | **13,995 req/s** | **14/14 (100%)** |
-| FastAPI | 0.140.0 | 210.5 ms | 220.5 ms | 13 | 2,802.1 KiB | 10,161 req/s | 12/14 (85.7%) |
-| Django | 6.0.7 | 151.0 ms | 155.5 ms | 6 | 5,147.1 KiB | 2,719 req/s | 12/14 (85.7%) |
-| Hono | 4.12.32 | **48.3 ms** | **55.0 ms** | **2** | **281.5 KiB** | **63,198 req/s** | 12/14 (85.7%) |
+| **hayate** | 0.12.1 | 84.8 ms | **114.2 ms** | **5** | 289.8 KiB | **14,451 req/s** | **14/14 (100%)** |
+| FastAPI | 0.140.0 | 406.1 ms | 429.3 ms | 13 | 2,802.2 KiB | 9,578 req/s | 12/14 (85.7%) |
+| Django | 6.0.7 | 346.1 ms | 352.9 ms | 6 | 5,147.2 KiB | 2,883 req/s | 12/14 (85.7%) |
+| Hono | 4.12.32 | **56.3 ms** | **64.9 ms** | **2** | **281.5 KiB** | **60,424 req/s** | 12/14 (85.7%) |
 
-On this workload, hayate delivered 1.38x FastAPI's and 5.15x Django's
-throughput. FastAPI and Django took 1.69x and 1.19x as long to cold-start,
-respectively. Hono delivered 4.52x Hayate's throughput, and Hayate took 2.37x
-as long to cold-start. hayate's runtime-excluded compressed payload was 2.1%
+On this workload, hayate delivered 1.51x FastAPI's and 5.01x Django's
+throughput. FastAPI and Django took 3.76x and 3.09x as long to cold-start,
+respectively. Hono delivered 4.18x Hayate's throughput, and Hayate took 1.76x
+as long to cold-start. hayate's runtime-excluded compressed payload was 2.9%
 larger than Hono's official Node stack while using three more production
-packages; it was 9.75x smaller than FastAPI's and 17.91x smaller than Django's.
+packages; it was 9.67x smaller than FastAPI's and 17.76x smaller than Django's.
 
 The same run measured the raw Uvicorn/asyncio/h11 workload ceiling at
-16,225 req/s. Hayate reached 86.3% of that ceiling overall and 84.0–87.7%
-across the four workloads. Hono was 3.90x faster than raw Uvicorn itself, so
-most of the remaining Hono gap belongs to the runtime/transport boundary
-rather than Hayate's framework core.
+16,010 req/s. Hayate reached **90.3%** of that ceiling overall and
+88.5–90.9% across the four workloads, up from 86.3% in the preserved
+pre-optimization run. Hono was 3.77x faster than raw Uvicorn itself, so most
+of the remaining Hono gap belongs to the runtime/transport boundary rather
+than Hayate's framework core.
 
-The full [raw report](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-macos-arm64.json)
-and [rendered summary](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-macos-arm64.md)
+The full [raw report](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-asgi-optimized-macos-arm64.json)
+and [rendered summary](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-asgi-optimized-macos-arm64.md)
 contain every sample, latency percentile, resolved package version, and
 machine field. These numbers are a reproducible baseline, not a claim about
 all applications or hardware.
+
+The [pre-optimization report](https://github.com/hayatepy/hayate/blob/main/benchmarks/competitive/results/2026-07-27-macos-arm64.md)
+remains immutable so the efficiency change can be audited.
 
 The suite also measures a raw ASGI implementation of the same four workloads
 inside hayate's locked Python environment. This separates framework overhead

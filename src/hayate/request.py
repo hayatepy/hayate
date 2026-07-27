@@ -75,6 +75,8 @@ class Request(Body):
         "_signal_factory",
         "_signal_source",
         "_url",
+        "_url_loader",
+        "_url_source",
         "method",
     )
 
@@ -103,6 +105,8 @@ class Request(Body):
             self._url = url
             self._routing_pathname = _trusted_pathname
             self.method = method
+        self._url_loader: Callable[[Any], URL] | None = None
+        self._url_source: Any = None
         self._headers: Headers | None
         self._header_source: Any
         self._header_loader: Callable[[Any], list[tuple[str, str]]] | None
@@ -149,6 +153,8 @@ class Request(Body):
         request = cls.__new__(cls)
         request._url = href
         request._routing_pathname = pathname
+        request._url_loader = None
+        request._url_source = None
         request.method = method
         request._headers = None
         request._header_source = header_source
@@ -165,10 +171,21 @@ class Request(Body):
     @property
     def url(self) -> URL:
         url = self._url
-        if isinstance(url, str):
+        loader = self._url_loader
+        if loader is not None:
+            url = loader(self._url_source)
+            self._url_loader = None
+            self._url_source = None
+            self._url = url
+        elif isinstance(url, str):
             url = URL(url) if self._routing_pathname is None else URL._from_trusted_href(url)
             self._url = url
         return url
+
+    def _init_platform_url(self, source: Any, loader: Callable[[Any], URL]) -> None:
+        """Adapter hook: construct the complete URL only on first access."""
+        self._url_source = source
+        self._url_loader = loader
 
     @property
     def headers(self) -> Headers:

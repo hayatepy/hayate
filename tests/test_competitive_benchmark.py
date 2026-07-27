@@ -28,6 +28,7 @@ competitive_runner = _load_module(
 )
 _locked_node_package_version = competitive_runner._locked_node_package_version
 _render_markdown = competitive_runner.render_markdown
+_setup = competitive_runner.setup
 _transport_profile = competitive_runner._transport_profile
 
 
@@ -64,6 +65,24 @@ async def test_raw_asgi_executes_the_common_workload():
 
 def test_node_transport_version_comes_from_lockfile():
     assert _locked_node_package_version("@hono/node-server") == "2.0.12"
+
+
+def test_setup_rebuilds_the_current_hayate_checkout(monkeypatch):
+    commands: list[list[str]] = []
+
+    def record(command, **_kwargs):
+        commands.append(command)
+
+    monkeypatch.setattr(competitive_runner, "_run_checked", record)
+    monkeypatch.setattr(competitive_runner, "_install_oha", lambda: None)
+
+    _setup()
+
+    hayate = next(command for command in commands if "apps/hayate" in " ".join(command))
+    assert hayate[-2:] == ["--reinstall-package", "hayate"]
+    assert all(
+        "--reinstall-package" not in command for command in commands if command is not hayate
+    )
 
 
 def test_recorded_baseline_summary_matches_raw_report():
