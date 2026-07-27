@@ -462,28 +462,28 @@
     },
     {
       "id": "request_correlation",
-      "title": "Safe first-party request correlation",
-      "definition": "One maintained middleware validates or generates a bounded request ID, exposes it to application code, and returns it across normal and handled-error responses.",
+      "title": "Safe request correlation and structured access logs",
+      "definition": "Maintained middleware validates or generates a bounded request ID, exposes it to application and logging code, and returns it across normal and handled-error responses while access logs exclude query strings, headers, and bodies.",
       "support": {
         "hayate": {
           "status": "core",
-          "note": "request_id validates a conservative log-safe X-Request-ID or generates a random replacement, stores it in Context, and returns it through direct, ASGI, Workers, and Lambda paths.",
-          "sources": ["src/hayate/middleware/request_id.py", "tests/test_middleware.py", "tests/test_asgi.py", "tests/test_workers_adapter.py", "tests/test_lambda_adapter.py"]
+          "note": "request_id validates a conservative log-safe X-Request-ID or generates a random replacement, stores it in Context and an async-safe logging context, and returns it through direct, ASGI, Workers, and Lambda paths. logger can emit compact correlated JSON without query strings, headers, or bodies.",
+          "sources": ["src/hayate/middleware/request_id.py", "src/hayate/middleware/logger.py", "tests/test_middleware.py", "tests/test_asgi.py", "tests/test_workers_adapter.py", "tests/test_lambda_adapter.py"]
         },
         "fastapi": {
           "status": "not_first_party",
-          "note": "FastAPI documents authoring custom HTTP middleware and adding ASGI middleware, but its built-in middleware reference does not provide a request-correlation middleware.",
+          "note": "FastAPI documents authoring custom HTTP middleware and adding ASGI middleware, but its built-in middleware reference does not provide request correlation or a correlated structured access logger.",
           "sources": ["https://fastapi.tiangolo.com/tutorial/middleware/", "https://fastapi.tiangolo.com/reference/middleware/"]
         },
         "django": {
           "status": "not_first_party",
-          "note": "Django documents the middleware contract and its bundled middleware stack, but does not include a request-correlation middleware.",
-          "sources": ["https://docs.djangoproject.com/en/6.0/topics/http/middleware/", "https://docs.djangoproject.com/en/6.0/ref/middleware/"]
+          "note": "Django provides configurable Python logging and request records, but its bundled middleware stack does not include request correlation or one correlated structured access-log contract.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/topics/http/middleware/", "https://docs.djangoproject.com/en/6.0/ref/middleware/", "https://docs.djangoproject.com/en/6.0/ref/logging/"]
         },
         "hono": {
           "status": "core",
-          "note": "Hono ships requestId middleware with an incoming header, maximum length, custom generator, and Context variable.",
-          "sources": ["https://hono.dev/docs/middleware/builtin/request-id"]
+          "note": "Hono ships requestId middleware with an incoming header, maximum length, custom generator, and Context variable, plus a text access logger with a customizable print function.",
+          "sources": ["https://hono.dev/docs/middleware/builtin/request-id", "https://hono.dev/docs/middleware/builtin/logger"]
         }
       },
       "comparisons": {

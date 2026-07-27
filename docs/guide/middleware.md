@@ -38,7 +38,7 @@ from hayate.middleware import (
 
 | Middleware | What it does |
 |---|---|
-| `logger()` | `METHOD /path -> status (ms)` via `logging` |
+| `logger(structured=False)` | text or compact JSON access events via `logging` |
 | `cors(origin=..., origin_resolver=...)` | Fetch-standard CORS incl. preflight; resolver can inspect `c.env` |
 | `etag()` | weak ETags + `If-None-Match` -> 304 (RFC 9110) |
 | `compress()` | gzip everywhere, zstd on Python 3.14+ |
@@ -83,19 +83,48 @@ app.use(cors(origin_resolver=from_env, credentials=True))
 
 Request correlation uses a bounded log-safe value instead of trusting an
 arbitrary caller-controlled header. Register it before middleware that reads
-the context value:
+the context value. Structured access logs have stable `event`, `method`,
+`path`, `status`, `duration_ms`, and `request_id` fields; query strings,
+headers, and bodies are not logged:
 
 ```python
 from hayate.middleware import logger, request_id
 
 app.use(request_id())
-app.use(logger())
+app.use(logger(structured=True))
 
 @app.get("/")
 async def home(c):
-    application_log.info("home", extra={"request_id": c.get("request_id")})
     return c.text("ok")
 ```
+
+```json
+{"event":"http_request","method":"GET","path":"/","status":200,"duration_ms":0.123,"request_id":"..."}
+```
+
+Application logs can use the same ID without passing `Context` through every
+layer. Attach `RequestIdFilter` to the handlers that emit those records:
+
+```python
+import logging
+
+from hayate.middleware import RequestIdFilter, current_request_id
+
+handler = logging.StreamHandler()
+handler.addFilter(RequestIdFilter())
+application_log = logging.getLogger("application")
+application_log.addHandler(handler)
+
+@app.get("/work")
+async def work(c):
+    application_log.info("work")  # the LogRecord has record.request_id
+    assert current_request_id() == c.get("request_id")
+    return c.text("ok")
+```
+
+The async logging context is restored when the middleware chain exits.
+Concurrent requests stay isolated, while work created with `c.wait_until()`
+captures the request ID for deferred logs.
 
 Set `accept_incoming=False` and provide a generator when a platform-issued
 value such as a Cloudflare or Lambda request ID must take precedence.
