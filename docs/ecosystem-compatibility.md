@@ -26,6 +26,25 @@ into the Pyodide bundle after pywrangler's locked sync, and drives the live
 Worker over HTTP. The scheduled full profile also covers the generated MCP
 Worker.
 
+## First-party administration evidence
+
+[`hayate-admin`](https://github.com/hayatepy/hayate-admin) is a pre-release,
+first-party ecosystem package rather than part of the core-wheel compatibility
+gate above. At commit
+[`3690c75`](https://github.com/hayatepy/hayate-admin/commit/3690c75ea2d02db50b623fd4459b636f2baefa14),
+its explicit resource contract covers CRUD, search, declared filters and
+sorting, bounded bulk actions, and separately authorized redacted object
+history. The same generated checked-SQL definition runs against local SQLite
+and native Cloudflare Workers/D1 without ASGI.
+
+The recorded main-branch gates passed
+[unit, typing, and distribution checks](https://github.com/hayatepy/hayate-admin/actions/runs/30282559357)
+and the
+[Chromium flow](https://github.com/hayatepy/hayate-admin/actions/runs/30282559819).
+General Django admin parity is not claimed: explicit relationship choices,
+bounded autocomplete, and inline editing remain tracked in
+[`hayate-admin#9`](https://github.com/hayatepy/hayate-admin/issues/9).
+
 ## Reproduce
 
 Prerequisites are CPython 3.12 or newer, uv, Git, Node.js 24, and the normal

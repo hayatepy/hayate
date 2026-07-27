@@ -26,11 +26,11 @@ Support levels: **Core** is in the framework package; **First-party** is maintai
 
 ### Traditional database-backed full stack
 
-**Competitor advantaged** — Django remains functionally ahead for model-driven admin, ORM/migrations, and integrated forms/templates. Hayate offers composable checked SQL and htmx paths, and can now retain a Django admin/ORM application under an ASGI prefix during incremental migration instead of reproducing Django's monolith.
+**Competitor advantaged** — Django remains functionally ahead for ORM-derived relationships and inline editing, ORM/migrations, and integrated forms/templates. Hayate now has a first-party explicit operational admin with bounded CRUD, bulk actions, and redacted history on SQLite and native Workers/D1, while retaining a Django admin/ORM application under an ASGI prefix during incremental migration.
 
-- Against FastAPI: Hayate advantage 1, Parity 5.
-- Against Django: Hayate advantage 1, Parity 2, Competitor advantage 3.
-- Against Hono: Hayate advantage 1, Parity 5.
+- Against FastAPI: Hayate advantage 2, Parity 5.
+- Against Django: Hayate advantage 1, Parity 3, Competitor advantage 3.
+- Against Hono: Hayate advantage 2, Parity 5.
 
 ### JavaScript and TypeScript edge application
 
@@ -58,7 +58,8 @@ Support levels: **Core** is in the framework package; **First-party** is maintai
 | **Direct application request testing**<br>Tests can call the application without starting a socket server. | **Core** — app.request executes the Fetch core directly and accepts runtime env bindings. | **Core** — FastAPI documents TestClient for direct application tests. | **Core** — Django provides synchronous and asynchronous test clients. | **Core** — app.request accepts Request data and optional runtime env values. |
 | **WebSocket, streaming, and SSE**<br>The maintained application surface supports bidirectional sockets and incremental HTTP responses. | **Core** — ASGI and Workers adapters preserve WebSockets, streaming bodies, abort signals, and SSE. | **Core** — FastAPI inherits Starlette WebSockets and streaming responses. | **External** — Django supports streaming HTTP, while WebSocket routing is supplied by Django Channels. | **Core** — Hono ships runtime WebSocket helpers and stream/streamSSE helpers. |
 | **Lifecycle and background work**<br>The framework exposes startup/shutdown or runtime lifecycle hooks and a supported path for post-response/background work. | **Core** — ASGI lifespan hooks and c.wait_until map to server draining or Workers ctx.waitUntil. | **Core** — FastAPI documents lifespan events and BackgroundTasks. | **Core** — Django 6.0 includes async lifecycle support and a Tasks contract, with execution delegated to infrastructure. | **Core** — Hono exposes runtime execution context including waitUntil on Workers. |
-| **Model-driven administrative UI**<br>Model metadata produces a maintained internal CRUD administration interface. | **No first-party path** — Hayate does not currently ship a model-driven admin product. | **No first-party path** — An administrative UI is not part of FastAPI's documented core feature set. | **Core** — Django's automatic, customizable model admin is enabled by the default project template. | **No first-party path** — A model-driven admin is not part of Hono's documented framework and helper surface. |
+| **Secure operational administration**<br>The ecosystem supplies a maintained internal CRUD UI with bounded list and mutation operations, authorization, and audit evidence. | **First-party** — hayate-admin provides explicit CRUD, search/filter/sort, bounded bulk actions, and redacted object history with per-object authorization on SQLite and native Workers/D1. | **No first-party path** — An administrative UI is not part of FastAPI's documented core feature set. | **Core** — Django's automatic, customizable model admin includes CRUD, actions, and object history. | **No first-party path** — An operational admin UI is not part of Hono's documented framework and helper surface. |
+| **Relationship-aware administrative editing**<br>The admin UI derives or explicitly declares bounded relationship choices and inline editing for related records. | **No first-party path** — hayate-admin tracks explicit relationships, bounded autocomplete, and inline editing as its remaining Phase 2 administration gap. | **No first-party path** — An administrative relationship and inline editing surface is not part of FastAPI's documented core feature set. | **Core** — Django admin supplies autocomplete fields and InlineModelAdmin for foreign-key, many-to-many, and generic relationships. | **No first-party path** — An administrative relationship and inline editing surface is not part of Hono's documented framework surface. |
 | **Model-driven ORM and migrations**<br>Framework models drive relationships, queries, schema migration generation, and migration execution. | **No first-party path** — Hayate intentionally provides checked SQL rather than a model-driven ORM. | **No first-party path** — FastAPI is database-agnostic and its SQL tutorial composes an external model library. | **Core** — Django models, QuerySets, relationships, and migration commands are first-party core features. | **External** — Hono delegates ORM and migrations to runtime-compatible database packages. |
 | **Maintained HTML, forms, and progressive enhancement path**<br>The ecosystem supplies server rendering, form handling, validation, and an executable full-stack starter. | **First-party** — hayate-htmx plus create-hayate provide Jinja, CSRF, fragments, SSE, and tested browser flows. | **External** — FastAPI documents Jinja templates through Starlette and the external Jinja package; form parsing is supported. | **Core** — Django includes templates, forms, validation, generic editing views, messages, and CSRF integration. | **Core** — Hono includes JSX/html helpers and validators across form and request sources. |
 | **Multi-JavaScript-runtime portability**<br>The same application runs across Workers, Deno, Bun, Node.js, Fastly, Lambda, and other Fetch runtimes. | **Different scope** — Hayate targets Python runtimes rather than JavaScript runtimes. | **Different scope** — FastAPI targets Python ASGI runtimes. | **Different scope** — Django targets Python WSGI and ASGI runtimes. | **Core** — Hono documents one Web-standards application across a broad JavaScript runtime set. |
@@ -179,12 +180,20 @@ Support levels: **Core** is in the framework package; **First-party** is maintai
 - **Hono — Core:** Hono exposes runtime execution context including waitUntil on Workers. ([source 1](https://hono.dev/docs/api/context#executionctx))
 - **Relative to Hayate:** FastAPI: Parity; Django: Parity; Hono: Parity.
 
-### Model-driven administrative UI
+### Secure operational administration
 
-- **Hayate — No first-party path:** Hayate does not currently ship a model-driven admin product. ([evidence 1](https://github.com/hayatepy/hayate/blob/main/DESIGN.md))
+- **Hayate — First-party:** hayate-admin provides explicit CRUD, search/filter/sort, bounded bulk actions, and redacted object history with per-object authorization on SQLite and native Workers/D1. ([evidence 1](https://github.com/hayatepy/hayate/blob/main/docs/ecosystem-compatibility.md))
 - **FastAPI — No first-party path:** An administrative UI is not part of FastAPI's documented core feature set. ([source 1](https://fastapi.tiangolo.com/features/))
-- **Django — Core:** Django's automatic, customizable model admin is enabled by the default project template. ([source 1](https://docs.djangoproject.com/en/6.0/ref/contrib/admin/))
-- **Hono — No first-party path:** A model-driven admin is not part of Hono's documented framework and helper surface. ([source 1](https://hono.dev/docs/))
+- **Django — Core:** Django's automatic, customizable model admin includes CRUD, actions, and object history. ([source 1](https://docs.djangoproject.com/en/6.0/ref/contrib/admin/), [source 2](https://docs.djangoproject.com/en/6.0/ref/contrib/admin/actions/))
+- **Hono — No first-party path:** An operational admin UI is not part of Hono's documented framework and helper surface. ([source 1](https://hono.dev/docs/))
+- **Relative to Hayate:** FastAPI: Hayate advantage; Django: Parity; Hono: Hayate advantage.
+
+### Relationship-aware administrative editing
+
+- **Hayate — No first-party path:** hayate-admin tracks explicit relationships, bounded autocomplete, and inline editing as its remaining Phase 2 administration gap. ([evidence 1](https://github.com/hayatepy/hayate/blob/main/docs/ecosystem-compatibility.md))
+- **FastAPI — No first-party path:** An administrative relationship and inline editing surface is not part of FastAPI's documented core feature set. ([source 1](https://fastapi.tiangolo.com/features/))
+- **Django — Core:** Django admin supplies autocomplete fields and InlineModelAdmin for foreign-key, many-to-many, and generic relationships. ([source 1](https://docs.djangoproject.com/en/6.0/ref/contrib/admin/))
+- **Hono — No first-party path:** An administrative relationship and inline editing surface is not part of Hono's documented framework surface. ([source 1](https://hono.dev/docs/))
 - **Relative to Hayate:** FastAPI: Parity; Django: Competitor advantage; Hono: Parity.
 
 ### Model-driven ORM and migrations
