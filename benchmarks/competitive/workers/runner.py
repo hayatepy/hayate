@@ -14,7 +14,6 @@ import datetime as dt
 import json
 import math
 import os
-import platform
 import shutil
 import signal
 import statistics
@@ -43,8 +42,10 @@ COMPATIBILITY_DATE = "2026-07-01"
 WRANGLER_VERSION = "4.114.0"
 WORKERS_PY_VERSION = "1.15.0"
 WORKERS_RUNTIME_SDK_VERSION = "1.6.3"
+WORKER_START_ATTEMPTS = 2
 JSON_BODY = http_benchmark.JSON_BODY
 SCENARIOS = http_benchmark.SCENARIOS
+WORKER_START_RETRIES: list[dict[str, str | int]] = []
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,30 +242,61 @@ def _stop_worker(process: subprocess.Popen[bytes]) -> None:
 
 @contextlib.contextmanager
 def _running_worker(target: WorkerTarget) -> Iterator[RunningWorker]:
-    port = http_benchmark._free_port()
-    inspector_port = http_benchmark._free_port()
-    with tempfile.TemporaryFile() as log:
+    worker: RunningWorker | None = None
+    last_error: Exception | None = None
+    last_output = ""
+    for attempt in range(1, WORKER_START_ATTEMPTS + 1):
+        port = http_benchmark._free_port()
+        inspector_port = http_benchmark._free_port()
+        while inspector_port == port:
+            inspector_port = http_benchmark._free_port()
         started = time.perf_counter()
-        process = subprocess.Popen(
-            target.command(port, inspector_port),
-            cwd=target.directory,
-            env=_environment(),
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-        )
-        try:
-            http_benchmark._wait_for_tcp(port, process, started + 30)
-            server_ready_ms = (time.perf_counter() - started) * 1_000
-            http_benchmark._wait_for_http(port, process, started + 30)
-            first_response_ms = (time.perf_counter() - started) * 1_000
-            yield RunningWorker(port, process, server_ready_ms, first_response_ms)
-        except Exception as error:
-            log.seek(0)
-            output = log.read().decode(errors="replace")
-            raise RuntimeError(f"{target.name} Worker failed:\n{output}") from error
-        finally:
-            _stop_worker(process)
+        with tempfile.TemporaryFile() as log:
+            process = subprocess.Popen(
+                target.command(port, inspector_port),
+                cwd=target.directory,
+                env=_environment(),
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+            try:
+                http_benchmark._wait_for_tcp(port, process, started + 30)
+                server_ready_ms = (time.perf_counter() - started) * 1_000
+                http_benchmark._wait_for_http(port, process, started + 30)
+                first_response_ms = (time.perf_counter() - started) * 1_000
+                worker = RunningWorker(
+                    port,
+                    process,
+                    server_ready_ms,
+                    first_response_ms,
+                )
+                break
+            except Exception as error:
+                last_error = error
+                _stop_worker(process)
+                log.seek(0)
+                last_output = log.read().decode(errors="replace")
+        if attempt < WORKER_START_ATTEMPTS:
+            WORKER_START_RETRIES.append(
+                {
+                    "target": target.name,
+                    "failed_attempt": attempt,
+                    "reason": type(last_error).__name__,
+                }
+            )
+            print(
+                f"workers startup retry: {target.name} after {type(last_error).__name__}",
+                flush=True,
+            )
+            time.sleep(0.25)
+
+    if worker is None:
+        raise RuntimeError(f"{target.name} Worker failed:\n{last_output}") from last_error
+    try:
+        yield worker
+    finally:
+        _stop_worker(worker.process)
 
 
 def _parse_cpu_time(value: str) -> float:
@@ -661,21 +693,16 @@ def _framework_versions() -> dict[str, str]:
 
 
 def _machine_metadata() -> dict[str, Any]:
-    return {
-        "os": platform.platform(),
-        "architecture": platform.machine(),
-        "cpu": platform.processor() or platform.machine(),
-        "logical_cpus": os.cpu_count(),
-        "python": platform.python_version(),
-        "node": _tool_version(["node", "--version"]),
-        "npm": _tool_version(["npm", "--version"]),
-        "uv": _tool_version(["uv", "--version"]),
-        "oha": _tool_version([str(http_benchmark._oha_executable()), "--version"]),
-        "wrangler": _tool_version([str(_node_executable("wrangler")), "--version"]),
-        "workerd": _tool_version([str(_node_executable("workerd")), "--version"]),
-        "workers_py": WORKERS_PY_VERSION,
-        "workers_runtime_sdk": WORKERS_RUNTIME_SDK_VERSION,
-    }
+    metadata = http_benchmark._machine_metadata()
+    metadata.update(
+        {
+            "wrangler": _tool_version([str(_node_executable("wrangler")), "--version"]),
+            "workerd": _tool_version([str(_node_executable("workerd")), "--version"]),
+            "workers_py": WORKERS_PY_VERSION,
+            "workers_runtime_sdk": WORKERS_RUNTIME_SDK_VERSION,
+        }
+    )
+    return metadata
 
 
 def _git_commit() -> str:
@@ -726,6 +753,7 @@ def measure(args: argparse.Namespace) -> dict[str, Any]:
     throughput = measure_throughput(args.rounds, args.duration, args.connections)
     for target in TARGETS:
         report["frameworks"][target.name]["throughput"] = throughput[target.name]
+    report["worker_start_retries"] = list(WORKER_START_RETRIES)
     return report
 
 
@@ -746,13 +774,24 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"{report['configuration']['connections']} connections, "
         f"{report['configuration']['duration_seconds']}s x "
         f"{report['configuration']['throughput_rounds']} rounds",
+        *(
+            [
+                "- Worker startup retries: "
+                f"{len(report['worker_start_retries'])} "
+                "(one bounded retry per failed fresh process)"
+            ]
+            if "worker_start_retries" in report
+            else []
+        ),
         "",
         "| Target | Version | Local first response (ms) | Idle tree RSS (MiB) | "
         "Upload gzip (KiB) | Throughput geo mean (req/s) | "
         "CPU s / 1k req | Peak tree RSS (MiB) | HTTP contract |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
-    for name, result in report["frameworks"].items():
+    target_names = [target.name for target in ALL_TARGETS if target.name in report["frameworks"]]
+    for name in target_names:
+        result = report["frameworks"][name]
         startup = result["startup"]
         payload = result["payload"]
         throughput = result["throughput"]
@@ -778,7 +817,8 @@ def render_markdown(report: dict[str, Any]) -> str:
             "|---|---:|---:|---:|---:|",
         ]
     )
-    for name, result in report["frameworks"].items():
+    for name in target_names:
+        result = report["frameworks"][name]
         scenarios = result["throughput"]["scenarios"]
         lines.append(
             f"| {name} | {scenarios['static-text']['requests_per_second']:,.0f} | "
@@ -862,6 +902,7 @@ def main() -> None:
     global TARGETS
     args = _parse_args()
     TARGETS = _select_targets(args.targets)
+    WORKER_START_RETRIES.clear()
     if args.command == "setup":
         setup()
         return

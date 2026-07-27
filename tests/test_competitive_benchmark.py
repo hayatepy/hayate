@@ -30,6 +30,11 @@ competitive_publish = _load_module(
     "competitive_publish",
     ROOT / "benchmarks/competitive/publish.py",
 )
+workers_publish = _load_module(
+    "workers_publish",
+    ROOT / "benchmarks/competitive/workers/publish.py",
+)
+workers_runner = workers_publish.RUNNER
 _locked_node_package_version = competitive_runner._locked_node_package_version
 _render_markdown = competitive_runner.render_markdown
 _setup = competitive_runner.setup
@@ -100,6 +105,46 @@ def test_recorded_baseline_summary_matches_raw_report():
 
 def test_current_publication_is_generated_from_raw_evidence():
     competitive_publish.check()
+
+
+def test_current_workers_publication_is_generated_from_raw_evidence():
+    workers_publish.check()
+
+
+def test_workers_runner_retries_one_transient_process_start(monkeypatch):
+    ports = iter((10_001, 10_002, 10_003, 10_004))
+    processes = iter((object(), object()))
+    tcp_attempts = 0
+
+    def wait_for_tcp(*_args):
+        nonlocal tcp_attempts
+        tcp_attempts += 1
+        if tcp_attempts == 1:
+            raise TimeoutError("transient start failure")
+
+    monkeypatch.setattr(workers_runner.http_benchmark, "_free_port", lambda: next(ports))
+    monkeypatch.setattr(workers_runner.http_benchmark, "_wait_for_tcp", wait_for_tcp)
+    monkeypatch.setattr(workers_runner.http_benchmark, "_wait_for_http", lambda *_args: None)
+    monkeypatch.setattr(
+        workers_runner.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: next(processes),
+    )
+    monkeypatch.setattr(workers_runner, "_stop_worker", lambda _process: None)
+    monkeypatch.setattr(workers_runner.time, "sleep", lambda _seconds: None)
+    workers_runner.WORKER_START_RETRIES.clear()
+    try:
+        with workers_runner._running_worker(workers_runner.WorkerTarget("hono")) as worker:
+            assert worker.port == 10_003
+        assert workers_runner.WORKER_START_RETRIES == [
+            {
+                "target": "hono",
+                "failed_attempt": 1,
+                "reason": "TimeoutError",
+            }
+        ]
+    finally:
+        workers_runner.WORKER_START_RETRIES.clear()
 
 
 def test_transport_profile_reports_hayate_share_of_raw_ceiling():

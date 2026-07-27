@@ -1,0 +1,6 @@
+schema_version = 1
+result = "results/2026-07-28-hayate-0.15.1-macos-arm64.json"
+
+[[historical]]
+label = "Hayate 0.10.0 previous release baseline"
+result = "results/2026-07-26-macos-arm64.json"

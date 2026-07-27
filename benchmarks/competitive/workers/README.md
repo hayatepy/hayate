@@ -58,9 +58,19 @@ uv run --no-project python benchmarks/competitive/workers/runner.py all \
   --cold-rounds 2
 ```
 
-The publication-profile baseline is committed as
-[raw JSON](results/2026-07-26-macos-arm64.json) and a
-[Markdown summary](results/2026-07-26-macos-arm64.md).
+The current Hayate 0.15.1 publication-profile baseline is committed as
+[raw JSON](results/2026-07-28-hayate-0.15.1-macos-arm64.json) and a
+[Markdown summary](results/2026-07-28-hayate-0.15.1-macos-arm64.md). The
+[Hayate 0.10.0 baseline](results/2026-07-26-macos-arm64.md) remains immutable
+history.
+
+[`current.toml`](current.toml) selects the result rendered into the public
+benchmark page. Regenerate and verify that publication with:
+
+```sh
+uv run python benchmarks/competitive/workers/publish.py
+uv run python benchmarks/competitive/workers/publish.py --check
+```
 
 ## Fairness boundary
 
