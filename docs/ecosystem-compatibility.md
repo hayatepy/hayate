@@ -73,9 +73,23 @@ The exact merge passed
 [Chromium plus WCAG A/AA axe checks](https://github.com/hayatepy/hayate-admin/actions/runs/30295638023),
 and
 [CodeQL](https://github.com/hayatepy/hayate-admin/actions/runs/30295638207).
-The native Workers/D1 upload was 1257.86 KiB / gzip 287.47 KiB. This surface is
-merged but not yet a stable/publication claim: the package's PyPI Trusted
-Publisher registration and external adoption evidence remain outstanding.
+The native Workers/D1 upload was 1257.86 KiB / gzip 287.47 KiB.
+
+The exact main snapshot is distributed by public
+[`create-hayate==0.10.0`](https://github.com/hayatepy/create-hayate/releases/tag/v0.10.0)
+after its
+[52-composition, Python 3.12-3.14, frontend, Workerd, audit, and CodeQL gates](https://github.com/hayatepy/create-hayate/pull/47).
+The independently checked
+[production golden app](https://github.com/hayatepy/golden-app/pull/22)
+adopts that snapshot and executes saved views, keyset paging, bounded CSV,
+localized redacted history, safe branding, hashed CSP, and accessibility
+semantics on Chromium, ASGI/SQLite, and both class and global Workerd/D1
+entrypoints. This completes first-party distribution and reference-adoption
+evidence.
+
+This surface is still not a stable package-publication claim:
+`hayate-admin` itself needs its PyPI Trusted Publisher registration, and
+independent production-user adoption is not yet claimed.
 
 ## Reproduce
 
