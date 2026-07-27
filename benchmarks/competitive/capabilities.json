@@ -44,12 +44,13 @@
       "id": "traditional_full_stack",
       "title": "Traditional database-backed full stack",
       "position": "competitor_advantaged",
-      "summary": "Django remains functionally ahead for its model-driven ORM/migrations, integrated forms/templates, and mature extension ecosystem. Hayate now has a first-party explicit operational admin with bounded CRUD, bulk actions, redacted history, searchable relationships, inline editing, saved views, keyset continuations, and bounded CSV export on SQLite and native Workers/D1, while retaining a Django admin/ORM application under an ASGI prefix during incremental migration.",
+      "summary": "Django remains functionally ahead for its model-driven ORM/migrations, integrated forms/templates, bundled localization breadth, and mature extension ecosystem. Hayate now has a first-party explicit operational admin with bounded CRUD, bulk actions, redacted history, searchable relationships, inline editing, saved views, keyset continuations, bounded CSV export, application-scoped localization, constrained branding, and a real-browser accessibility audit on SQLite and native Workers/D1, while retaining a Django admin/ORM application under an ASGI prefix during incremental migration.",
       "capabilities": [
         "application_composition",
         "operational_admin",
         "relational_admin",
         "scalable_admin_operations",
+        "localized_accessible_admin",
         "model_orm",
         "html_forms",
         "bounded_uploads",
@@ -614,6 +615,38 @@
       "comparisons": {
         "fastapi": "advantage",
         "django": "advantage",
+        "hono": "advantage"
+      }
+    },
+    {
+      "id": "localized_accessible_admin",
+      "title": "Localized, brandable, accessibility-audited admin",
+      "definition": "The maintained admin UI can be localized and branded without ambient global state, exposes keyboard and assistive-technology semantics, and carries reproducible real-browser accessibility evidence.",
+      "support": {
+        "hayate": {
+          "status": "first_party",
+          "note": "hayate-admin provides immutable per-site message catalogs with English defaults, escaped wordmarks, contrast-checked color/density tokens under a hashed CSP, semantic and keyboard affordances, reduced-motion handling, and pinned axe-core WCAG A/AA checks across real operational flows.",
+          "sources": ["docs/ecosystem-compatibility.md"]
+        },
+        "fastapi": {
+          "status": "not_first_party",
+          "note": "FastAPI does not document a first-party administrative UI, localization/branding contract for one, or an admin accessibility gate.",
+          "sources": ["https://fastapi.tiangolo.com/features/"]
+        },
+        "django": {
+          "status": "core",
+          "note": "Django supplies internationalization, translated admin UI, AdminSite branding and template overrides, and an admin designed for keyboard and assistive-technology access.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/topics/i18n/translation/", "https://docs.djangoproject.com/en/6.0/ref/contrib/admin/", "https://docs.djangoproject.com/en/6.0/faq/admin/#is-django-s-admin-interface-accessible"]
+        },
+        "hono": {
+          "status": "not_first_party",
+          "note": "Hono does not document a first-party operational admin UI or a corresponding localization, branding, and accessibility-audit contract.",
+          "sources": ["https://hono.dev/docs/"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "advantage",
+        "django": "parity",
         "hono": "advantage"
       }
     },
