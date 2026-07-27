@@ -209,16 +209,23 @@ def setup() -> None:
     for framework in FRAMEWORKS:
         print(f"setup: {framework.name}", flush=True)
         if framework.runtime == "python":
+            command = [
+                "uv",
+                "sync",
+                "--project",
+                str(framework.directory),
+                "--locked",
+                "--no-dev",
+                "--no-editable",
+            ]
+            if framework.name == "hayate":
+                # The lock points at this checkout. Rebuild even when its
+                # package version did not change, otherwise a previous
+                # candidate wheel can survive while the report records the
+                # current Git commit.
+                command.extend(("--reinstall-package", "hayate"))
             _run_checked(
-                [
-                    "uv",
-                    "sync",
-                    "--project",
-                    str(framework.directory),
-                    "--locked",
-                    "--no-dev",
-                    "--no-editable",
-                ],
+                command,
                 cwd=ROOT,
             )
         else:
