@@ -20,6 +20,7 @@
         "agent_authorization",
         "checked_sql",
         "direct_testing",
+        "request_correlation",
         "realtime"
       ]
     },
@@ -35,6 +36,7 @@
         "bounded_uploads",
         "dependency_graph",
         "direct_testing",
+        "request_correlation",
         "realtime",
         "lifecycle_background",
         "production_scaffold"
@@ -455,6 +457,38 @@
       "comparisons": {
         "fastapi": "parity",
         "django": "parity",
+        "hono": "parity"
+      }
+    },
+    {
+      "id": "request_correlation",
+      "title": "Safe first-party request correlation",
+      "definition": "One maintained middleware validates or generates a bounded request ID, exposes it to application code, and returns it across normal and handled-error responses.",
+      "support": {
+        "hayate": {
+          "status": "core",
+          "note": "request_id validates a conservative log-safe X-Request-ID or generates a random replacement, stores it in Context, and returns it through direct, ASGI, Workers, and Lambda paths.",
+          "sources": ["src/hayate/middleware/request_id.py", "tests/test_middleware.py", "tests/test_asgi.py", "tests/test_workers_adapter.py", "tests/test_lambda_adapter.py"]
+        },
+        "fastapi": {
+          "status": "not_first_party",
+          "note": "FastAPI documents authoring custom HTTP middleware and adding ASGI middleware, but its built-in middleware reference does not provide a request-correlation middleware.",
+          "sources": ["https://fastapi.tiangolo.com/tutorial/middleware/", "https://fastapi.tiangolo.com/reference/middleware/"]
+        },
+        "django": {
+          "status": "not_first_party",
+          "note": "Django documents the middleware contract and its bundled middleware stack, but does not include a request-correlation middleware.",
+          "sources": ["https://docs.djangoproject.com/en/6.0/topics/http/middleware/", "https://docs.djangoproject.com/en/6.0/ref/middleware/"]
+        },
+        "hono": {
+          "status": "core",
+          "note": "Hono ships requestId middleware with an incoming header, maximum length, custom generator, and Context variable.",
+          "sources": ["https://hono.dev/docs/middleware/builtin/request-id"]
+        }
+      },
+      "comparisons": {
+        "fastapi": "advantage",
+        "django": "advantage",
         "hono": "parity"
       }
     },

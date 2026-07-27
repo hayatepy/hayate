@@ -32,7 +32,7 @@ chain.
 ```python
 from hayate.middleware import (
     basic_auth, body_limit, cache, compress, cors, etag,
-    logger, rate_limit, secure_headers, static_files, timeout,
+    logger, rate_limit, request_id, secure_headers, static_files, timeout,
 )
 ```
 
@@ -49,6 +49,7 @@ from hayate.middleware import (
 | `cache(max_age=...)` | in-process GET micro-cache + `Cache-Control`/`Age` (RFC 9111) |
 | `static_files(root=...)` | files with ETag/304, single Range 206/416, traversal-safe |
 | `rate_limit(limit=..., window=..., key=...)` | quota + 429/`Retry-After`, advertised via `RateLimit`/`RateLimit-Policy` (draft-ietf-httpapi-ratelimit-headers) |
+| `request_id()` | safe `X-Request-ID` generation/preservation, `c.get("request_id")`, and response correlation |
 
 Static assets, Hono-style:
 
@@ -80,17 +81,26 @@ def from_env(c, request_origin):
 app.use(cors(origin_resolver=from_env, credentials=True))
 ```
 
+Request correlation uses a bounded log-safe value instead of trusting an
+arbitrary caller-controlled header. Register it before middleware that reads
+the context value:
+
+```python
+from hayate.middleware import logger, request_id
+
+app.use(request_id())
+app.use(logger())
+
+@app.get("/")
+async def home(c):
+    application_log.info("home", extra={"request_id": c.get("request_id")})
+    return c.text("ok")
+```
+
+Set `accept_incoming=False` and provide a generator when a platform-issued
+value such as a Cloudflare or Lambda request ID must take precedence.
+
 ## Writing your own
 
 A middleware is `async def mw(c, next_)`; a factory returning one is the
-idiomatic packaging:
-
-```python
-def request_id() -> Middleware:
-    async def request_id_middleware(c, next_):
-        rid = c.req.header("x-request-id") or new_id()
-        c.set("request_id", rid)
-        await next_()
-        c.header("x-request-id", rid)
-    return request_id_middleware
-```
+idiomatic packaging.

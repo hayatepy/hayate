@@ -1,13 +1,14 @@
-"""Built-in middleware: cors, etag, basic_auth, compress, logger."""
+"""Built-in middleware: cors, etag, basic_auth, compress, logger, request IDs."""
 
 import base64
 import gzip as gzip_module
 import logging
+import re
 
 import pytest
 
 from hayate import Context, Hayate
-from hayate.middleware import basic_auth, compress, cors, etag, logger
+from hayate.middleware import basic_auth, compress, cors, etag, logger, request_id
 
 
 def _basic(user: str, password: str) -> str:
@@ -273,3 +274,102 @@ async def test_logger_emits_line(caplog: pytest.LogCaptureFixture):
     with caplog.at_level(logging.INFO, logger="hayate.request"):
         await app.request("/")
     assert any("GET / -> 200" in record.getMessage() for record in caplog.records)
+
+
+# -- request ID ----------------------------------------------------------------------
+
+
+async def test_request_id_generates_context_and_response_value():
+    app = Hayate()
+    app.use(request_id())
+    seen: list[str] = []
+
+    @app.get("/")
+    async def root(c: Context):
+        seen.append(c.get("request_id"))
+        return c.text("ok")
+
+    res = await app.request("/")
+    value = res.headers.get("x-request-id")
+    assert value is not None
+    assert re.fullmatch(r"[0-9a-f]{32}", value)
+    assert seen == [value]
+
+
+async def test_request_id_preserves_safe_incoming_value():
+    app = Hayate()
+    app.use(request_id())
+
+    @app.get("/")
+    async def root(c: Context):
+        return c.text(c.get("request_id"))
+
+    res = await app.request("/", headers={"x-request-id": "edge:abc-123_4.5"})
+    assert await res.text() == "edge:abc-123_4.5"
+    assert res.headers.get("x-request-id") == "edge:abc-123_4.5"
+
+
+@pytest.mark.parametrize("incoming", ["contains space", "café", "x" * 129])
+async def test_request_id_replaces_unsafe_or_oversized_incoming_value(incoming: str):
+    app = Hayate()
+    app.use(request_id(generator=lambda _c: "safe-generated"))
+
+    @app.get("/")
+    async def root(c: Context):
+        return c.text(c.get("request_id"))
+
+    res = await app.request("/", headers={"x-request-id": incoming})
+    assert await res.text() == "safe-generated"
+    assert res.headers.get("x-request-id") == "safe-generated"
+
+
+async def test_request_id_can_ignore_incoming_and_use_platform_generator():
+    app = Hayate(env={"platform_request_id": "cf-ray-123"})
+    app.use(
+        request_id(
+            accept_incoming=False,
+            generator=lambda c: c.env["platform_request_id"],
+        )
+    )
+
+    @app.get("/")
+    async def root(c: Context):
+        return c.text(c.get("request_id"))
+
+    res = await app.request("/", headers={"x-request-id": "caller-value"})
+    assert await res.text() == "cf-ray-123"
+    assert res.headers.get("x-request-id") == "cf-ray-123"
+
+
+async def test_request_id_covers_not_found_and_handled_errors():
+    app = Hayate()
+    app.use(request_id(generator=lambda _c: "correlated"))
+
+    @app.get("/error")
+    async def fail(c: Context):
+        raise RuntimeError("boom")
+
+    missing = await app.request("/missing")
+    failed = await app.request("/error")
+    assert missing.status == 404
+    assert failed.status == 500
+    assert missing.headers.get("x-request-id") == "correlated"
+    assert failed.headers.get("x-request-id") == "correlated"
+
+
+def test_request_id_rejects_invalid_configuration():
+    with pytest.raises(ValueError, match="max_length"):
+        request_id(max_length=0)
+
+
+async def test_request_id_fails_closed_for_invalid_generator_value():
+    app = Hayate()
+    app.use(request_id(generator=lambda _c: "unsafe generated value"))
+
+    @app.get("/")
+    async def root(c: Context):
+        return c.text("unreachable")
+
+    res = await app.request("/")
+    assert res.status == 500
+    assert res.headers.get("x-request-id") is None

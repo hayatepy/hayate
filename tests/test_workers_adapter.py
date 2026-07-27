@@ -330,6 +330,27 @@ async def test_fetch_roundtrip(workers_runtime):
     assert ("content-type", "application/json") in js_response.headers.pairs
 
 
+async def test_request_id_crosses_native_workers_adapter(workers_runtime):
+    from hayate.middleware import request_id
+
+    app = Hayate()
+    app.use(request_id())
+
+    @app.get("/")
+    async def root(c: Context):
+        return c.text(c.get("request_id"))
+
+    js_response = await _entry(app).fetch(
+        FakeJsRequest(
+            "https://edge.example/",
+            headers=[("x-request-id", "workerd-request-123")],
+        )
+    )
+
+    assert js_response.body == b"workerd-request-123"
+    assert ("x-request-id", "workerd-request-123") in js_response.headers.pairs
+
+
 async def test_fetch_runs_route_middleware_without_global_middleware(workers_runtime):
     app = Hayate()
     calls = []

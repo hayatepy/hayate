@@ -12,17 +12,17 @@ Support levels: **Core** is in the framework package; **First-party** is maintai
 
 **Hayate advantaged** — Hayate has the clearest first-party path when one Python application must run on ASGI, native Cloudflare Workers, and buffered or response-streaming AWS Lambda HTTP payload v2 while combining typed HTTP contracts, cached dependency graphs, MCP 2025-11-25, authorization, and checked SQLite/D1 access.
 
-- Against FastAPI: Hayate advantage 6, Parity 6.
-- Against Django: Hayate advantage 9, Parity 3.
-- Against Hono: Hayate advantage 4, Parity 7, Different scope 1.
+- Against FastAPI: Hayate advantage 7, Parity 6.
+- Against Django: Hayate advantage 10, Parity 3.
+- Against Hono: Hayate advantage 4, Parity 8, Different scope 1.
 
 ### Conventional typed Python API
 
 **Competitive / mixed** — Hayate now meets FastAPI's central typed request/response, OpenAPI, dependency-graph, direct-test, realtime, lifecycle, and sub-application composition capabilities. FastAPI retains a much larger adoption ecosystem; that is a material adoption advantage, not a missing Hayate endpoint feature.
 
-- Against FastAPI: Parity 9.
-- Against Django: Hayate advantage 4, Parity 5.
-- Against Hono: Hayate advantage 2, Parity 6, Different scope 1.
+- Against FastAPI: Hayate advantage 1, Parity 9.
+- Against Django: Hayate advantage 5, Parity 5.
+- Against Hono: Hayate advantage 2, Parity 7, Different scope 1.
 
 ### Traditional database-backed full stack
 
@@ -56,6 +56,7 @@ Support levels: **Core** is in the framework package; **First-party** is maintai
 | **OAuth authorization server, resource server, and DPoP**<br>One maintained stack supplies authorization-server metadata/endpoints, resource protection, scopes, and proof-of-possession support for agent APIs. | **First-party** — hayate-auth and hayate-mcp share principals, scopes, OAuth metadata, and DPoP verification. | **No first-party path** — FastAPI provides OpenAPI-integrated security primitives and tutorials, not a maintained authorization-server product. | **No first-party path** — Django core provides user/password/session authentication and permissions, not OAuth AS plus DPoP. | **No first-party path** — Hono ships auth middleware and MCP auth routing helpers, but not the complete authorization-server and DPoP stack. |
 | **One checked SQL contract on SQLite and D1**<br>The same SQL declarations are cardinality-checked and generate typed Python calls for local SQLite and Cloudflare D1. | **First-party** — hayate-sql plus the golden app compile one migration/query set and execute it on SQLite and real D1. | **No first-party path** — FastAPI is database-agnostic and delegates database contracts to external packages. | **No first-party path** — Django has a first-party ORM for documented SQL backends, but not a shared SQLite/Cloudflare D1 checked-SQL path. | **No first-party path** — Hono exposes D1 through the runtime; checked SQL/code generation is delegated to database libraries. |
 | **Direct application request testing**<br>Tests can call the application without starting a socket server. | **Core** — app.request executes the Fetch core directly and accepts runtime env bindings. | **Core** — FastAPI documents TestClient for direct application tests. | **Core** — Django provides synchronous and asynchronous test clients. | **Core** — app.request accepts Request data and optional runtime env values. |
+| **Safe first-party request correlation**<br>One maintained middleware validates or generates a bounded request ID, exposes it to application code, and returns it across normal and handled-error responses. | **Core** — request_id validates a conservative log-safe X-Request-ID or generates a random replacement, stores it in Context, and returns it through direct, ASGI, Workers, and Lambda paths. | **No first-party path** — FastAPI documents authoring custom HTTP middleware and adding ASGI middleware, but its built-in middleware reference does not provide a request-correlation middleware. | **No first-party path** — Django documents the middleware contract and its bundled middleware stack, but does not include a request-correlation middleware. | **Core** — Hono ships requestId middleware with an incoming header, maximum length, custom generator, and Context variable. |
 | **WebSocket, streaming, and SSE**<br>The maintained application surface supports bidirectional sockets and incremental HTTP responses. | **Core** — ASGI and Workers adapters preserve WebSockets, streaming bodies, abort signals, and SSE. | **Core** — FastAPI inherits Starlette WebSockets and streaming responses. | **External** — Django supports streaming HTTP, while WebSocket routing is supplied by Django Channels. | **Core** — Hono ships runtime WebSocket helpers and stream/streamSSE helpers. |
 | **Lifecycle and background work**<br>The framework exposes startup/shutdown or runtime lifecycle hooks and a supported path for post-response/background work. | **Core** — ASGI lifespan hooks and c.wait_until map to server draining or Workers ctx.waitUntil. | **Core** — FastAPI documents lifespan events and BackgroundTasks. | **Core** — Django 6.0 includes async lifecycle support and a Tasks contract, with execution delegated to infrastructure. | **Core** — Hono exposes runtime execution context including waitUntil on Workers. |
 | **Secure operational administration**<br>The ecosystem supplies a maintained internal CRUD UI with bounded list and mutation operations, authorization, and audit evidence. | **First-party** — hayate-admin provides explicit CRUD, search/filter/sort, bounded bulk actions, redacted object history, searchable relationships, and inline editing with per-object authorization on SQLite and native Workers/D1. | **No first-party path** — An administrative UI is not part of FastAPI's documented core feature set. | **Core** — Django's automatic, customizable model admin includes CRUD, actions, and object history. | **No first-party path** — An operational admin UI is not part of Hono's documented framework and helper surface. |
@@ -165,6 +166,14 @@ Support levels: **Core** is in the framework package; **First-party** is maintai
 - **Django — Core:** Django provides synchronous and asynchronous test clients. ([source 1](https://docs.djangoproject.com/en/6.0/topics/testing/tools/))
 - **Hono — Core:** app.request accepts Request data and optional runtime env values. ([source 1](https://hono.dev/docs/guides/testing))
 - **Relative to Hayate:** FastAPI: Parity; Django: Parity; Hono: Parity.
+
+### Safe first-party request correlation
+
+- **Hayate — Core:** request_id validates a conservative log-safe X-Request-ID or generates a random replacement, stores it in Context, and returns it through direct, ASGI, Workers, and Lambda paths. ([evidence 1](https://github.com/hayatepy/hayate/blob/main/src/hayate/middleware/request_id.py), [evidence 2](https://github.com/hayatepy/hayate/blob/main/tests/test_middleware.py), [evidence 3](https://github.com/hayatepy/hayate/blob/main/tests/test_asgi.py), [evidence 4](https://github.com/hayatepy/hayate/blob/main/tests/test_workers_adapter.py), [evidence 5](https://github.com/hayatepy/hayate/blob/main/tests/test_lambda_adapter.py))
+- **FastAPI — No first-party path:** FastAPI documents authoring custom HTTP middleware and adding ASGI middleware, but its built-in middleware reference does not provide a request-correlation middleware. ([source 1](https://fastapi.tiangolo.com/tutorial/middleware/), [source 2](https://fastapi.tiangolo.com/reference/middleware/))
+- **Django — No first-party path:** Django documents the middleware contract and its bundled middleware stack, but does not include a request-correlation middleware. ([source 1](https://docs.djangoproject.com/en/6.0/topics/http/middleware/), [source 2](https://docs.djangoproject.com/en/6.0/ref/middleware/))
+- **Hono — Core:** Hono ships requestId middleware with an incoming header, maximum length, custom generator, and Context variable. ([source 1](https://hono.dev/docs/middleware/builtin/request-id))
+- **Relative to Hayate:** FastAPI: Hayate advantage; Django: Hayate advantage; Hono: Parity.
 
 ### WebSocket, streaming, and SSE
 
