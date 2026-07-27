@@ -380,7 +380,12 @@ async def _send_response(scope: dict[str, Any], send: Send, response: Response) 
     pairs = response._header_pairs_for_adapter()
     headers = [_wire_pair(pair) for pair in pairs]
     body_allowed = status >= 200 and status not in (204, 304)
-    has_content_length = any(name == "content-length" for name, _ in pairs)
+    # Trusted Context response helpers keep their default header pairs outside
+    # a mutable Headers object, and those pairs never contain content-length.
+    # Avoid allocating/scanning a generator on the overwhelmingly common path.
+    has_content_length = response._headers is not None and any(
+        name == "content-length" for name, _ in pairs
+    )
     if body_allowed and not has_content_length:
         if isinstance(body, bytes):
             headers.append(_wire_pair(("content-length", str(len(body)))))
