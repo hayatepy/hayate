@@ -1,8 +1,11 @@
 """Request: Fetch body semantics, clone/tee, form parsing."""
 
+import tempfile
+from typing import Any, BinaryIO
+
 import pytest
 
-from hayate import AbortSignal, File, Request
+from hayate import AbortSignal, File, FormDataLimitError, FormDataLimits, Request
 from hayate.request import HayateRequest
 
 
@@ -100,6 +103,160 @@ async def test_form_multipart():
     assert upload.type == "text/plain"
     assert upload.size == len(b"file-content")
     assert await upload.bytes() == b"file-content"
+
+
+async def test_streaming_multipart_spools_large_files_and_keeps_fetch_surface():
+    boundary = "stream-boundary"
+    payload = b"chunked-file-content"
+    body = (
+        b"--"
+        + boundary.encode()
+        + b'\r\nContent-Disposition: form-data; name="title"\r\n\r\nexample\r\n--'
+        + boundary.encode()
+        + b'\r\nContent-Disposition: form-data; name="file"; filename="a.txt"\r\n'
+        + b"Content-Type: text/plain\r\n\r\n"
+        + payload
+        + b"\r\n--"
+        + boundary.encode()
+        + b"--\r\n"
+    )
+
+    async def chunks():
+        for offset in range(0, len(body), 3):
+            yield body[offset : offset + 3]
+
+    limits = FormDataLimits(
+        max_body_bytes=512,
+        max_file_bytes=64,
+        max_field_bytes=32,
+        max_parts=4,
+        max_header_bytes=128,
+        file_memory_bytes=4,
+    )
+    request = Request(
+        "http://x/",
+        method="POST",
+        headers={"content-type": f"multipart/form-data; boundary={boundary}"},
+        body=chunks(),
+    )
+
+    form = await request.form_data(limits)
+    assert request.body_used
+    assert form.get("title") == "example"
+    upload = form.get("file")
+    assert isinstance(upload, File)
+    assert upload.spooled
+    assert upload.size == len(payload)
+    assert b"".join([chunk async for chunk in upload.stream(5)]) == payload
+    assert await upload.bytes() == payload
+
+    await form.close()
+    assert upload.closed
+    with pytest.raises(ValueError, match="closed"):
+        await upload.bytes()
+
+
+@pytest.mark.parametrize("chunk_size", [1, 2, 3, 7, 19, 1024])
+async def test_streaming_multipart_is_independent_of_transport_chunk_boundaries(chunk_size):
+    boundary = "split-boundary"
+    payload = b"before\r\n--split-boundaryXafter"
+    body = (
+        b"--"
+        + boundary.encode()
+        + b'\r\nContent-Disposition: form-data; name="first"\r\n\r\none\r\n--'
+        + boundary.encode()
+        + b'\r\nContent-Disposition: form-data; name="first"\r\n\r\ntwo\r\n--'
+        + boundary.encode()
+        + b'\r\nContent-Disposition: form-data; name="file"; filename="a.bin"\r\n\r\n'
+        + payload
+        + b"\r\n--"
+        + boundary.encode()
+        + b"--\r\n"
+    )
+
+    async def chunks():
+        for offset in range(0, len(body), chunk_size):
+            yield body[offset : offset + chunk_size]
+
+    request = Request(
+        "http://x/",
+        method="POST",
+        headers={"content-type": f"multipart/form-data; boundary={boundary}"},
+        body=chunks(),
+    )
+    form = await request.form_data(FormDataLimits(file_memory_bytes=4))
+    assert form.get_all("first") == ["one", "two"]
+    upload = form.get("file")
+    assert isinstance(upload, File)
+    assert await upload.bytes() == payload
+    await form.close()
+
+
+async def test_streaming_multipart_closes_partial_spool_when_limit_fails(monkeypatch):
+    opened: list[BinaryIO] = []
+    real_temporary_file = tempfile.TemporaryFile
+
+    def tracked_temporary_file(*args: Any, **kwargs: Any) -> BinaryIO:
+        file = real_temporary_file(*args, **kwargs)
+        opened.append(file)
+        return file
+
+    monkeypatch.setattr(tempfile, "TemporaryFile", tracked_temporary_file)
+    boundary = "limit-boundary"
+    body = (
+        b"--"
+        + boundary.encode()
+        + b'\r\nContent-Disposition: form-data; name="file"; filename="a.bin"\r\n\r\n'
+        + b"0123456789"
+        + b"\r\n--"
+        + boundary.encode()
+        + b"--\r\n"
+    )
+
+    async def chunks():
+        for value in body:
+            yield bytes([value])
+
+    request = Request(
+        "http://x/",
+        method="POST",
+        headers={"content-type": f"multipart/form-data; boundary={boundary}"},
+        body=chunks(),
+    )
+    limits = FormDataLimits(
+        max_body_bytes=256,
+        max_file_bytes=6,
+        max_field_bytes=16,
+        max_parts=2,
+        max_header_bytes=128,
+        file_memory_bytes=2,
+    )
+
+    with pytest.raises(FormDataLimitError, match="max_file_bytes"):
+        await request.form_data(limits)
+    assert opened
+    assert all(file.closed for file in opened)
+
+
+async def test_form_limits_apply_to_buffered_and_urlencoded_inputs():
+    multipart = Request(
+        "http://x/",
+        method="POST",
+        headers={"content-type": "multipart/form-data; boundary=b"},
+        body=(b'--b\r\nContent-Disposition: form-data; name="field"\r\n\r\ntoo-long\r\n--b--\r\n'),
+    )
+    limits = FormDataLimits(max_field_bytes=3, file_memory_bytes=0)
+    with pytest.raises(FormDataLimitError, match="max_field_bytes"):
+        await multipart.form_data(limits)
+
+    urlencoded = Request(
+        "http://x/",
+        method="POST",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+        body="field=too-long",
+    )
+    with pytest.raises(FormDataLimitError, match="max_field_bytes"):
+        await urlencoded.form_data(limits)
 
 
 async def test_form_data_rejects_other_content_types():

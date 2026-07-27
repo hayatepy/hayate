@@ -1,8 +1,9 @@
 """ASGI adapter: driven directly with in-test scope/receive/send."""
 
+import tempfile
 from typing import Any
 
-from hayate import Context, Hayate, Response
+from hayate import Context, File, FormDataError, FormDataLimits, Hayate, Response
 
 
 async def call_asgi(
@@ -121,6 +122,157 @@ async def test_post_stream_preserves_asgi_chunks():
     )
 
     assert response_body(messages) == b'{"chunks":["one","two"]}'
+
+
+async def test_chunked_asgi_multipart_spools_without_buffering_the_upload():
+    app = Hayate()
+    limits = FormDataLimits(
+        max_body_bytes=512,
+        max_file_bytes=128,
+        max_field_bytes=32,
+        max_parts=2,
+        max_header_bytes=128,
+        file_memory_bytes=4,
+    )
+
+    @app.post("/upload")
+    async def upload(c: Context):
+        form = await c.req.form_data(limits)
+        file = form.get("file")
+        assert isinstance(file, File)
+        result = {
+            "spooled": file.spooled,
+            "size": file.size,
+            "body": (await file.text()),
+        }
+        await form.close()
+        return c.json(result)
+
+    boundary = "asgi-boundary"
+    body = (
+        b"--"
+        + boundary.encode()
+        + b'\r\nContent-Disposition: form-data; name="file"; filename="a.txt"\r\n'
+        + b"Content-Type: text/plain\r\n\r\n"
+        + b"streamed-content"
+        + b"\r\n--"
+        + boundary.encode()
+        + b"--\r\n"
+    )
+    chunks = [body[offset : offset + 3] for offset in range(0, len(body), 3)]
+    inbox = [
+        {
+            "type": "http.request",
+            "body": chunk,
+            "more_body": index < len(chunks) - 1,
+        }
+        for index, chunk in enumerate(chunks)
+    ]
+    messages: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        return inbox.pop(0)
+
+    async def send(message: dict[str, Any]) -> None:
+        messages.append(message)
+
+    await app(
+        {
+            "type": "http",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/upload",
+            "raw_path": b"/upload",
+            "query_string": b"",
+            "headers": [
+                (b"host", b"testserver"),
+                (b"transfer-encoding", b"chunked"),
+                (
+                    b"content-type",
+                    f"multipart/form-data; boundary={boundary}".encode(),
+                ),
+            ],
+        },
+        receive,
+        send,
+    )
+
+    assert response_status(messages) == 200
+    assert response_body(messages) == (b'{"spooled":true,"size":16,"body":"streamed-content"}')
+
+
+async def test_multipart_disconnect_aborts_and_closes_partial_spool(monkeypatch):
+    opened = []
+    real_temporary_file = tempfile.TemporaryFile
+
+    def tracked_temporary_file(*args, **kwargs):
+        file = real_temporary_file(*args, **kwargs)
+        opened.append(file)
+        return file
+
+    monkeypatch.setattr(tempfile, "TemporaryFile", tracked_temporary_file)
+    app = Hayate()
+    limits = FormDataLimits(
+        max_body_bytes=512,
+        max_file_bytes=128,
+        max_field_bytes=32,
+        max_parts=2,
+        max_header_bytes=128,
+        file_memory_bytes=2,
+    )
+
+    @app.post("/upload")
+    async def upload(c: Context):
+        try:
+            await c.req.form_data(limits)
+        except FormDataError:
+            return c.json({"aborted": c.req.signal.aborted}, 400)
+        raise AssertionError("a disconnected multipart body must not parse")
+
+    boundary = "disconnect-boundary"
+    partial = (
+        b"--"
+        + boundary.encode()
+        + b'\r\nContent-Disposition: form-data; name="file"; filename="a.bin"\r\n\r\n'
+        + b"x" * 64
+    )
+    inbox = [
+        {"type": "http.request", "body": partial, "more_body": True},
+        {"type": "http.disconnect"},
+    ]
+    messages: list[dict[str, Any]] = []
+
+    async def receive() -> dict[str, Any]:
+        return inbox.pop(0)
+
+    async def send(message: dict[str, Any]) -> None:
+        messages.append(message)
+
+    await app(
+        {
+            "type": "http",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/upload",
+            "raw_path": b"/upload",
+            "query_string": b"",
+            "headers": [
+                (b"host", b"testserver"),
+                (b"transfer-encoding", b"chunked"),
+                (
+                    b"content-type",
+                    f"multipart/form-data; boundary={boundary}".encode(),
+                ),
+            ],
+        },
+        receive,
+        send,
+    )
+
+    assert response_status(messages) == 400
+    assert response_body(messages) == b'{"aborted":true}'
+    assert opened
+    assert all(file.closed for file in opened)
 
 
 async def test_query_string_reaches_url():

@@ -30,6 +30,7 @@ from typing import Any, Literal
 
 from .context import Context, Middleware, Next
 from .exceptions import HTTPException
+from .formdata import FormData, FormDataError, FormDataLimitError
 
 type ValidationTarget = Literal["json", "form", "query", "param", "header", "cookie"]
 
@@ -48,6 +49,7 @@ def validator(target: ValidationTarget, validate: Callable[[Any], Any]) -> Middl
 
     async def validator_middleware(c: Context, next_: Next) -> None:
         data: Any
+        form: FormData | None = None
         if target == "json":
             try:
                 data = await c.req.json()
@@ -56,7 +58,17 @@ def validator(target: ValidationTarget, validate: Callable[[Any], Any]) -> Middl
                     400, title="Validation failed", detail="request body is not valid JSON"
                 ) from None
         elif target == "form":
-            data = dict(await c.req.form_data())
+            try:
+                form = await c.req.form_data()
+                data = dict(form)
+            except FormDataLimitError as exc:
+                raise HTTPException(413, title="Payload Too Large", detail=str(exc)) from exc
+            except (FormDataError, TypeError) as exc:
+                raise HTTPException(
+                    400,
+                    title="Validation failed",
+                    detail=f"request form is invalid: {exc}",
+                ) from exc
         elif target == "query":
             data = dict(c.req.url.search_params)
         elif target == "param":
@@ -66,12 +78,16 @@ def validator(target: ValidationTarget, validate: Callable[[Any], Any]) -> Middl
         else:
             data = c.req.cookies
         try:
-            validated = validate(data)
-        except HTTPException:
-            raise
-        except Exception as exc:
-            raise HTTPException(400, title="Validation failed", detail=str(exc)) from exc
-        c.req._set_valid(target, validated)
-        await next_()
+            try:
+                validated = validate(data)
+            except HTTPException:
+                raise
+            except Exception as exc:
+                raise HTTPException(400, title="Validation failed", detail=str(exc)) from exc
+            c.req._set_valid(target, validated)
+            await next_()
+        finally:
+            if form is not None:
+                await form.close()
 
     return validator_middleware

@@ -8,7 +8,16 @@ Deploy (from this directory, wrangler + Python Workers beta):
 
 import asyncio
 
-from hayate import URL, Context, Hayate
+from hayate import (
+    URL,
+    Context,
+    File,
+    FormDataError,
+    FormDataLimitError,
+    FormDataLimits,
+    Hayate,
+    problem,
+)
 from hayate.adapters.workers import forward, to_durable_object, to_workers
 
 app = Hayate()
@@ -62,6 +71,37 @@ async def events(c: Context):
 @app.post("/echo")
 async def echo(c: Context):
     return c.json({"got": await c.req.json()})
+
+
+@app.post("/form")
+async def form(c: Context):
+    """Exercise bounded, disk-free multipart parsing inside Pyodide."""
+    limits = FormDataLimits(
+        max_body_bytes=256,
+        max_file_bytes=32,
+        max_field_bytes=32,
+        max_parts=4,
+        max_header_bytes=128,
+        file_memory_bytes=4,
+    )
+    try:
+        data = await c.req.form_data(limits)
+    except FormDataLimitError as exc:
+        return problem(413, title="Payload Too Large", detail=str(exc))
+    except FormDataError as exc:
+        return problem(400, title="Invalid form", detail=str(exc))
+    async with data:
+        upload = data.get("file")
+        if not isinstance(upload, File):
+            return problem(400, title="A file is required")
+        return c.json(
+            {
+                "filename": upload.name,
+                "size": upload.size,
+                "spooled": upload.spooled,
+                "text": await upload.text(),
+            }
+        )
 
 
 @app.ws("/ws")

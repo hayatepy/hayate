@@ -24,6 +24,18 @@ URL / URLPattern standards; spelling follows PEP 8 (`searchParams` →
 
 ::: hayate.HayateRequest
 
+## Forms and files
+
+::: hayate.FormData
+
+::: hayate.File
+
+::: hayate.FormDataLimits
+
+::: hayate.FormDataError
+
+::: hayate.FormDataLimitError
+
 ## Responses
 
 ::: hayate.Response
