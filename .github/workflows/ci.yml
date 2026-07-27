@@ -34,6 +34,7 @@ jobs:
       - run: uv run pytest -q
       - run: uv run python benchmarks/competitive/capabilities.py --check
       - run: uv run python benchmarks/competitive/publish.py --check
+      - run: uv run python benchmarks/competitive/workers/publish.py --check
 
   # Free-threaded build: the core must stay free of global mutable state.
   test-free-threaded:
