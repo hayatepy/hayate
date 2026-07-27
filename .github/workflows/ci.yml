@@ -80,8 +80,8 @@ jobs:
       - run: uv sync --locked
       - run: bash scripts/check_workerd.sh
 
-  # Package the exact wheel into AWS's digest-pinned Python image and invoke
-  # it through the included Lambda Runtime Interface Emulator.
+  # Package the exact wheel into AWS's digest-pinned Python image. Exercise
+  # both the managed buffered handler and the native custom-runtime stream.
   lambda-runtime:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -94,6 +94,7 @@ jobs:
           python-version: "3.14"
       - run: uv sync --locked
       - run: bash scripts/check_lambda_runtime.sh
+      - run: bash scripts/check_lambda_streaming_runtime.sh
 
   # Tier 2 accelerator: build the Rust wheel and verify behavioral identity.
   accel:
