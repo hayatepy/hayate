@@ -63,7 +63,7 @@
       "id": "javascript_edge",
       "title": "JavaScript and TypeScript edge application",
       "position": "competitor_advantaged",
-      "summary": "Hono remains functionally ahead for multi-JavaScript-runtime reach and route-inferred TypeScript RPC, and its JavaScript Workers runtime has materially better startup, memory, CPU, and upload size than Python Workers.",
+      "summary": "Hono remains functionally ahead for multi-JavaScript-runtime reach and route-inferred TypeScript RPC. Hayate now generates and executes a first-party zero-runtime Fetch client, while Hono's JavaScript Workers runtime retains materially better startup, memory, CPU, and upload size than Python Workers.",
       "capabilities": [
         "fetch_core",
         "native_workers",
@@ -243,8 +243,8 @@
       "support": {
         "hayate": {
           "status": "first_party",
-          "note": "hayate-openapi 0.7 provides explicit source markers, portable typed constraints, typed binary files, response contracts, pluggable schema providers, OpenAPI 3.1.1, and Scalar on CPython and Python Workers.",
-          "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md", "https://github.com/hayatepy/hayate-openapi/blob/v0.7.0/README.md"]
+          "note": "hayate-openapi 0.8.1 provides explicit source markers, portable typed constraints, typed binary files, response contracts, pluggable schema providers, OpenAPI 3.1.1, Scalar, and a generated dependency-free Fetch client on CPython and Python Workers.",
+          "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md", "https://github.com/hayatepy/hayate-openapi/blob/v0.8.1/README.md"]
         },
         "fastapi": {
           "status": "core",
@@ -276,7 +276,7 @@
         "hayate": {
           "status": "core",
           "note": "FormDataLimits caps total body, file, field, part count, and headers; native ASGI parsing streams to a configurable temporary-file threshold while Workers stays bounded without disk, and typed OpenAPI files reuse the same contract.",
-          "sources": ["src/hayate/formdata.py", "tests/test_asgi.py", "benchmarks/competitive/uploads/runner.py", "benchmarks/competitive/results/2026-07-27-uploads-macos-arm64.md", "https://github.com/hayatepy/hayate-openapi/blob/v0.7.0/README.md"]
+          "sources": ["src/hayate/formdata.py", "tests/test_asgi.py", "benchmarks/competitive/uploads/runner.py", "benchmarks/competitive/results/2026-07-27-uploads-macos-arm64.md", "https://github.com/hayatepy/hayate-openapi/blob/v0.8.1/README.md"]
         },
         "fastapi": {
           "status": "core",
@@ -787,8 +787,8 @@
       "support": {
         "hayate": {
           "status": "first_party",
-          "note": "create-hayate pins OpenAPI TypeScript generation and checks generated artifacts.",
-          "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md"]
+          "note": "hayate-openapi 0.8.1 generates a deterministic status-discriminated Fetch client with zero runtime package dependencies; create-hayate 0.13.0 drift-checks it, and golden-app strictly compiles and executes authenticated JSON, query/path, multipart, and delete calls against real ASGI. This is schema generation rather than Hono's in-process route-type inference.",
+          "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md", "https://github.com/hayatepy/hayate-openapi/blob/v0.8.1/README.md", "https://github.com/hayatepy/create-hayate/blob/v0.13.0/README.md", "https://github.com/hayatepy/golden-app/blob/842fd2486f3d8bd5c284e44e4f8528b0441a574a/client/check-api-client.ts"]
         },
         "fastapi": {
           "status": "core",
