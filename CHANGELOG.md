@@ -4,6 +4,8 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-07-30
+
 ### Changed
 
 - Route the public ecosystem and compatibility entry links through

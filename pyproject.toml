@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "hayate"
-version = "0.15.1"
+version = "0.15.2"
 description = "Web-standards-first Python web framework: Fetch API semantics and a runtime-agnostic core"
 readme = "README.md"
 requires-python = ">=3.12"
