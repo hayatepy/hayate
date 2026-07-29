@@ -8,6 +8,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 _PUBLIC_VERSION = re.compile(r'^__version__ = "([^"]+)"$', re.MULTILINE)
+_PUBLIC_HOME = "https://hayatepy.dev/"
+_PUBLIC_COMPATIBILITY = "https://hayatepy.dev/evidence/compatibility/"
+_SUPERSEDED_DOCS_PREFIX = "https://github.com/hayatepy/.github/blob/main/docs/"
 
 
 def _local_hayate_versions(root: Path) -> dict[str, str]:
@@ -75,3 +78,13 @@ source = { directory = ".." }
     )
 
     assert _local_hayate_versions(root) == {"nested/uv.lock": "1.2.3"}
+
+
+def test_public_discovery_links_use_the_canonical_site() -> None:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert project["project"]["urls"]["Homepage"] == _PUBLIC_HOME
+
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert f"[Start here]({_PUBLIC_HOME})" in readme
+    assert f"[Tested compatibility]({_PUBLIC_COMPATIBILITY})" in readme
+    assert _SUPERSEDED_DOCS_PREFIX not in readme

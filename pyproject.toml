@@ -24,6 +24,7 @@ classifiers = [
 dependencies = ["uts46>=0.2,<1"]
 
 [project.urls]
+Homepage = "https://hayatepy.dev/"
 Repository = "https://github.com/hayatepy/hayate"
 Documentation = "https://hayatepy.github.io/hayate/"
 Changelog = "https://github.com/hayatepy/hayate/blob/main/CHANGELOG.md"

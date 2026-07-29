@@ -4,6 +4,11 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Route the public ecosystem and compatibility entry links through
+  `hayatepy.dev`, and expose that canonical site as package homepage metadata.
+
 ## [0.15.1] - 2026-07-28
 
 ### Fixed

@@ -1,8 +1,8 @@
 # hayate
 
-> **Hayate ecosystem:** [Start here](https://github.com/hayatepy/.github/blob/main/docs/START.md)
+> **Hayate ecosystem:** [Start here](https://hayatepy.dev/)
 > · [Production golden app](https://github.com/hayatepy/golden-app)
-> · [Tested compatibility](https://github.com/hayatepy/.github/blob/main/docs/COMPATIBILITY.md)
+> · [Tested compatibility](https://hayatepy.dev/evidence/compatibility/)
 
 > A web-standards-first Python web framework, inspired by [Hono](https://hono.dev).
 
