@@ -84,7 +84,8 @@ def test_public_discovery_links_use_the_canonical_site() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert project["project"]["urls"]["Homepage"] == _PUBLIC_HOME
 
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert f"[Start here]({_PUBLIC_HOME})" in readme
-    assert f"[Tested compatibility]({_PUBLIC_COMPATIBILITY})" in readme
-    assert _SUPERSEDED_DOCS_PREFIX not in readme
+    for public_entry_point in ("README.md", "docs/index.md"):
+        content = (ROOT / public_entry_point).read_text(encoding="utf-8")
+        assert f"[Start here]({_PUBLIC_HOME})" in content
+        assert f"[Tested compatibility]({_PUBLIC_COMPATIBILITY})" in content
+        assert _SUPERSEDED_DOCS_PREFIX not in content
