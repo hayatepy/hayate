@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "as_of": "2026-07-28",
+  "as_of": "2026-07-30",
   "universal_winner": null,
   "profiles": [
     {
       "id": "portable_agent_api",
       "title": "Portable Python agent API",
       "position": "advantaged",
-      "summary": "Hayate has the clearest first-party path when one Python application must run on ASGI, native Cloudflare Workers, and buffered or response-streaming AWS Lambda HTTP payload v2 while combining typed HTTP contracts, cached dependency graphs, MCP 2025-11-25, authorization, and checked SQLite/D1 access.",
+      "summary": "Hayate has the clearest first-party path when one Python application must run on ASGI, native Cloudflare Workers, and buffered or response-streaming AWS Lambda HTTP payload v2 while combining typed HTTP contracts, cached dependency graphs, MCP 2026-07-28, authorization, and checked SQLite/D1 access.",
       "capabilities": [
         "fetch_core",
         "asgi",
@@ -339,7 +339,7 @@
       "support": {
         "hayate": {
           "status": "first_party",
-          "note": "hayate-mcp tests MCP 2025-11-25 on ASGI and native Python Workers with the official conformance runner.",
+          "note": "hayate-mcp 0.12.0 tests MCP 2026-07-28 on ASGI and native Python Workers with the official conformance runner.",
           "sources": ["benchmarks/ecosystem/runner.py", "docs/ecosystem-compatibility.md"]
         },
         "fastapi": {
