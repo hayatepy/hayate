@@ -75,10 +75,10 @@ and
 [CodeQL](https://github.com/hayatepy/hayate-admin/actions/runs/30295638207).
 The native Workers/D1 upload was 1257.86 KiB / gzip 287.47 KiB.
 
-The exact main snapshot is distributed by public
-[`create-hayate==0.10.0`](https://github.com/hayatepy/create-hayate/releases/tag/v0.10.0)
-after its
-[52-composition, Python 3.12-3.14, frontend, Workerd, audit, and CodeQL gates](https://github.com/hayatepy/create-hayate/pull/47).
+The reviewed `aedd4c4` snapshot remains distributed by public
+[`create-hayate==0.13.2`](https://github.com/hayatepy/create-hayate/releases/tag/v0.13.2)
+after its current
+[Python 3.12-3.14, feature-matrix, frontend, Workerd, audit, and CodeQL gates](https://github.com/hayatepy/create-hayate/actions/runs/30502494267).
 The independently checked
 [production golden app](https://github.com/hayatepy/golden-app/pull/22)
 adopts that snapshot and executes saved views, keyset paging, bounded CSV,
