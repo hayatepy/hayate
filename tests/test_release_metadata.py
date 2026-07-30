@@ -11,6 +11,7 @@ _PUBLIC_VERSION = re.compile(r'^__version__ = "([^"]+)"$', re.MULTILINE)
 _PUBLIC_HOME = "https://hayatepy.dev/"
 _PUBLIC_COMPATIBILITY = "https://hayatepy.dev/evidence/compatibility/"
 _SUPERSEDED_DOCS_PREFIX = "https://github.com/hayatepy/.github/blob/main/docs/"
+_SUPERSEDED_PAGES_PREFIX = "https://hayatepy.github.io/"
 
 
 def _local_hayate_versions(root: Path) -> dict[str, str]:
@@ -83,9 +84,23 @@ source = { directory = ".." }
 def test_public_discovery_links_use_the_canonical_site() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert project["project"]["urls"]["Homepage"] == _PUBLIC_HOME
+    assert project["project"]["urls"]["Documentation"] == _PUBLIC_HOME
 
     for public_entry_point in ("README.md", "docs/index.md"):
         content = (ROOT / public_entry_point).read_text(encoding="utf-8")
         assert f"[Start here]({_PUBLIC_HOME})" in content
         assert f"[Tested compatibility]({_PUBLIC_COMPATIBILITY})" in content
         assert _SUPERSEDED_DOCS_PREFIX not in content
+
+
+def test_llms_index_uses_canonical_and_release_immutable_docs() -> None:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    version = project["project"]["version"]
+    content = (ROOT / "docs" / "llms.txt").read_text(encoding="utf-8")
+
+    assert _PUBLIC_HOME in content
+    assert "https://hayatepy.dev/get-started/first-app/" in content
+    assert "https://hayatepy.dev/deploy/" in content
+    assert "https://hayatepy.dev/evidence/benchmarks/" in content
+    assert f"https://github.com/hayatepy/hayate/blob/v{version}/docs/" in content
+    assert _SUPERSEDED_PAGES_PREFIX not in content
