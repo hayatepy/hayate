@@ -35,19 +35,19 @@ Key facts for code generation:
 
 ## Docs
 
-- [Home](https://hayatepy.github.io/hayate/): overview and install
-- [Getting started](https://hayatepy.github.io/hayate/guide/getting-started/): a complete TODO API with tests
-- [Routing](https://hayatepy.github.io/hayate/guide/routing/): URLPattern syntax and matching rules
-- [Context and responses](https://hayatepy.github.io/hayate/guide/context/): c.req, response helpers, errors, cookies, wait_until
-- [Middleware](https://hayatepy.github.io/hayate/guide/middleware/): onion model and the built-ins
-- [Realtime](https://hayatepy.github.io/hayate/guide/realtime/): WebSocket and Server-Sent Events
-- [Validation](https://hayatepy.github.io/hayate/guide/validation/): the validator hook with msgspec/pydantic
-- [Runtimes](https://hayatepy.github.io/hayate/guide/runtimes/): ASGI, Cloudflare Workers, AWS Lambda
-- [Testing](https://hayatepy.github.io/hayate/guide/testing/): app.request() patterns
-- [API reference](https://hayatepy.github.io/hayate/api/)
+- [Home](https://hayatepy.dev/): ecosystem overview and install
+- [Getting started](https://hayatepy.dev/get-started/first-app/): a verified application path
+- [Routing](https://github.com/hayatepy/hayate/blob/v0.15.3/docs/guide/routing.md): URLPattern syntax and matching rules
+- [Context and responses](https://github.com/hayatepy/hayate/blob/v0.15.3/docs/guide/context.md): c.req, response helpers, errors, cookies, wait_until
+- [Middleware](https://github.com/hayatepy/hayate/blob/v0.15.3/docs/guide/middleware.md): onion model and the built-ins
+- [Realtime](https://github.com/hayatepy/hayate/blob/v0.15.3/docs/guide/realtime.md): WebSocket and Server-Sent Events
+- [Validation](https://github.com/hayatepy/hayate/blob/v0.15.3/docs/guide/validation.md): the validator hook with msgspec/pydantic
+- [Runtimes](https://hayatepy.dev/deploy/): ASGI, Cloudflare Workers, AWS Lambda
+- [Testing](https://github.com/hayatepy/hayate/blob/v0.15.3/docs/guide/testing.md): app.request() patterns
+- [API reference](https://github.com/hayatepy/hayate/blob/v0.15.3/docs/api.md)
 
 ## Optional
 
-- [Conformance](https://hayatepy.github.io/hayate/conformance/): measured wpt pass rates and documented subsets
-- [Benchmarks](https://hayatepy.github.io/hayate/benchmarks/): methodology and numbers vs Starlette
+- [Conformance](https://github.com/hayatepy/hayate/blob/v0.15.3/docs/conformance.md): measured wpt pass rates and documented subsets
+- [Benchmarks](https://hayatepy.dev/evidence/benchmarks/): reproducible competitive methodology and results
 - [Source](https://github.com/hayatepy/hayate): MIT, maintained by Yusuke Hayashi

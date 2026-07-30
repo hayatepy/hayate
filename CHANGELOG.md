@@ -4,6 +4,14 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+## [0.15.3] - 2026-07-30
+
+### Changed
+
+- Route distribution documentation metadata and the LLM documentation index
+  through `hayatepy.dev`, while keeping detailed release-specific core guides
+  pinned to the immutable `v0.15.3` source tag.
+
 ## [0.15.2] - 2026-07-30
 
 ### Changed
