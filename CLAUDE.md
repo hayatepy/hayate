@@ -40,7 +40,7 @@ the user-facing surface; WSGI/ASGI are adapter details.
 uv run pytest -q                  # 254 passing on 3.14 (283 with accel); ~80 skips are *counted* wpt out-of-scope cases
 uv run ruff check --fix src tests benchmarks && uv run ruff format src tests benchmarks
 uv run --group bench python benchmarks/bench.py       # vs Starlette; "floor" = raw ASGI fn
-uv sync --group docs && uv run mkdocs build --strict  # site: https://hayatepy.github.io/hayate/
+uv sync --group docs && uv run mkdocs build --strict  # site: https://hayatepy.dev/
 uv run --with maturin maturin build --release -m accel/Cargo.toml -o dist-accel \
   && uv pip install dist-accel/*.whl                  # Tier 2 accelerator (then rerun pytest)
 cd examples/workers && uv sync && uv run pywrangler dev   # local workerd
