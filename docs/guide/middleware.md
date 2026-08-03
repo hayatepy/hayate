@@ -46,7 +46,7 @@ from hayate.middleware import (
 | `body_limit(max_size=...)` | 413 on declared, buffered, or streamed bodies |
 | `timeout(seconds=...)` | 504 via `asyncio.timeout` |
 | `secure_headers()` | CSP/HSTS/nosniff/frame/referrer, composed at startup |
-| `cache(max_age=...)` | in-process GET micro-cache + `Cache-Control`/`Age` (RFC 9111) |
+| `cache(max_age=...)` | identity-aware, byte-bounded GET micro-cache + `Cache-Control`/`Age` (RFC 9111) |
 | `static_files(root=...)` | files with ETag/304, single Range 206/416, traversal-safe |
 | `rate_limit(limit=..., window=..., key=...)` | quota + 429/`Retry-After`, advertised via `RateLimit`/`RateLimit-Policy` (draft-ietf-httpapi-ratelimit-headers) |
 | `request_id()` | safe `X-Request-ID` generation/preservation, `c.get("request_id")`, and response correlation |
@@ -67,6 +67,23 @@ you scale out:
 app.use("/api/auth/*", rate_limit(
     limit=10, window=60,
     key=lambda c: c.req.header("cf-connecting-ip"),
+))
+```
+
+The response micro-cache is public and URL-keyed by default. Credential-bearing
+requests bypass it unless the application supplies a trusted partition key.
+Private caches require that key, and returning `None` bypasses caching for the
+request. Keyed responses are always marked `private`, because downstream shared
+caches cannot see the application-only partition. Cached bodies plus headers
+are bounded by `max_bytes` (16 MiB by default); responses carrying `Set-Cookie`
+are never stored:
+
+```python
+app.use("/account/*", cache(
+    max_age=30,
+    private=True,
+    max_bytes=4 * 1024 * 1024,
+    key=lambda c: c.get("principal")["subject"] if c.get("principal") else None,
 ))
 ```
 

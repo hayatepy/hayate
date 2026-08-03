@@ -1,5 +1,7 @@
 """static_files (RFC 9110 §13/§14) and the response micro-cache."""
 
+import pytest
+
 from hayate import Context, Hayate
 from hayate.middleware import cache, static_files
 
@@ -148,11 +150,114 @@ async def test_cache_skips_errors_and_non_get():
 
 async def test_cache_private_directive():
     app = Hayate()
-    app.use(cache(max_age=5, private=True))
+    app.use(cache(max_age=5, private=True, key=lambda c: c.req.header("x-user")))
+    calls: list[str] = []
 
     @app.get("/me")
     async def me(c: Context):
-        return c.text("mine")
+        user = c.req.header("x-user") or "anonymous"
+        calls.append(user)
+        return c.text(user)
 
-    res = await app.request("/me")
-    assert res.headers.get("cache-control") == "private, max-age=5"
+    alice = await app.request("/me", headers={"x-user": "alice"})
+    bob = await app.request("/me", headers={"x-user": "bob"})
+    alice_again = await app.request("/me", headers={"x-user": "alice"})
+    assert alice.headers.get("cache-control") == "private, max-age=5"
+    assert await bob.text() == "bob"
+    assert await alice_again.text() == "alice"
+    assert calls == ["alice", "bob"]
+
+
+def test_private_cache_requires_identity_key():
+    with pytest.raises(ValueError, match="identity key"):
+        cache(max_age=5, private=True)
+
+
+@pytest.mark.parametrize("header_name", ["authorization", "proxy-authorization", "cookie"])
+async def test_cache_bypasses_credentials_without_identity_key(header_name: str):
+    app = Hayate()
+    app.use(cache(max_age=60))
+    calls: list[str] = []
+
+    @app.get("/credential")
+    async def credential(c: Context):
+        value = c.req.header(header_name) or "missing"
+        calls.append(value)
+        return c.text(value)
+
+    first = await app.request("/credential", headers={header_name: "alice"})
+    second = await app.request("/credential", headers={header_name: "bob"})
+    assert first.headers.get("cache-control") is None
+    assert await second.text() == "bob"
+    assert calls == ["alice", "bob"]
+
+
+async def test_cache_does_not_store_set_cookie_response():
+    app = Hayate()
+    app.use(cache(max_age=60, key=lambda c: "partition"))
+    calls: list[int] = []
+
+    @app.get("/session")
+    async def session(c: Context):
+        calls.append(1)
+        return c.text(str(len(calls)), headers={"set-cookie": "session=secret"})
+
+    assert await (await app.request("/session")).text() == "1"
+    assert await (await app.request("/session")).text() == "2"
+    assert calls == [1, 1]
+
+
+async def test_cache_total_bytes_bound_skips_oversized_entry():
+    app = Hayate()
+    app.use(cache(max_age=60, max_bytes=1))
+    calls: list[int] = []
+
+    @app.get("/large")
+    async def large(c: Context):
+        calls.append(1)
+        return c.text("larger than one byte")
+
+    first = await app.request("/large")
+    second = await app.request("/large")
+    assert first.headers.get("cache-control") == "public, max-age=60"
+    assert await second.text() == "larger than one byte"
+    assert calls == [1, 1]
+
+
+async def test_cache_total_bytes_bound_evicts_least_recently_used_entry():
+    app = Hayate()
+    app.use(cache(max_age=60, max_bytes=100))
+    calls: list[str] = []
+
+    @app.get("/:name")
+    async def item(c: Context):
+        name = c.req.param("name")
+        calls.append(name)
+        return c.text(name)
+
+    assert await (await app.request("/a")).text() == "a"
+    assert await (await app.request("/b")).text() == "b"
+    assert await (await app.request("/b")).text() == "b"
+    assert await (await app.request("/a")).text() == "a"
+    assert calls == ["a", "b", "a"]
+
+
+async def test_explicit_cache_key_implies_private_response():
+    app = Hayate()
+    app.use(cache(max_age=60, key=lambda c: "partition"))
+
+    @app.get("/keyed")
+    async def keyed(c: Context):
+        return c.text("keyed")
+
+    response = await app.request("/keyed")
+    assert response.headers.get("cache-control") == "private, max-age=60"
+
+
+def test_cache_limits_are_validated():
+    with pytest.raises(ValueError, match="max_age"):
+        cache(max_age=-1)
+    with pytest.raises(ValueError, match="max_entries"):
+        cache(max_age=1, max_entries=0)
+    with pytest.raises(ValueError, match="max_bytes"):
+        cache(max_age=1, max_bytes=0)
