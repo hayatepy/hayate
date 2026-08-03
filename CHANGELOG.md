@@ -4,6 +4,15 @@ All notable changes to hayate are documented here.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-08-03
+
+### Changed
+
+- Make the in-process response cache identity-aware and byte-bounded. Private
+  caches now require an explicit partition key; credential-bearing URL-only
+  requests bypass caching; `Set-Cookie` responses are never stored; and cached
+  body plus header bytes have a configurable 16 MiB default ceiling.
+
 ## [0.15.3] - 2026-07-30
 
 ### Changed

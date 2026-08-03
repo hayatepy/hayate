@@ -34,7 +34,7 @@ wheels = [
 
 [[package]]
 name = "hayate"
-version = "0.15.3"
+version = "0.16.0"
 source = { directory = "../../../../" }
 dependencies = [
     { name = "uts46" },

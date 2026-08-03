@@ -17,7 +17,7 @@ from .urlpattern import URLPattern, URLPatternResult
 from .validator import validator
 from .websocket import WebSocket, WebSocketClosed
 
-__version__ = "0.15.3"
+__version__ = "0.16.0"
 
 __all__ = [
     "URL",
