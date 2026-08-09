@@ -108,6 +108,11 @@ The wider ecosystem adds
 [hayatepy organization profile](https://github.com/hayatepy) for the current
 compatibility matrix.
 
+## Maintainer
+
+Maintained by [Yusuke Hayashi](https://yusuke-hayashi.com)
+([@yhay81](https://github.com/yhay81)).
+
 ## License
 
 MIT
