@@ -15,7 +15,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 1
     strategy:
       fail-fast: false
       matrix:
@@ -39,7 +39,7 @@ jobs:
   # Free-threaded build: the core must stay free of global mutable state.
   test-free-threaded:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -52,7 +52,7 @@ jobs:
 
   asgi-interop:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -67,7 +67,7 @@ jobs:
   # Cloudflare workerd process. Unit fakes cannot prove Pyodide packaging.
   workerd:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -85,7 +85,7 @@ jobs:
   # both the managed buffered handler and the native custom-runtime stream.
   lambda-runtime:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -100,7 +100,7 @@ jobs:
   # Tier 2 accelerator: build the Rust wheel and verify behavioral identity.
   accel:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -119,7 +119,7 @@ jobs:
   # Supply-chain audit of these workflows (https://docs.zizmor.sh).
   audit-dependencies:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -132,7 +132,7 @@ jobs:
 
   lint-workflows:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
