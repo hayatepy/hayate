@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "hono": "4.12.32"
+    "hono": "4.12.34"
   },
   "devDependencies": {
     "wrangler": "4.114.0"
