@@ -462,7 +462,9 @@ class CompatibilityRun:
                 name="MCP server",
                 command=["bash", "scripts/check_workerd.sh"],
                 cwd=repository,
-                env=env,
+                # workers-py 1.15 reads the first version in npx output. npm
+                # 12 prints a package@version notice before Wrangler's version.
+                env={**env, "npm_config_loglevel": "silent"},
             )
         elif target.name == "create-hayate":
             self.run_command(
